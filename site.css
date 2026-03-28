@@ -1,0 +1,535 @@
+:root {
+  --bg: #fbf4ea;
+  --text: #0e0e0e;
+  --line: var(--text);
+  --code-bg: color-mix(in oklab, var(--bg) 97%, var(--text));
+  --accent: #0e0e0e;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e0e0e;
+    --text: #fbf4ea;
+    --line: color-mix(in oklab, var(--text) 12%, var(--bg));
+    --code-bg: color-mix(in oklab, var(--bg) 97%, var(--text));
+    --accent: #fbf4ea;
+  }
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Scrollbars */
+:root {
+  scrollbar-color: var(--line) transparent;
+  scrollbar-width: thin;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text);
+}
+
+pre {
+  scrollbar-color: var(--line) transparent;
+  scrollbar-width: thin;
+}
+
+html {
+  font-size: calc(0.5rem + 0.45vw);
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: "Work Sans", sans-serif;
+  font-weight: 300;
+  color: var(--text);
+  background: var(--bg);
+  line-height: 1.65;
+}
+
+article {
+  max-width: 72rem;
+  padding: 8vh 1.5rem 20vh 3rem;
+}
+
+.intro-text small {
+  display: block;
+  margin-left: 5rem;
+  margin-top: 1rem;
+}
+
+.section-row {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 4rem;
+  align-items: start;
+  margin-top: 8rem;
+}
+
+.section-row .section-demo {
+  position: sticky;
+  top: 1.5rem;
+}
+
+.section-row .section-text h2 {
+  padding-top: 9rem;
+  border-top: none;
+}
+
+.section-text {
+  min-width: 0;
+  p {
+    margin-left: 4rem;
+  }
+}
+
+.section-full {
+  margin-top: 8rem;
+  max-width: calc(100% / 2.2 * 1.2);
+}
+
+@media (max-width: 56rem) {
+  .section-row,
+  .section-full {
+    grid-template-columns: 1fr;
+  }
+
+  .section-row .section-demo {
+    position: static;
+  }
+
+  .section-full {
+    max-width: none;
+  }
+}
+
+.intro {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+.intro nav {
+  position: sticky;
+  top: 1.5rem;
+}
+
+@media (max-width: 56rem) {
+  .intro {
+    grid-template-columns: 1fr;
+  }
+}
+
+h1,
+h2,
+h3 {
+  font-family: "Aboreto", cursive;
+  margin-top: 1.5em;
+}
+
+h1 {
+  font-weight: 400;
+  font-size: 5rem;
+  letter-spacing: -0.05em;
+  margin-left: -0.06em;
+  line-height: 1;
+  margin-bottom: 1.52em;
+}
+
+h1 small {
+  display: block;
+  font-family: "Work Sans", sans-serif;
+  font-size: 0.2em;
+  font-weight: 300;
+  letter-spacing: 0;
+  color: color-mix(in oklab, var(--text) 50%, var(--bg) 50%);
+  margin-top: 0.5em;
+}
+
+h2 {
+  font-weight: 400;
+  font-size: 4.5rem;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  margin-top: 0;
+  margin-bottom: 1.2em;
+  width: 120%;
+}
+
+h3 {
+  font-weight: 400;
+  font-size: 1.3rem;
+  margin-top: 2.5rem;
+  margin-bottom: 0.8em;
+}
+
+p,
+ul {
+  margin-bottom: 1em;
+  font-size: 0.95rem;
+}
+
+ul {
+  padding-left: 1.2em;
+
+  margin-top: 2rem;
+}
+
+a {
+  color: var(--text);
+}
+
+.demo {
+  overflow: hidden;
+}
+
+.demo-canvas {
+  width: 100%;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+}
+
+.demo-canvas svg {
+  width: 100%;
+  height: 100%;
+}
+
+.demo-controls {
+  border-top: 1px solid var(--line);
+  padding: 2rem 2rem;
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: row-reverse;
+  gap: 0.8rem;
+  font-size: 0.8rem;
+}
+
+.demo-controls label {
+  display: flex;
+  gap: 0.4rem;
+  font-weight: 400;
+}
+
+/* ─── Custom range slider ─── */
+.range-wrap {
+  position: relative;
+  width: 7rem;
+  height: 1.4rem;
+  margin-left: 0.4rem;
+  margin-right: 0.4rem;
+  cursor: pointer;
+}
+
+.range-wrap input[type="range"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  margin: 0;
+  z-index: 2;
+}
+
+/* Track line — sits at the bottom */
+.range-wrap::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: var(--text);
+}
+
+/* Notch ticks — on the track line, poking up */
+.range-wrap::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 0.25rem;
+  background: repeating-linear-gradient(
+    to right,
+    var(--text) 0px,
+    var(--text) 1px,
+    transparent 1px,
+    transparent 8px
+  );
+  background-size: 8px 100%;
+  pointer-events: none;
+}
+
+/* Ball thumb — circle above the track */
+.range-thumb {
+  position: absolute;
+  bottom: 0.45rem;
+  left: calc(var(--val, 0.5) * 100%);
+  width: 0.5rem;
+  height: 0.5rem;
+  background: var(--bg);
+  border: 1px solid var(--text);
+  border-radius: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 1;
+  transition: transform 0.15s ease;
+}
+
+.range-wrap:hover .range-thumb,
+.range-wrap:active .range-thumb {
+  transform: translateX(-50%) scale(1.3);
+}
+
+/* End caps — taller notches at start and end */
+.range-cap-left,
+.range-cap-right {
+  position: absolute;
+  bottom: 0;
+  width: 1px;
+  height: 0.4rem;
+  background: var(--text);
+  pointer-events: none;
+}
+
+.range-cap-left {
+  left: 0;
+}
+.range-cap-right {
+  right: 0;
+}
+
+.demo-controls select {
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.demo-controls .value {
+  min-width: 2em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+pre {
+  background: none;
+  border: 1px dashed var(--line);
+  border-width: 0 0 0 1px;
+  border-radius: 0;
+  padding: 2rem 0 2rem 2rem;
+  overflow-x: auto;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  margin: 4rem 0;
+  width: 120%;
+}
+
+code {
+  font-family: "SF Mono", "Fira Code", "Fira Mono", Menlo, monospace;
+  font-size: 0.8em;
+}
+
+/* Override speed-highlight defaults */
+[class*="shj-lang-"] {
+  font-size: inherit !important;
+  line-height: inherit !important;
+  font-family: "SF Mono", "Fira Code", "Fira Mono", Menlo, monospace !important;
+  background: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+p code {
+  background: var(--code-bg);
+  padding: 0.15em 0.35em;
+  border-radius: 2px;
+}
+
+nav {
+  margin: 22rem 0 3rem 4rem;
+  font-size: 0.85rem;
+  line-height: 1.9;
+}
+
+nav ol {
+  list-style: none;
+  counter-reset: toc;
+}
+
+li + li {
+  margin-top: 0.5em;
+}
+
+nav li {
+  counter-increment: toc;
+}
+
+nav li::before {
+  content: counter(toc, upper-roman) ". ";
+  color: color-mix(in oklab, var(--text) 40%, var(--bg));
+  display: inline-block;
+  width: 6ch;
+}
+
+nav a {
+  text-decoration: none;
+}
+
+nav a:hover {
+  text-decoration: underline;
+}
+
+button {
+  font-family: "Aboreto", cursive;
+  font-size: 0.85rem;
+  padding: 0.4em 1em;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--text);
+}
+
+.camera-panel {
+  position: fixed;
+  top: 1.2rem;
+  right: 1.2rem;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  z-index: 100;
+  font-size: 0.8rem;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.camera-panel.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.camera-panel .camera-title {
+  font-family: "Aboreto", cursive;
+  font-size: 0.8rem;
+  padding: 0.6rem 0.8rem;
+}
+
+.camera-panel .camera-fields {
+  display: flex;
+  flex-direction: column;
+}
+
+.camera-panel label {
+  display: flex;
+  align-items: end;
+  gap: 0.4rem;
+  font-weight: 400;
+  padding: 0.45rem 0.8rem;
+  border-top: 1px solid var(--line);
+}
+
+.camera-panel label span:first-child {
+  min-width: 4.5em;
+}
+
+.camera-panel .range-wrap {
+  flex: 1;
+  min-width: 7rem;
+}
+
+input[type="color"] {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid var(--line);
+  width: 2rem;
+  height: 1.2rem;
+  padding: 1px;
+  cursor: pointer;
+  background: transparent;
+}
+
+input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+input[type="color"]::-webkit-color-swatch {
+  border: none;
+  border-radius: 1px;
+}
+
+.camera-panel select {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.camera-panel .value {
+  min-width: 2.2em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.note {
+  font-size: 0.85rem;
+  color: color-mix(in oklab, var(--text) 60%, var(--bg) 40%);
+  margin-top: -0.3em;
+  margin-bottom: 1.2em;
+}
+
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+  gap: 2rem;
+  margin-top: 3rem;
+}
+
+.gallery .demo {
+  margin: 0;
+}
+
+.gallery .demo-canvas {
+  aspect-ratio: 1;
+}
+
+.gallery-caption {
+  padding: 0.5rem 0.8rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.8rem;
+  font-style: italic;
+  color: color-mix(in oklab, var(--text) 60%, var(--bg));
+}
