@@ -1,0 +1,38 @@
+{
+  "name": "heerich",
+  "version": "0.1.0",
+  "description": "A tiny engine for 3D voxel scenes rendered to SVG",
+  "type": "module",
+  "main": "./dist/heerich.umd.cjs",
+  "module": "./dist/heerich.js",
+  "exports": {
+    ".": {
+      "import": "./dist/heerich.js",
+      "require": "./dist/heerich.umd.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "src/heerich.js"
+  ],
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "build:site": "vite build --config vite.site.config.js",
+    "preview": "vite preview"
+  },
+  "keywords": [
+    "voxel",
+    "svg",
+    "3d",
+    "isometric",
+    "oblique",
+    "perspective",
+    "generative"
+  ],
+  "author": "meodai",
+  "license": "MIT",
+  "devDependencies": {
+    "vite": "^8.0.1"
+  }
+}
