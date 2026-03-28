@@ -4,6 +4,8 @@
   --line: var(--text);
   --code-bg: color-mix(in oklab, var(--bg) 97%, var(--text));
   --accent: #0e0e0e;
+  --selection-bg: var(--text);
+  --selection-text: var(--bg);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -13,6 +15,8 @@
     --line: color-mix(in oklab, var(--text) 12%, var(--bg));
     --code-bg: color-mix(in oklab, var(--bg) 97%, var(--text));
     --accent: #fbf4ea;
+    --selection-bg: color-mix(in oklab, var(--text) 82%, var(--bg));
+    --selection-text: var(--bg);
   }
 }
 
@@ -20,6 +24,16 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+}
+
+::selection {
+  background: var(--selection-bg);
+  color: var(--selection-text);
+}
+
+::-moz-selection {
+  background: var(--selection-bg);
+  color: var(--selection-text);
 }
 
 /* Scrollbars */
@@ -172,8 +186,9 @@ h2,
 h3 {
   font-family: "Aboreto", cursive;
   margin-top: 1.5em;
-  overflow-wrap: break-word;
-  word-break: break-word;
+  overflow-wrap: normal;
+  word-break: normal;
+  text-wrap: balance;
 }
 
 h1 {
