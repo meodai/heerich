@@ -2,23 +2,20 @@ import { Heerich } from "./src/heerich.js";
 
 export function initHero(container, getCamera, getReservedZone = null) {
   let animationId = 0;
-  let holes = [];
-  let scene = null; // { engine, holes with targetDepth }
+  let scene = null;
+  let cachedBase = null; // { engine, cols, rows, maxDepth, reservedZone }
 
   function rand(min, max) {
     return min + Math.floor(Math.random() * (max - min + 1));
   }
 
-  function buildScene(depths, towerHeights = null) {
-    const cam = getCamera();
+  function getGridLayout() {
     const availW = container.clientWidth;
     const availH = container.clientHeight;
-    const gridPct = scene.gridPct;
-    const gridSize = Math.round((availW * gridPct) / 100);
+    const gridSize = Math.round((availW * scene.gridPct) / 100);
     const cols = Math.ceil(availW / gridSize);
     const rows = Math.ceil(availH / gridSize);
-    
-    // Get dynamic reserved zone in grid coordinates
+
     let reservedZone = null;
     if (getReservedZone) {
       const zone = getReservedZone();
@@ -32,6 +29,13 @@ export function initHero(container, getCamera, getReservedZone = null) {
       }
     }
 
+    return { availW, availH, gridSize, cols, rows, reservedZone };
+  }
+
+  function buildBaseEngine(layout, maxDepth) {
+    const { gridSize, cols, rows, reservedZone } = layout;
+    const cam = getCamera();
+
     const e = new Heerich({
       tile: [gridSize, gridSize],
       camera: cam,
@@ -42,23 +46,51 @@ export function initHero(container, getCamera, getReservedZone = null) {
       },
     });
 
-    // Solid slab — deep enough for all holes, with cutout for reserved zone
-    const maxDepth = Math.max(...depths.map((d) => Math.round(d)), 1);
     e.addWhere({
       bounds: [
         [0, 0, 0],
         [cols, rows, maxDepth],
       ],
       test: (x, y, z) => {
-        // Skip entire area below reserved zone if provided (e.g., title area)
-        if (reservedZone && 
-            x >= reservedZone.x && x < reservedZone.x + reservedZone.w &&
-            y >= reservedZone.y) {
+        if (
+          reservedZone &&
+          x >= reservedZone.x &&
+          x < reservedZone.x + reservedZone.w &&
+          y >= reservedZone.y
+        ) {
           return false;
         }
         return true;
       },
     });
+
+    cachedBase = { engine: e, cols, rows, maxDepth, reservedZone };
+    return e;
+  }
+
+  function buildScene(depths, towerHeights = null) {
+    const layout = getGridLayout();
+    const maxDepth = Math.max(...depths.map((d) => Math.round(d)), 1);
+
+    // Rebuild base if layout or depth changed
+    if (
+      !cachedBase ||
+      cachedBase.cols !== layout.cols ||
+      cachedBase.rows !== layout.rows ||
+      cachedBase.maxDepth !== maxDepth
+    ) {
+      buildBaseEngine(layout, maxDepth);
+    } else {
+      // Update camera on cached engine
+      cachedBase.engine.setCamera(getCamera());
+    }
+
+    // Clone from cached base
+    const base = cachedBase.engine;
+    const e = Heerich.fromJSON(base.toJSON());
+    e.setCamera(getCamera());
+    e.renderOptions.tileW = layout.gridSize;
+    e.renderOptions.tileH = layout.gridSize;
 
     // Carve holes
     scene.holes.forEach((h, i) => {
@@ -68,51 +100,76 @@ export function initHero(container, getCamera, getReservedZone = null) {
       }
     });
 
-    // Style colored walls (depth gradient from surface to random color)
+    // Style colored walls
     if (scene.colorWalls) {
       const maxD = Math.max(...depths, 1);
       scene.holes.forEach((h, i) => {
         const d = Math.round(depths[i]);
         if (d <= 0) return;
-        for (let z = 0; z < d; z++) {
-          const t = z / maxD;
-          const r = Math.round(scene.color[0] * t * 255);
-          const g = Math.round(scene.color[1] * t * 255);
-          const b = Math.round(scene.color[2] * t * 255);
-          e.styleBox({
-            position: [h.x, h.y, z],
-            size: [h.w, h.h, 1],
-            style: {
-              left: { fill: `rgb(${r},${g},${b})` },
-              right: { fill: `rgb(${r},${g},${b})` },
-              top: { fill: `rgb(${r},${g},${b})` },
-              bottom: { fill: `rgb(${r},${g},${b})` },
-              back: { fill: `rgb(${r},${g},${b})` },
+        const color = scene.color;
+        e.styleBox({
+          position: [h.x, h.y, 0],
+          size: [h.w, h.h, d],
+          style: {
+            left: (x, y, z) => {
+              const t = z / maxD;
+              return {
+                fill: `rgb(${Math.round(color[0] * t * 255)},${Math.round(color[1] * t * 255)},${Math.round(color[2] * t * 255)})`,
+              };
             },
-          });
-        }
+            right: (x, y, z) => {
+              const t = z / maxD;
+              return {
+                fill: `rgb(${Math.round(color[0] * t * 255)},${Math.round(color[1] * t * 255)},${Math.round(color[2] * t * 255)})`,
+              };
+            },
+            top: (x, y, z) => {
+              const t = z / maxD;
+              return {
+                fill: `rgb(${Math.round(color[0] * t * 255)},${Math.round(color[1] * t * 255)},${Math.round(color[2] * t * 255)})`,
+              };
+            },
+            bottom: (x, y, z) => {
+              const t = z / maxD;
+              return {
+                fill: `rgb(${Math.round(color[0] * t * 255)},${Math.round(color[1] * t * 255)},${Math.round(color[2] * t * 255)})`,
+              };
+            },
+            back: (x, y, z) => {
+              const t = z / maxD;
+              return {
+                fill: `rgb(${Math.round(color[0] * t * 255)},${Math.round(color[1] * t * 255)},${Math.round(color[2] * t * 255)})`,
+              };
+            },
+          },
+        });
       });
     }
 
-    // Add towers if provided (skip those below reserved zone)
+    // Add towers
     if (towerHeights && scene.towers) {
+      const reservedZone = cachedBase.reservedZone;
       scene.towers.forEach((tower, idx) => {
         const currentHeight = Math.round(towerHeights[idx]);
-        if (currentHeight > 0) {
-          // Skip towers in or below reserved zone
-          if (reservedZone && 
-              tower.x >= reservedZone.x && tower.x < reservedZone.x + reservedZone.w &&
-              tower.y >= reservedZone.y) {
-            return;
-          }
-          
-          const holeDepth = Math.round(depths[tower.holeIndex]);
-          const towerStartZ = holeDepth - currentHeight;
-          e.addBox({ 
-            position: [tower.x, tower.y, towerStartZ], 
-            size: [1, 1, currentHeight] 
-          });
+        if (currentHeight <= 0) return;
+
+        if (
+          reservedZone &&
+          tower.x >= reservedZone.x &&
+          tower.x + tower.w <= reservedZone.x + reservedZone.w &&
+          tower.y >= reservedZone.y
+        ) {
+          return;
         }
+
+        const holeDepth = Math.round(depths[tower.holeIndex]);
+        // Clamp so towers don't poke above the surface
+        const clampedHeight = Math.min(currentHeight, holeDepth);
+        const towerStartZ = holeDepth - clampedHeight;
+        e.addBox({
+          position: [tower.x, tower.y, towerStartZ],
+          size: [tower.w, tower.h, clampedHeight],
+        });
       });
     }
 
@@ -164,32 +221,34 @@ export function initHero(container, getCamera, getReservedZone = null) {
     const m = Math.max(...color);
     if (m > 0) color.forEach((_, i) => (color[i] /= m));
 
-    // Generate towers for each hole
+    // Generate towers — sized relative to hole
     const towers = [];
     holes.forEach((h, holeIndex) => {
       const numTowers = rand(2, 3);
       const towerPositions = new Set();
-      const tallTowerIndex = rand(0, numTowers - 1); // One tower can be taller
-      
+      const tallTowerIndex = rand(0, numTowers - 1);
+
       for (let t = 0; t < numTowers; t++) {
+        const tw = Math.max(1, rand(1, Math.floor(h.w * 0.25)));
+        const th = Math.max(1, rand(1, Math.floor(h.h * 0.25)));
         const margin = Math.max(1, Math.floor(Math.min(h.w, h.h) * 0.1));
-        const tx = h.x + rand(margin, Math.max(margin, h.w - margin - 1));
-        const ty = h.y + rand(margin, Math.max(margin, h.h - margin - 1));
+        const tx = h.x + rand(margin, Math.max(margin, h.w - margin - tw));
+        const ty = h.y + rand(margin, Math.max(margin, h.h - margin - th));
         const key = `${tx},${ty}`;
-        
+
         if (towerPositions.has(key)) continue;
         towerPositions.add(key);
-        
-        // One tower can grow taller than the hole depth
+
         const isTall = t === tallTowerIndex;
-        const maxHeight = isTall 
-          ? Math.floor(h.targetDepth * 1.15) 
+        const maxHeight = isTall
+          ? h.targetDepth
           : Math.floor(h.targetDepth * 0.8);
         const targetHeight = rand(Math.floor(h.targetDepth * 0.3), maxHeight);
-        towers.push({ x: tx, y: ty, holeIndex, targetHeight });
+        towers.push({ x: tx, y: ty, w: tw, h: th, holeIndex, targetHeight });
       }
     });
 
+    cachedBase = null;
     scene = {
       gridPct,
       holes,
@@ -208,8 +267,7 @@ export function initHero(container, getCamera, getReservedZone = null) {
     const towerDuration = 600;
     const towerStagger = 80;
     const startTime = performance.now();
-    
-    // Delay towers until holes finish
+
     const holeEndTime = holeDuration + (scene.holes.length - 1) * holeStagger;
     const towerStartDelay = holeEndTime + 200;
 
@@ -257,13 +315,18 @@ export function initHero(container, getCamera, getReservedZone = null) {
 
   function updateCamera() {
     if (!scene) return;
+    cachedBase = null; // camera changed, need to rebuild base
     const depths = scene.holes.map((h) => h.targetDepth);
     const towerHeights = scene.towers.map((t) => t.targetHeight);
     container.innerHTML = buildScene(depths, towerHeights);
   }
 
   function repaint() {
-    updateCamera();
+    if (!scene) return;
+    cachedBase = null; // style vars changed, need fresh render
+    const depths = scene.holes.map((h) => h.targetDepth);
+    const towerHeights = scene.towers.map((t) => t.targetHeight);
+    container.innerHTML = buildScene(depths, towerHeights);
   }
 
   container.addEventListener("click", () => init());

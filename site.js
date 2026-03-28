@@ -95,12 +95,12 @@ function getReservedZone() {
   const heroRect = document.getElementById("hero").getBoundingClientRect();
   const h1 = document.querySelector("article h1");
   if (!h1) return null;
-  
+
   const h1Rect = h1.getBoundingClientRect();
-  
+
   // Add padding around the title for breathing room
   const padding = 20;
-  
+
   // Convert to coordinates relative to hero container
   return {
     x: Math.max(0, h1Rect.left - heroRect.left - padding),
@@ -111,19 +111,23 @@ function getReservedZone() {
 }
 
 const hero = initHero(
-  document.getElementById("hero"), 
+  document.getElementById("hero"),
   getCamera,
-  getReservedZone
+  getReservedZone,
 );
 
 // Repaint hero on resize to recalculate reserved zone
 let resizeTimeout;
-window.addEventListener("resize", () => {
-  clearTimeout(resizeTimeout);
-  resizeTimeout = setTimeout(() => {
-    hero.repaint();
-  }, 150);
-}, { passive: true });
+window.addEventListener(
+  "resize",
+  () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+      hero.repaint();
+    }, 150);
+  },
+  { passive: true },
+);
 
 function rerenderAll() {
   demos.forEach((fn) => fn());

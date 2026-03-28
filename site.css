@@ -68,6 +68,12 @@ body {
   margin-bottom: -35.5vh;
 }
 
+@media (orientation: portrait) {
+  .hero {
+    transform: translateY(-10%);
+  }
+}
+
 .hero svg {
   display: block;
   width: 100%;
