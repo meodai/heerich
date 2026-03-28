@@ -98,7 +98,7 @@ function updatePerspectiveGrid() {
   const angleValue = parseFloat(camAngle.value) || angleMin;
   const camYValue = parseFloat(camY.value) || camYMin;
   const x = ((angleValue - angleMin) / (angleMax - angleMin)) * 100;
-  const y = (1 - (camYValue - camYMin) / (camYMax - camYMin)) * 100;
+  const y = ((camYValue - camYMin) / (camYMax - camYMin)) * 100;
   const dx = x - 50;
   const dy = y - 50;
   const distance = Math.sqrt(dx * dx + dy * dy);
@@ -129,7 +129,7 @@ function setPerspectiveFromGrid(clientX, clientY) {
     angleStep,
   );
   const camYValue = roundToStep(
-    camYMax - y * (camYMax - camYMin),
+    camYMin + y * (camYMax - camYMin),
     camYMin,
     camYStep,
   );
