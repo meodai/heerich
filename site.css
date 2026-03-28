@@ -135,6 +135,14 @@ article {
     max-width: none;
   }
 
+  h1 {
+    font-size: 3rem;
+  }
+
+  h2 {
+    font-size: 2.5rem;
+  }
+
   h2,
   pre {
     width: 100%;
@@ -164,6 +172,8 @@ h2,
 h3 {
   font-family: "Aboreto", cursive;
   margin-top: 1.5em;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 h1 {
