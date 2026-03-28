@@ -150,6 +150,15 @@ h1 {
   margin-bottom: 1.52em;
 }
 
+h1 .version {
+  font-family: "Work Sans", sans-serif;
+  font-size: 0.18em;
+  font-weight: 300;
+  letter-spacing: 0;
+  vertical-align: 0.35em;
+  color: color-mix(in oklab, var(--text) 40%, var(--bg));
+}
+
 h1 small {
   display: block;
   font-family: "Work Sans", sans-serif;

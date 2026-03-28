@@ -1,6 +1,9 @@
 import { Heerich } from "./src/heerich.js";
+import { version } from "./package.json";
 import { highlightAll } from "https://unpkg.com/@speed-highlight/core/dist/index.js";
 highlightAll();
+
+document.querySelector("h1 .version").textContent = version;
 
 // ─── Enhance all range inputs ────────
 function enhanceRange(input) {
