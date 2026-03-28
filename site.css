@@ -603,3 +603,58 @@ input[type="color"]::-webkit-color-swatch {
   font-style: italic;
   color: color-mix(in oklab, var(--text) 60%, var(--bg));
 }
+
+.site-footer {
+  max-width: 72rem;
+  padding: 6rem 1.5rem 8rem 3rem;
+  font-size: 0.9rem;
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 4rem;
+  align-items: start;
+}
+
+.footer-heart {
+  position: sticky;
+  top: 1.5rem;
+}
+
+.footer-heart svg {
+  width: 100%;
+  height: auto;
+}
+
+.footer-text h2 {
+  width: auto;
+  padding-top: 9rem;
+  border-top: none;
+}
+
+@media (max-width: 56rem) {
+  .site-footer {
+    grid-template-columns: 1fr;
+  }
+
+  .footer-heart {
+    position: static;
+    order: 0;
+    max-width: 16rem;
+  }
+}
+
+.site-footer .kofi-link {
+  display: inline-block;
+  margin: 1rem 0;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.site-footer .kofi-link:hover {
+  opacity: 1;
+}
+
+.site-footer .credit {
+  margin-top: 2rem;
+  font-size: 0.8rem;
+  color: color-mix(in oklab, var(--text) 50%, var(--bg));
+}

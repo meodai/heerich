@@ -892,3 +892,41 @@ galleryDemo("demo-heerich-checker", () => {
   }
   return e.toSVG(svgOpts);
 });
+
+// ─── Footer heart ────────────────────
+{
+  const heartContainer = document.getElementById("footer-heart");
+
+  function renderHeart() {
+    const e = new Heerich({
+      tile: [52, 52],
+      camera: getCamera(),
+      style: {
+        fill: "var(--fill)",
+        stroke: "var(--stroke-c)",
+        strokeWidth: "var(--stroke-w)",
+      },
+    });
+
+    const s = 4;
+    e.addWhere({
+      bounds: [
+        [-s, -s, -s],
+        [s + 1, s + 1, s + 1],
+      ],
+      test: (x, y, z) => {
+        const nx = x / s;
+        const ny = -y / s;
+        const nz = z / s;
+        return (
+          nx * nx + (1.25 * ny - Math.sqrt(Math.abs(nx))) ** 2 + nz * nz <= 1
+        );
+      },
+    });
+
+    heartContainer.innerHTML = e.toSVG(svgOpts);
+  }
+
+  renderHeart();
+  demos.push(renderHeart);
+}
