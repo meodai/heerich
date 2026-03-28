@@ -1,5 +1,6 @@
 import { Heerich } from "./src/heerich.js";
 import { version } from "./package.json";
+import { initHero } from "./hero.js";
 import { highlightAll } from "https://unpkg.com/@speed-highlight/core/dist/index.js";
 highlightAll();
 
@@ -99,8 +100,12 @@ function getCamera() {
 // All demo render functions — called on camera change
 const demos = [];
 
+// Hero header
+const hero = initHero(document.getElementById("hero"), getCamera);
+
 function rerenderAll() {
   demos.forEach((fn) => fn());
+  hero.updateCamera();
   scheduleFaviconUpdate();
 }
 
@@ -139,6 +144,7 @@ function syncStyleVars() {
     camStrokeColor.value,
   );
   document.documentElement.style.setProperty("--fill", camFill.value);
+  hero.repaint();
 }
 camStroke.addEventListener("input", () => {
   const span = camStroke.parentElement.querySelector(".value");

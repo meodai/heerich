@@ -60,6 +60,19 @@ body {
   line-height: 1.65;
 }
 
+.hero {
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.hero svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 article {
   max-width: 72rem;
   padding: 8vh 1.5rem 20vh 3rem;
