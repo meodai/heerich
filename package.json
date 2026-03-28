@@ -32,6 +32,12 @@
     "perspective",
     "generative"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/meodai/heerich.git"
+  },
+  "bugs": "https://github.com/meodai/heerich/issues",
+  "homepage": "https://meodai.github.io/heerich/",
   "author": "meodai",
   "license": "MIT",
   "devDependencies": {
