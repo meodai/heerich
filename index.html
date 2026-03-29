@@ -17,7 +17,10 @@
     />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://meodai.github.io/heerich/" />
-    <meta property="og:image" content="https://meodai.github.io/heerich/social.png" />
+    <meta
+      property="og:image"
+      content="https://meodai.github.io/heerich/social.png"
+    />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="683" />
 
@@ -28,7 +31,10 @@
       name="twitter:description"
       content="Tiny engine for 3D voxel scenes rendered to SVG — boolean ops, oblique/perspective cameras, zero dependencies."
     />
-    <meta name="twitter:image" content="https://meodai.github.io/heerich/social.png" />
+    <meta
+      name="twitter:image"
+      content="https://meodai.github.io/heerich/social.png"
+    />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link
@@ -49,8 +55,19 @@
   </head>
   <body>
     <details class="camera-panel" id="camera-panel" open>
-      <summary class="camera-title">Settings <span class="details-icon-closed">▥</span></summary>
-      <div class="camera-section-title">Camera <button class="btn-shuffle" id="btn-randomize-camera" title="Randomize camera">⇋</button></div>
+      <summary class="camera-title">
+        Settings <span class="details-icon-closed">▥</span>
+      </summary>
+      <div class="camera-section-title">
+        Camera
+        <button
+          class="btn-shuffle"
+          id="btn-randomize-camera"
+          title="Randomize camera"
+        >
+          ⇋
+        </button>
+      </div>
       <div class="camera-fields">
         <label>
           <span>Type</span>
@@ -97,7 +114,16 @@
           <span class="value">10</span>
         </label>
       </div>
-      <div class="camera-section-title">Style <button class="btn-shuffle" id="btn-randomize-style" title="Randomize style">⇋</button></div>
+      <div class="camera-section-title">
+        Style
+        <button
+          class="btn-shuffle"
+          id="btn-randomize-style"
+          title="Randomize style"
+        >
+          ⇋
+        </button>
+      </div>
       <div class="camera-fields">
         <label>
           <span>Fill</span>
@@ -968,10 +994,10 @@ function frame(now) {
       <div class="section-full" id="combined">
         <h2>Putting it all together</h2>
         <p>
-          A procedurally generated composition combining boxes, boolean
-          carving, functional styles, and animated deconstruction. Holes
-          carve into a full-width grid with depth-graded walls, while
-          towers rise from within. Click the scene to regenerate.
+          A procedurally generated composition combining boxes, boolean carving,
+          functional styles, and animated deconstruction. Holes carve into a
+          full-width grid with depth-graded walls, while towers rise from
+          within. Click the scene to regenerate.
         </p>
       </div>
 
@@ -1006,16 +1032,30 @@ function frame(now) {
     </article>
 
     <footer class="site-footer">
-      <a class="footer-heart" id="footer-heart" href="https://ko-fi.com/colorparrot" target="_blank" rel="noopener noreferrer nofollow"></a>
+      <a
+        class="footer-heart"
+        id="footer-heart"
+        href="https://ko-fi.com/colorparrot"
+        target="_blank"
+        rel="noopener noreferrer nofollow"
+      ></a>
       <div class="footer-text">
         <h2>Support</h2>
         <p>
           If you find this project useful, please consider
-          <a href="https://ko-fi.com/colorparrot" target="_blank" rel="noopener noreferrer nofollow">buying me a coffee</a>. It
-            keeps the voxel edges crisp and the projection math pointed in the
-            right direction.
+          <a
+            href="https://ko-fi.com/colorparrot"
+            target="_blank"
+            rel="noopener noreferrer nofollow"
+            >buying me a coffee</a
+          >. It keeps the voxel edges crisp and the projection math pointed in
+          the right direction.
         </p>
-        <a href="https://ko-fi.com/colorparrot" target="_blank" rel="noopener noreferrer nofollow" class="kofi-link"
+        <a
+          href="https://ko-fi.com/colorparrot"
+          target="_blank"
+          rel="noopener noreferrer nofollow"
+          class="kofi-link"
           ><img
             src="https://storage.ko-fi.com/cdn/brandasset/kofi_s_logo_nolabel.png"
             alt="Ko-fi logo"

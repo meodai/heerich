@@ -4,17 +4,32 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Heerichsweeper</title>
-    <meta name="description" content="3D voxel minesweeper built with heerich.js" />
+    <meta
+      name="description"
+      content="3D voxel minesweeper built with heerich.js"
+    />
     <meta property="og:title" content="Heerichsweeper" />
-    <meta property="og:description" content="3D voxel minesweeper built with heerich.js" />
+    <meta
+      property="og:description"
+      content="3D voxel minesweeper built with heerich.js"
+    />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://meodai.github.io/heerich/social.png" />
+    <meta
+      property="og:image"
+      content="https://meodai.github.io/heerich/social.png"
+    />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="683" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Heerichsweeper" />
-    <meta name="twitter:description" content="3D voxel minesweeper built with heerich.js" />
-    <meta name="twitter:image" content="https://meodai.github.io/heerich/social.png" />
+    <meta
+      name="twitter:description"
+      content="3D voxel minesweeper built with heerich.js"
+    />
+    <meta
+      name="twitter:image"
+      content="https://meodai.github.io/heerich/social.png"
+    />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link
       href="https://fonts.googleapis.com/css2?family=Aboreto&family=Work+Sans:wght@300;400&display=swap"
@@ -182,7 +197,9 @@
 
       /* SVG hover highlight — all faces of hovered voxel */
       .game-container polygon {
-        transition: fill 0.1s, stroke 0.1s;
+        transition:
+          fill 0.1s,
+          stroke 0.1s;
       }
       .game-container polygon.voxel-hover {
         fill: var(--stroke-c) !important;
@@ -210,8 +227,8 @@
 
       // ─── Config ────────────────────────────────────
       const MODES = {
-        easy:    { cols: 8,  rows: 8,  mines: 8,  tile: 32, distance: 4 },
-        normal:  { cols: 10, rows: 10, mines: 15, tile: 28, distance: 6 },
+        easy: { cols: 8, rows: 8, mines: 8, tile: 32, distance: 4 },
+        normal: { cols: 10, rows: 10, mines: 15, tile: 28, distance: 6 },
         veteran: { cols: 14, rows: 14, mines: 35, tile: 22, distance: 10 },
       };
       let mode = "easy";
@@ -249,7 +266,11 @@
           vb.w = start.w + (target.w - start.w) * e;
           vb.h = start.h + (target.h - start.h) * e;
           const svgEl = container.querySelector("svg");
-          if (svgEl) svgEl.setAttribute("viewBox", `${vb.x.toFixed(2)} ${vb.y.toFixed(2)} ${vb.w.toFixed(2)} ${vb.h.toFixed(2)}`);
+          if (svgEl)
+            svgEl.setAttribute(
+              "viewBox",
+              `${vb.x.toFixed(2)} ${vb.y.toFixed(2)} ${vb.w.toFixed(2)} ${vb.h.toFixed(2)}`,
+            );
           if (t < 1) requestAnimationFrame(step);
         }
         requestAnimationFrame(step);
@@ -303,7 +324,7 @@
             revealed: false,
             flagged: false,
             exploded: false,
-          }))
+          })),
         );
 
         // Place mines
@@ -327,7 +348,13 @@
                 if (dr === 0 && dc === 0) continue;
                 const nr = r + dr,
                   nc = c + dc;
-                if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && grid[nr][nc].mine) {
+                if (
+                  nr >= 0 &&
+                  nr < ROWS &&
+                  nc >= 0 &&
+                  nc < COLS &&
+                  grid[nr][nc].mine
+                ) {
                   count++;
                 }
               }
@@ -377,7 +404,11 @@
         const { cols: COLS, rows: ROWS, tile: TILE } = MODES[mode];
         const h = new Heerich({
           tile: [TILE, TILE],
-          camera: { type: "perspective", position: [COLS / 2, ROWS / 2], distance: MODES[mode].distance },
+          camera: {
+            type: "perspective",
+            position: [COLS / 2, ROWS / 2],
+            distance: MODES[mode].distance,
+          },
           style: {
             fill: "var(--fill)",
             stroke: "var(--stroke-c)",
@@ -501,14 +532,16 @@
               h.addBox({
                 position: [c, r, 0],
                 size: [1, 1, LAYERS],
-                style: cell.flagged ? {
-                  default: unrevealedStyle.default,
-                  front: {
-                    fill: isDark ? "#4a3a10" : "#f0e0a0",
-                    stroke: isDark ? "#6a5a20" : "#d4a017",
-                    strokeWidth: 0.5,
-                  },
-                } : unrevealedStyle,
+                style: cell.flagged
+                  ? {
+                      default: unrevealedStyle.default,
+                      front: {
+                        fill: isDark ? "#4a3a10" : "#f0e0a0",
+                        stroke: isDark ? "#6a5a20" : "#d4a017",
+                        strokeWidth: 0.5,
+                      },
+                    }
+                  : unrevealedStyle,
                 meta: { col: c, row: r },
               });
 
@@ -572,12 +605,19 @@
             // First render — snap
             vb = { ...newVb };
             vbTarget = { ...newVb };
-          } else if (newVb.x !== vbTarget.x || newVb.y !== vbTarget.y ||
-                     newVb.w !== vbTarget.w || newVb.h !== vbTarget.h) {
+          } else if (
+            newVb.x !== vbTarget.x ||
+            newVb.y !== vbTarget.y ||
+            newVb.w !== vbTarget.w ||
+            newVb.h !== vbTarget.h
+          ) {
             animateViewBox(newVb);
           }
           // Apply current animated viewBox
-          svgEl.setAttribute("viewBox", `${vb.x.toFixed(2)} ${vb.y.toFixed(2)} ${vb.w.toFixed(2)} ${vb.h.toFixed(2)}`);
+          svgEl.setAttribute(
+            "viewBox",
+            `${vb.x.toFixed(2)} ${vb.y.toFixed(2)} ${vb.w.toFixed(2)} ${vb.h.toFixed(2)}`,
+          );
         }
       }
 
@@ -761,8 +801,7 @@
         const { cols: COLS, rows: ROWS } = MODES[mode];
         let flags = 0;
         for (let mr = 0; mr < ROWS; mr++)
-          for (let mc = 0; mc < COLS; mc++)
-            if (grid[mr][mc].flagged) flags++;
+          for (let mc = 0; mc < COLS; mc++) if (grid[mr][mc].flagged) flags++;
         flagCountEl.textContent = flags;
 
         render();
@@ -779,7 +818,9 @@
         const voxelId = poly.dataset.voxel;
         const svg = container.querySelector("svg");
         if (!svg) return;
-        hoveredPolys = [...svg.querySelectorAll(`polygon[data-voxel="${voxelId}"]`)];
+        hoveredPolys = [
+          ...svg.querySelectorAll(`polygon[data-voxel="${voxelId}"]`),
+        ];
         for (const p of hoveredPolys) p.classList.add("voxel-hover");
       });
       container.addEventListener("mouseleave", () => {
@@ -790,7 +831,9 @@
       // ─── Mode buttons ────────────────────────────────
       document.querySelectorAll(".mode-btn").forEach((btn) => {
         btn.addEventListener("click", () => {
-          document.querySelectorAll(".mode-btn").forEach((b) => b.classList.remove("active"));
+          document
+            .querySelectorAll(".mode-btn")
+            .forEach((b) => b.classList.remove("active"));
           btn.classList.add("active");
           mode = btn.dataset.mode;
           initGame();

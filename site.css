@@ -365,7 +365,7 @@ a {
     height: 0.3rem;
     background: var(--text);
     transform: translateX(-50%);
-    transition: transform 0.1s cubic-bezier(0.3, .7, 0, 1);
+    transition: transform 0.1s cubic-bezier(0.3, 0.7, 0, 1);
   }
 }
 
@@ -484,7 +484,7 @@ nav a:hover {
 button {
   font-family: "Aboreto", cursive;
   font-size: 0.85rem;
-  padding: .75em 1.5em;
+  padding: 0.75em 1.5em;
   background: var(--bg);
   color: var(--text);
   border: 1px solid var(--line);
@@ -656,7 +656,9 @@ button:hover {
   width: 0.7rem;
   height: 0.7rem;
   background: var(--bg);
-  box-shadow: 0 0 0 1px currentColor, 0 0 0 0.22rem var(--bg);
+  box-shadow:
+    0 0 0 1px currentColor,
+    0 0 0 0.22rem var(--bg);
 }
 
 .camera-panel .camera-grid::after {
@@ -664,7 +666,9 @@ button:hover {
   width: 0.35rem;
   height: 0.35rem;
   background: currentColor;
-  box-shadow: 0 0 0 1px currentColor, 0 0 0 2px var(--bg);
+  box-shadow:
+    0 0 0 1px currentColor,
+    0 0 0 2px var(--bg);
 }
 
 .camera-panel .camera-grid__center {

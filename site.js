@@ -240,19 +240,21 @@ camGrid.addEventListener("pointerdown", (event) => {
   document.addEventListener("pointerup", onPointerUp);
 });
 
-document.getElementById("btn-randomize-camera").addEventListener("click", () => {
-  camProj.value = Math.random() > 0.5 ? "perspective" : "oblique";
-  camAngle.value = Math.round(Math.random() * 360);
-  camDist.value = (2 + Math.random() * 18).toFixed(1);
-  camY.value = (1 + Math.random() * 9).toFixed(1);
-  [camAngle, camDist, camY].forEach((el) => {
-    const span = el.parentElement.querySelector(".value");
-    if (span) span.textContent = el.value;
+document
+  .getElementById("btn-randomize-camera")
+  .addEventListener("click", () => {
+    camProj.value = Math.random() > 0.5 ? "perspective" : "oblique";
+    camAngle.value = Math.round(Math.random() * 360);
+    camDist.value = (2 + Math.random() * 18).toFixed(1);
+    camY.value = (1 + Math.random() * 9).toFixed(1);
+    [camAngle, camDist, camY].forEach((el) => {
+      const span = el.parentElement.querySelector(".value");
+      if (span) span.textContent = el.value;
+    });
+    syncCameraControlVisibility();
+    updatePerspectiveGrid();
+    rerenderAll();
   });
-  syncCameraControlVisibility();
-  updatePerspectiveGrid();
-  rerenderAll();
-});
 
 document.getElementById("btn-randomize-style").addEventListener("click", () => {
   const h = Math.round(Math.random() * 360);
@@ -788,7 +790,7 @@ function animateHoles({
     const availH = root.clientHeight;
     const gridSize = Math.round(availW * (rand(4, 7) / 100));
     const cols = Math.ceil(availW / gridSize);
-    const rows = Math.ceil(availH * 0.6 / gridSize);
+    const rows = Math.ceil((availH * 0.6) / gridSize);
 
     const numHoles = rand(2, 4);
     const holes = [];
@@ -810,8 +812,19 @@ function animateHoles({
         const th = Math.max(1, rand(1, Math.floor(h.h * 0.3)));
         const tx = h.x + rand(1, Math.max(1, h.w - tw - 1));
         const ty = h.y + rand(1, Math.max(1, h.h - th - 1));
-        const targetHeight = rand(Math.floor(h.targetDepth * 0.3), h.targetDepth);
-        towers.push({ x: tx, y: ty, w: tw, h: th, holeIndex, targetHeight, overflow: false });
+        const targetHeight = rand(
+          Math.floor(h.targetDepth * 0.3),
+          h.targetDepth,
+        );
+        towers.push({
+          x: tx,
+          y: ty,
+          w: tw,
+          h: th,
+          holeIndex,
+          targetHeight,
+          overflow: false,
+        });
       }
     });
 
@@ -838,7 +851,10 @@ function animateHoles({
         const cx = h.x + rand(0, h.w - 1) + 0.5;
         const cy = h.y + rand(0, h.h - 1) + 0.5;
         const cz = rand(1, Math.floor(h.targetDepth * 0.7)) + 0.5;
-        const targetR = rand(2, Math.max(2, Math.floor(Math.min(h.w, h.h) * 0.6)));
+        const targetR = rand(
+          2,
+          Math.max(2, Math.floor(Math.min(h.w, h.h) * 0.6)),
+        );
         carves.push({ cx, cy, cz, targetR });
       }
     });
@@ -873,11 +889,31 @@ function animateHoles({
     holes.forEach((h, i) => {
       const d = Math.round(depths[i]);
       if (d <= 0) return;
-      e.styleBox({ position: [h.x - 1, h.y, 0], size: [1, h.h, d], style: { right: wallFill } });
-      e.styleBox({ position: [h.x + h.w, h.y, 0], size: [1, h.h, d], style: { left: wallFill } });
-      e.styleBox({ position: [h.x, h.y - 1, 0], size: [h.w, 1, d], style: { bottom: wallFill } });
-      e.styleBox({ position: [h.x, h.y + h.h, 0], size: [h.w, 1, d], style: { top: wallFill } });
-      e.styleBox({ position: [h.x, h.y, d], size: [h.w, h.h, 1], style: { front: wallFill } });
+      e.styleBox({
+        position: [h.x - 1, h.y, 0],
+        size: [1, h.h, d],
+        style: { right: wallFill },
+      });
+      e.styleBox({
+        position: [h.x + h.w, h.y, 0],
+        size: [1, h.h, d],
+        style: { left: wallFill },
+      });
+      e.styleBox({
+        position: [h.x, h.y - 1, 0],
+        size: [h.w, 1, d],
+        style: { bottom: wallFill },
+      });
+      e.styleBox({
+        position: [h.x, h.y + h.h, 0],
+        size: [h.w, 1, d],
+        style: { top: wallFill },
+      });
+      e.styleBox({
+        position: [h.x, h.y, d],
+        size: [h.w, h.h, 1],
+        style: { front: wallFill },
+      });
     });
 
     // Add towers — all faces use outline color
@@ -922,13 +958,17 @@ function animateHoles({
     const holeTargets = scene.holes.map((h) => h.targetDepth);
     const towerTargets = scene.towers.map((t) => t.targetHeight);
     const carveTargets = scene.carves.map((c) => c.targetR);
-    const holeDur = 800, holeStagger = 200;
-    const towerDur = 600, towerStagger = 80;
-    const carveDur = 1000, carveStagger = 150;
+    const holeDur = 800,
+      holeStagger = 200;
+    const towerDur = 600,
+      towerStagger = 80;
+    const carveDur = 1000,
+      carveStagger = 150;
     const startTime = performance.now();
     const holeEndTime = holeDur + (scene.holes.length - 1) * holeStagger;
     const towerStartDelay = holeEndTime + 200;
-    const towerEndTime = towerStartDelay + towerDur + (scene.towers.length - 1) * towerStagger;
+    const towerEndTime =
+      towerStartDelay + towerDur + (scene.towers.length - 1) * towerStagger;
     const carveStartDelay = towerEndTime + 300;
 
     function ease(t) {
@@ -941,7 +981,10 @@ function animateHoles({
 
       const depths = holeTargets.map((target, i) => {
         const elapsed = now - startTime - i * holeStagger;
-        if (elapsed <= 0) { allDone = false; return 0; }
+        if (elapsed <= 0) {
+          allDone = false;
+          return 0;
+        }
         if (elapsed >= holeDur) return target;
         allDone = false;
         return target * ease(elapsed / holeDur);
@@ -949,7 +992,10 @@ function animateHoles({
 
       const towerHeights = towerTargets.map((target, i) => {
         const elapsed = now - startTime - towerStartDelay - i * towerStagger;
-        if (elapsed <= 0) { allDone = false; return 0; }
+        if (elapsed <= 0) {
+          allDone = false;
+          return 0;
+        }
         if (elapsed >= towerDur) return target;
         allDone = false;
         return target * ease(elapsed / towerDur);
@@ -957,7 +1003,10 @@ function animateHoles({
 
       const carveRadii = carveTargets.map((target, i) => {
         const elapsed = now - startTime - carveStartDelay - i * carveStagger;
-        if (elapsed <= 0) { allDone = false; return 0; }
+        if (elapsed <= 0) {
+          allDone = false;
+          return 0;
+        }
         if (elapsed >= carveDur) return target;
         allDone = false;
         return target * ease(elapsed / carveDur);
