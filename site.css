@@ -1,7 +1,7 @@
 :root {
   --bg: #fbf4ea;
   --text: #0e0e0e;
-  --line: var(--text);
+  --line: color-mix(in oklab, var(--text) 10%, var(--bg));
   --code-bg: color-mix(in oklab, var(--bg) 97%, var(--text));
   --accent: #0e0e0e;
   --selection-bg: var(--text);
