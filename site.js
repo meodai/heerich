@@ -792,7 +792,7 @@ function animateHoles({
     // Carve-out spheres — positioned at edges/corners of holes, growing outward
     const carves = [];
     holes.forEach((h) => {
-      const numCarves = rand(1, 3);
+      const numCarves = rand(2, 5);
       for (let c = 0; c < numCarves; c++) {
         const cx = h.x + rand(0, h.w - 1) + 0.5;
         const cy = h.y + rand(0, h.h - 1) + 0.5;
@@ -827,72 +827,31 @@ function animateHoles({
       if (d > 0) e.removeBox({ position: [h.x, h.y, 0], size: [h.w, h.h, d] });
     });
 
-    // Color inside walls — gradient: full color near surface, fading to dark at depth
-    // Style the voxels surrounding the hole (1 unit outside the carved area)
+    // Style inside walls with outline color
+    const wallFill = { fill: "var(--stroke-c)", stroke: "var(--fill)" };
     holes.forEach((h, i) => {
       const d = Math.round(depths[i]);
       if (d <= 0) return;
-      // Lerp from surface color (bg) to outline color (text) at depth
-      const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      const bg = isDark ? [14, 14, 14] : [251, 244, 234];
-      const target = isDark ? [251, 244, 234] : [14, 14, 14];
-      const wallStyle = (x, y, z) => {
-        const t = z / Math.max(d, 1); // 0 at surface, 1 at depth
-        const r = Math.round(bg[0] + (target[0] - bg[0]) * t);
-        const g = Math.round(bg[1] + (target[1] - bg[1]) * t);
-        const b = Math.round(bg[2] + (target[2] - bg[2]) * t);
-        return {
-          fill: `rgb(${r},${g},${b})`,
-          stroke: "var(--stroke-c)",
-        };
-      };
-      const endColor = `rgb(${target[0]},${target[1]},${target[2]})`;
-      const endStroke = "var(--stroke-c)";
-      // Style the 4 walls surrounding the hole (not the surface voxels)
-      // Left wall
-      e.styleBox({ position: [h.x - 1, h.y, 0], size: [1, h.h, d], style: { right: wallStyle } });
-      // Right wall
-      e.styleBox({ position: [h.x + h.w, h.y, 0], size: [1, h.h, d], style: { left: wallStyle } });
-      // Top wall
-      e.styleBox({ position: [h.x, h.y - 1, 0], size: [h.w, 1, d], style: { bottom: wallStyle } });
-      // Bottom wall
-      e.styleBox({ position: [h.x, h.y + h.h, 0], size: [h.w, 1, d], style: { top: wallStyle } });
-      // Floor (back face at depth)
-      e.styleBox({ position: [h.x, h.y, d], size: [h.w, h.h, 1], style: { front: { fill: endColor, stroke: endStroke } } });
+      e.styleBox({ position: [h.x - 1, h.y, 0], size: [1, h.h, d], style: { right: wallFill } });
+      e.styleBox({ position: [h.x + h.w, h.y, 0], size: [1, h.h, d], style: { left: wallFill } });
+      e.styleBox({ position: [h.x, h.y - 1, 0], size: [h.w, 1, d], style: { bottom: wallFill } });
+      e.styleBox({ position: [h.x, h.y + h.h, 0], size: [h.w, 1, d], style: { top: wallFill } });
+      e.styleBox({ position: [h.x, h.y, d], size: [h.w, h.h, 1], style: { front: wallFill } });
     });
 
-    // Add towers — walls use the same gradient as the hole they sit in
-    const isDarkTower = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const tBg = isDarkTower ? [14, 14, 14] : [251, 244, 234];
-    const tTarget = isDarkTower ? [251, 244, 234] : [14, 14, 14];
+    // Add towers — all faces use outline color
     if (towerHeights) {
       towers.forEach((tower, idx) => {
         const th = Math.round(towerHeights[idx]);
         if (th <= 0) return;
         const holeDepth = Math.round(depths[tower.holeIndex]);
         const clamped = Math.min(th, holeDepth);
-        const towerWallStyle = (x, y, z) => {
-          const t = z / Math.max(holeDepth, 1);
-          const r = Math.round(tBg[0] + (tTarget[0] - tBg[0]) * t);
-          const g = Math.round(tBg[1] + (tTarget[1] - tBg[1]) * t);
-          const b = Math.round(tBg[2] + (tTarget[2] - tBg[2]) * t);
-          return { fill: `rgb(${r},${g},${b})`, stroke: "var(--stroke-c)" };
-        };
-        // Front face color = gradient value at the tower's top z position
         const topZ = holeDepth - clamped;
-        const ft = topZ / Math.max(holeDepth, 1);
-        const fr = Math.round(tBg[0] + (tTarget[0] - tBg[0]) * ft);
-        const fg = Math.round(tBg[1] + (tTarget[1] - tBg[1]) * ft);
-        const fb = Math.round(tBg[2] + (tTarget[2] - tBg[2]) * ft);
         e.addBox({
           position: [tower.x, tower.y, topZ],
           size: [tower.w, tower.h, clamped],
           style: {
-            left: towerWallStyle,
-            right: towerWallStyle,
-            top: towerWallStyle,
-            bottom: towerWallStyle,
-            front: { fill: `rgb(${fr},${fg},${fb})`, stroke: "var(--stroke-c)" },
+            default: wallFill,
           },
         });
       });
