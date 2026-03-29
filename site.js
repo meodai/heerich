@@ -1083,6 +1083,27 @@ galleryDemo("demo-heerich-checker", () => {
   return e.toSVG(svgOpts);
 });
 
+// 3. Stepped Block
+galleryDemo("demo-heerich-stepped", () => {
+  const e = new Heerich({
+    tile: [32, 32],
+    camera: getCamera(),
+    style: {
+      fill: "var(--fill)",
+      stroke: "var(--stroke-c)",
+      strokeWidth: "var(--stroke-w)",
+    },
+  });
+
+  e.addBox({ position: [-4, -4, -4], size: [8, 8, 8] });
+  // Carve steps into the Top-Right-Front corner (+X, -Y, -Z)
+  e.removeBox({ position: [2, -4, -2], size: [2, 2, 2] });
+  e.removeBox({ position: [0, -4, -4], size: [2, 2, 2] });
+  e.removeBox({ position: [2, -4, -4], size: [2, 4, 2] });
+
+  return e.toSVG(svgOpts);
+});
+
 // ─── Footer heart ────────────────────
 {
   const heartContainer = document.getElementById("footer-heart");
