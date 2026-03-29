@@ -161,6 +161,10 @@ article {
   pre {
     width: 100%;
   }
+
+  html {
+    font-size: 1rem;
+  }
 }
 
 .intro {
