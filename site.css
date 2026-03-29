@@ -516,7 +516,7 @@ button:hover {
   pointer-events: auto;
 }
 
-.settings-panel summary.camera-title {
+.settings-panel summary.settings-title {
   font-family: "Aboreto", cursive;
   font-size: 0.8rem;
   padding: 0.6rem 0.8rem;
@@ -529,7 +529,7 @@ button:hover {
   gap: 1rem;
 }
 
-.settings-panel summary.camera-title::-webkit-details-marker {
+.settings-panel summary.settings-title::-webkit-details-marker {
   display: none;
 }
 
@@ -542,7 +542,7 @@ button:hover {
   transform: rotate(90deg);
 }
 
-.settings-panel .camera-section-title {
+.settings-panel .settings-section-title {
   font-family: "Aboreto", cursive;
   font-size: 0.8rem;
   padding: 0.6rem 0.8rem;
@@ -564,37 +564,37 @@ button:hover {
   transform: rotate(180deg);
 }
 
-.settings-panel .camera-fields {
+.settings-panel .settings-fields {
   display: flex;
   flex-direction: column;
 }
 
-.settings-panel .camera-grid-panel {
+.settings-panel .settings-grid-panel {
   padding: 0.7rem 0.8rem 0.8rem;
   border-top: 1px solid var(--line);
 }
 
-.settings-panel .camera-grid-header {
+.settings-panel .settings-grid-header {
   display: flex;
   justify-content: space-between;
   gap: 0.8rem;
   font-weight: 400;
 }
 
-.settings-panel .camera-grid-header {
+.settings-panel .settings-grid-header {
   margin-bottom: 0.5rem;
 }
 
-.settings-panel .camera-grid-values {
+.settings-panel .settings-grid-values {
   font-variant-numeric: tabular-nums;
 }
 
-.settings-panel .camera-grid-separator {
+.settings-panel .settings-grid-separator {
   opacity: 0.5;
   padding: 0 0.35em;
 }
 
-.settings-panel .camera-grid {
+.settings-panel .settings-grid {
   --x: 87.5%;
   --y: 50%;
   --distance: 37.5%;
@@ -624,7 +624,7 @@ button:hover {
   user-select: none;
 }
 
-.settings-panel .camera-grid__indicator {
+.settings-panel .settings-grid__indicator {
   position: absolute;
   left: 50%;
   top: 50%;
@@ -636,22 +636,22 @@ button:hover {
   pointer-events: none;
 }
 
-.settings-panel .camera-grid__dot,
-.settings-panel .camera-grid::after,
-.settings-panel .camera-grid__center {
+.settings-panel .settings-grid__dot,
+.settings-panel .settings-grid::after,
+.settings-panel .settings-grid__center {
   position: absolute;
   border-radius: 50%;
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
 
-.settings-panel .camera-grid__dot,
-.settings-panel .camera-grid::after {
+.settings-panel .settings-grid__dot,
+.settings-panel .settings-grid::after {
   left: var(--x);
   top: var(--y);
 }
 
-.settings-panel .camera-grid__dot {
+.settings-panel .settings-grid__dot {
   width: 0.7rem;
   height: 0.7rem;
   background: var(--bg);
@@ -660,7 +660,7 @@ button:hover {
     0 0 0 0.22rem var(--bg);
 }
 
-.settings-panel .camera-grid::after {
+.settings-panel .settings-grid::after {
   content: "";
   width: 0.35rem;
   height: 0.35rem;
@@ -670,7 +670,7 @@ button:hover {
     0 0 0 2px var(--bg);
 }
 
-.settings-panel .camera-grid__center {
+.settings-panel .settings-grid__center {
   left: 50%;
   top: 50%;
   width: 0.3rem;

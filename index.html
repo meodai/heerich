@@ -55,20 +55,20 @@
   </head>
   <body>
     <details class="settings-panel" id="settings-panel" open>
-      <summary class="camera-title">
+      <summary class="settings-title">
         Settings <span class="details-icon-closed">▥</span>
       </summary>
-      <div class="camera-section-title">
+      <div class="settings-section-title">
         Camera
         <button
           class="btn-shuffle"
-          id="btn-randomize-camera"
-          title="Randomize camera"
+          id="btn-randomize-settings"
+          title="Randomize settings"
         >
           ⇋
         </button>
       </div>
-      <div class="camera-fields">
+      <div class="settings-fields">
         <label>
           <span>Type</span>
           <select id="cam-proj">
@@ -93,19 +93,19 @@
           />
           <span class="value">5</span>
         </label>
-        <div class="camera-grid-panel" id="cam-perspective-control" hidden>
-          <div class="camera-grid-header">
+        <div class="settings-grid-panel" id="cam-perspective-control" hidden>
+          <div class="settings-grid-header">
             <span>Angle / Cam Y</span>
-            <span class="camera-grid-values"
+            <span class="settings-grid-values"
               ><span id="cam-grid-angle-value">315</span>
-              <span class="camera-grid-separator">/</span>
+              <span class="settings-grid-separator">/</span>
               <span id="cam-grid-y-value">5</span></span
             >
           </div>
-          <div class="camera-grid" id="cam-grid">
-            <i class="camera-grid__indicator"></i>
-            <i class="camera-grid__dot"></i>
-            <i class="camera-grid__center"></i>
+          <div class="settings-grid" id="cam-grid">
+            <i class="settings-grid__indicator"></i>
+            <i class="settings-grid__dot"></i>
+            <i class="settings-grid__center"></i>
           </div>
         </div>
         <label>
@@ -114,7 +114,7 @@
           <span class="value">10</span>
         </label>
       </div>
-      <div class="camera-section-title">
+      <div class="settings-section-title">
         Style
         <button
           class="btn-shuffle"
@@ -124,7 +124,7 @@
           ⇋
         </button>
       </div>
-      <div class="camera-fields">
+      <div class="settings-fields">
         <label>
           <span>Fill</span>
           <input type="color" id="cam-fill" value="#fbf4ea" />

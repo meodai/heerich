@@ -203,21 +203,21 @@ function rerenderAll() {
   scheduleFaviconUpdate();
 }
 
-function syncCameraControlVisibility() {
+function syncControlVisibility() {
   const perspective = camProj.value === "perspective";
   camAngleLabel.style.display = perspective ? "none" : "";
   camYLabel.style.display = "none";
   camPerspectiveControl.hidden = !perspective;
   updatePerspectiveGrid();
 }
-syncCameraControlVisibility();
+syncControlVisibility();
 
 [camProj, camAngle, camY, camDist].forEach((el) => {
   const evt = el.tagName === "SELECT" ? "change" : "input";
   el.addEventListener(evt, () => {
     const span = el.parentElement.querySelector(".value");
     if (span) span.textContent = el.value;
-    if (el === camProj) syncCameraControlVisibility();
+    if (el === camProj) syncControlVisibility();
     if (el === camAngle || el === camY) updatePerspectiveGrid();
     rerenderAll();
   });
@@ -241,7 +241,7 @@ camGrid.addEventListener("pointerdown", (event) => {
 });
 
 document
-  .getElementById("btn-randomize-camera")
+  .getElementById("btn-randomize-settings")
   .addEventListener("click", () => {
     camProj.value = Math.random() > 0.5 ? "perspective" : "oblique";
     camAngle.value = Math.round(Math.random() * 360);
@@ -251,7 +251,7 @@ document
       const span = el.parentElement.querySelector(".value");
       if (span) span.textContent = el.value;
     });
-    syncCameraControlVisibility();
+    syncControlVisibility();
     updatePerspectiveGrid();
     rerenderAll();
   });
