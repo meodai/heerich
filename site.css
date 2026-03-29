@@ -503,7 +503,6 @@ button:hover {
   right: 1.2rem;
   background: var(--bg);
   border: 1px solid var(--line);
-  border-radius: 3px;
   z-index: 100;
   font-size: 0.8rem;
   overflow: hidden;
