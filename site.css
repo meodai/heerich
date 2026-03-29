@@ -301,11 +301,11 @@ a {
 /* ─── Demo controls ─── */
 .demo-controls {
   border-top: 1px solid var(--line);
-  padding: 2rem 2rem;
+  padding: 2rem 0;
   display: flex;
   flex-wrap: wrap;
   flex-direction: row-reverse;
-  gap: 0.8rem;
+  gap: 2rem;
   font-size: 0.8rem;
 }
 
