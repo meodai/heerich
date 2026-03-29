@@ -594,7 +594,7 @@ setupDemo("demo-queries", (v) => {
             position: [x, y, z],
             size: [1, 1, 1],
             opaque: false,
-            content: `<text font-family="Aboreto" font-size="16" fill="var(--stroke-c)" text-anchor="middle" dominant-baseline="central">${letter.toUpperCase()}</text>`,
+            content: `<text font-family="Aboreto" font-size="16" fill="var(--text)" text-anchor="middle" dominant-baseline="central">${letter.toUpperCase()}</text>`,
           });
           i++;
         }
@@ -628,7 +628,7 @@ setupDemo("demo-queries", (v) => {
       style: {
         default: {
           fill: "none",
-          stroke: "var(--stroke-c)",
+          stroke: "var(--text)",
           strokeWidth: "var(--stroke-w)",
         },
       },
