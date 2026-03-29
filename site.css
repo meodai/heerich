@@ -274,16 +274,14 @@ a {
   height: 100%;
 }
 
-/* ─── Shared control styles (settings-panel + demo-controls) ─── */
-.settings-panel label,
-.demo-controls label {
+/* ─── Shared control styles ─── */
+.control-label {
   display: flex;
   gap: 0.4rem;
   font-weight: 400;
 }
 
-.settings-panel select,
-.demo-controls select {
+.control-select {
   flex: 1;
   border: none;
   background: transparent;
@@ -294,8 +292,7 @@ a {
   cursor: pointer;
 }
 
-.settings-panel .value,
-.demo-controls .value {
+.control-value {
   min-width: 2.2em;
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -683,13 +680,13 @@ button:hover {
   box-shadow: 0 0 0 1px currentColor;
 }
 
-.settings-panel label {
+.settings-panel .control-label {
   align-items: end;
   padding: 0.45rem 0.8rem;
   border-top: 1px solid var(--line);
 }
 
-.settings-panel label span:first-child {
+.settings-panel .control-label span:first-child {
   min-width: 4.5em;
 }
 

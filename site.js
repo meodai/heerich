@@ -26,7 +26,7 @@ function enhanceRange(input) {
   wrap.appendChild(capR);
 
   // Find the .value span — it's a sibling of the wrapper in the <label>
-  const valueSpan = wrap.parentElement.querySelector(".value");
+  const valueSpan = wrap.parentElement.querySelector(".control-value");
 
   function syncVal() {
     const min = parseFloat(input.min) || 0;
@@ -215,7 +215,7 @@ syncControlVisibility();
 [camProj, camAngle, camY, camDist].forEach((el) => {
   const evt = el.tagName === "SELECT" ? "change" : "input";
   el.addEventListener(evt, () => {
-    const span = el.parentElement.querySelector(".value");
+    const span = el.parentElement.querySelector(".control-value");
     if (span) span.textContent = el.value;
     if (el === camProj) syncControlVisibility();
     if (el === camAngle || el === camY) updatePerspectiveGrid();
@@ -248,7 +248,7 @@ document
     camDist.value = (2 + Math.random() * 18).toFixed(1);
     camY.value = (1 + Math.random() * 9).toFixed(1);
     [camAngle, camDist, camY].forEach((el) => {
-      const span = el.parentElement.querySelector(".value");
+      const span = el.parentElement.querySelector(".control-value");
       if (span) span.textContent = el.value;
     });
     syncControlVisibility();
@@ -296,7 +296,7 @@ function syncStyleVars() {
   hero.repaint();
 }
 camStroke.addEventListener("input", () => {
-  const span = camStroke.parentElement.querySelector(".value");
+  const span = camStroke.parentElement.querySelector(".control-value");
   if (span) span.textContent = camStroke.value;
   syncStyleVars();
 });
@@ -314,7 +314,7 @@ function setupDemo(id, buildFn) {
     controls[key] = el;
 
     const update = () => {
-      const span = el.parentElement.querySelector(".value");
+      const span = el.parentElement.querySelector(".control-value");
       if (span) span.textContent = el.value;
       render();
     };
@@ -765,7 +765,7 @@ function animateHoles({
 
   [durInput, staggerInput].forEach((el) => {
     el.addEventListener("input", () => {
-      const span = el.parentElement.querySelector(".value");
+      const span = el.parentElement.querySelector(".control-value");
       if (span) span.textContent = el.value;
     });
   });

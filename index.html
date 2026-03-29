@@ -69,19 +69,19 @@
         </button>
       </div>
       <div class="settings-fields">
-        <label>
+        <label class="control-label">
           <span>Type</span>
-          <select id="cam-proj">
+          <select class="control-select" id="cam-proj">
             <option value="oblique">oblique</option>
             <option value="perspective">perspective</option>
           </select>
         </label>
-        <label id="cam-angle-label">
+        <label class="control-label" id="cam-angle-label">
           <span>Angle</span>
           <input type="range" id="cam-angle" min="0" max="360" value="315" />
-          <span class="value">315</span>
+          <span class="control-value">315</span>
         </label>
-        <label id="cam-y-label">
+        <label class="control-label" id="cam-y-label">
           <span>Cam Y</span>
           <input
             type="range"
@@ -91,7 +91,7 @@
             value="5"
             step="0.5"
           />
-          <span class="value">5</span>
+          <span class="control-value">5</span>
         </label>
         <div class="settings-grid-panel" id="cam-perspective-control" hidden>
           <div class="settings-grid-header">
@@ -108,10 +108,10 @@
             <i class="settings-grid__center"></i>
           </div>
         </div>
-        <label>
+        <label class="control-label">
           <span>Distance</span>
           <input type="range" id="cam-dist" min="1" max="80" value="10" />
-          <span class="value">10</span>
+          <span class="control-value">10</span>
         </label>
       </div>
       <div class="settings-section-title">
@@ -125,15 +125,15 @@
         </button>
       </div>
       <div class="settings-fields">
-        <label>
+        <label class="control-label">
           <span>Fill</span>
           <input type="color" id="cam-fill" value="#fbf4ea" />
         </label>
-        <label>
+        <label class="control-label">
           <span>Stroke</span>
           <input type="color" id="cam-stroke-color" value="#18191b" />
         </label>
-        <label>
+        <label class="control-label">
           <span>Width</span>
           <input
             type="range"
@@ -143,7 +143,7 @@
             value="0.5"
             step="0.1"
           />
-          <span class="value">0.5</span>
+          <span class="control-value">0.5</span>
         </label>
       </div>
     </details>
@@ -263,20 +263,20 @@ const { x, y, w, h } = engine.getViewBoxBounds()</code></pre>
           <div class="demo" id="demo-box">
             <div class="demo-canvas"></div>
             <div class="demo-controls">
-              <label
+              <label class="control-label"
                 >Width
                 <input type="range" min="1" max="10" value="6" data-bind="w" />
-                <span class="value">6</span></label
+                <span class="control-value">6</span></label
               >
-              <label
+              <label class="control-label"
                 >Height
                 <input type="range" min="1" max="10" value="4" data-bind="h" />
-                <span class="value">4</span></label
+                <span class="control-value">4</span></label
               >
-              <label
+              <label class="control-label"
                 >Depth
                 <input type="range" min="1" max="10" value="3" data-bind="d" />
-                <span class="value">3</span></label
+                <span class="control-value">3</span></label
               >
             </div>
           </div>
@@ -304,9 +304,9 @@ const { x, y, w, h } = engine.getViewBoxBounds()</code></pre>
           <div class="demo" id="demo-align">
             <div class="demo-canvas"></div>
             <div class="demo-controls">
-              <label
+              <label class="control-label"
                 >Align
-                <select data-bind="align">
+                <select class="control-select" data-bind="align">
                   <option value="center">center</option>
                   <option value="min">min corner</option>
                   <option value="max">max corner</option>
@@ -345,9 +345,9 @@ const center = big.map((b, i) => (b - small[i]) / 2)</code></pre>
           <div class="demo" id="demo-boolean">
             <div class="demo-canvas"></div>
             <div class="demo-controls">
-              <label
+              <label class="control-label"
                 >Mode
-                <select data-bind="mode">
+                <select class="control-select" data-bind="mode">
                   <option value="union">union | A ∪ B | combine</option>
                   <option value="subtract">
                     subtract | A − B | remove overlap
@@ -360,7 +360,7 @@ const center = big.map((b, i) => (b - small[i]) / 2)</code></pre>
                   </option>
                 </select>
               </label>
-              <label
+              <label class="control-label"
                 >Offset
                 <input
                   type="range"
@@ -369,7 +369,7 @@ const center = big.map((b, i) => (b - small[i]) / 2)</code></pre>
                   value="3"
                   data-bind="offset"
                 />
-                <span class="value">3</span></label
+                <span class="control-value">3</span></label
               >
             </div>
           </div>
@@ -413,7 +413,7 @@ engine.addSphere({
           <div class="demo" id="demo-rotation">
             <div class="demo-canvas"></div>
             <div class="demo-controls">
-              <label
+              <label class="control-label"
                 >Turns
                 <input
                   type="range"
@@ -423,11 +423,11 @@ engine.addSphere({
                   step="1"
                   data-bind="turns"
                 />
-                <span class="value">1</span></label
+                <span class="control-value">1</span></label
               >
-              <label
+              <label class="control-label"
                 >Axis
-                <select data-bind="axis">
+                <select class="control-select" data-bind="axis">
                   <option value="z">Z (up)</option>
                   <option value="x">X</option>
                   <option value="y">Y</option>
@@ -468,7 +468,7 @@ engine.rotate({ axis: 'y', turns: 2 })</code></pre>
           <div class="demo" id="demo-group">
             <div class="demo-canvas"></div>
             <div class="demo-controls">
-              <label
+              <label class="control-label"
                 >Group size
                 <input
                   type="range"
@@ -478,7 +478,7 @@ engine.rotate({ axis: 'y', turns: 2 })</code></pre>
                   step="1"
                   data-bind="gs"
                 />
-                <span class="value">2</span></label
+                <span class="control-value">2</span></label
               >
             </div>
           </div>
@@ -509,13 +509,13 @@ engine.rotate({ axis: 'y', turns: 2 })</code></pre>
           <div class="demo" id="demo-style">
             <div class="demo-canvas"></div>
             <div class="demo-controls">
-              <label
+              <label class="control-label"
                 >Top <input type="color" value="#f1a03c" data-bind="top"
               /></label>
-              <label
+              <label class="control-label"
                 >Front <input type="color" value="#0e0e0e" data-bind="front"
               /></label>
-              <label
+              <label class="control-label"
                 >Right <input type="color" value="#e2d058" data-bind="right"
               /></label>
             </div>
@@ -555,7 +555,7 @@ engine.rotate({ axis: 'y', turns: 2 })</code></pre>
           <div class="demo" id="demo-svg-styles">
             <div class="demo-canvas"></div>
             <div class="demo-controls">
-              <label
+              <label class="control-label"
                 >Opacity
                 <input
                   type="range"
@@ -565,9 +565,9 @@ engine.rotate({ axis: 'y', turns: 2 })</code></pre>
                   step="0.05"
                   data-bind="opacity"
                 />
-                <span class="value">0.6</span></label
+                <span class="control-value">0.6</span></label
               >
-              <label
+              <label class="control-label"
                 >Stroke dash
                 <input
                   type="range"
@@ -577,7 +577,7 @@ engine.rotate({ axis: 'y', turns: 2 })</code></pre>
                   step="1"
                   data-bind="dash"
                 />
-                <span class="value">0</span></label
+                <span class="control-value">0</span></label
               >
             </div>
           </div>
@@ -623,7 +623,7 @@ engine.rotate({ axis: 'y', turns: 2 })</code></pre>
           <div class="demo" id="demo-sphere">
             <div class="demo-canvas"></div>
             <div class="demo-controls">
-              <label
+              <label class="control-label"
                 >Radius
                 <input
                   type="range"
@@ -633,7 +633,7 @@ engine.rotate({ axis: 'y', turns: 2 })</code></pre>
                   step="0.5"
                   data-bind="r"
                 />
-                <span class="value">4.5</span></label
+                <span class="control-value">4.5</span></label
               >
             </div>
           </div>
@@ -662,7 +662,7 @@ engine.rotate({ axis: 'y', turns: 2 })</code></pre>
           <div class="demo" id="demo-line">
             <div class="demo-canvas"></div>
             <div class="demo-controls">
-              <label
+              <label class="control-label"
                 >Radius
                 <input
                   type="range"
@@ -672,24 +672,24 @@ engine.rotate({ axis: 'y', turns: 2 })</code></pre>
                   step="0.5"
                   data-bind="r"
                 />
-                <span class="value">1.5</span></label
+                <span class="control-value">1.5</span></label
               >
-              <label
+              <label class="control-label"
                 >Shape
-                <select data-bind="shape">
+                <select class="control-select" data-bind="shape">
                   <option value="rounded">rounded</option>
                   <option value="square">square</option>
                 </select>
               </label>
-              <label
+              <label class="control-label"
                 >End X
                 <input type="range" min="0" max="12" value="8" data-bind="ex" />
-                <span class="value">8</span></label
+                <span class="control-value">8</span></label
               >
-              <label
+              <label class="control-label"
                 >End Z
                 <input type="range" min="0" max="12" value="8" data-bind="ez" />
-                <span class="value">8</span></label
+                <span class="control-value">8</span></label
               >
             </div>
           </div>
@@ -717,12 +717,12 @@ engine.rotate({ axis: 'y', turns: 2 })</code></pre>
           <div class="demo" id="demo-functional">
             <div class="demo-canvas"></div>
             <div class="demo-controls">
-              <label
+              <label class="control-label"
                 >Size
                 <input type="range" min="2" max="10" value="2" data-bind="s" />
-                <span class="value">2</span></label
+                <span class="control-value">2</span></label
               >
-              <label
+              <label class="control-label"
                 >Hue Range
                 <input
                   type="range"
@@ -731,7 +731,7 @@ engine.rotate({ axis: 'y', turns: 2 })</code></pre>
                   value="360"
                   data-bind="hue"
                 />
-                <span class="value">360</span></label
+                <span class="control-value">360</span></label
               >
             </div>
           </div>
@@ -805,9 +805,9 @@ engine.setCamera({ type: 'perspective', position: [5, 5], distance: 12 })</code>
           <div class="demo" id="demo-queries">
             <div class="demo-canvas"></div>
             <div class="demo-controls">
-              <label
+              <label class="control-label"
                 >Show
-                <select data-bind="show">
+                <select class="control-select" data-bind="show">
                   <option value="exposure">exposure (neighbor count)</option>
                   <option value="edges">edges only</option>
                   <option value="corners">corners only</option>
@@ -926,9 +926,9 @@ engine.addBox({
           <div class="demo" id="demo-animate">
             <div class="demo-canvas"></div>
             <div class="demo-controls">
-              <label><button data-bind="play">Play</button></label>
-              <label><button data-bind="reset">Reset</button></label>
-              <label
+              <label class="control-label"><button data-bind="play">Play</button></label>
+              <label class="control-label"><button data-bind="reset">Reset</button></label>
+              <label class="control-label"
                 >Duration
                 <input
                   type="range"
@@ -938,9 +938,9 @@ engine.addBox({
                   step="100"
                   data-bind="dur"
                 />
-                <span class="value">1000</span>ms</label
+                <span class="control-value">1000</span>ms</label
               >
-              <label
+              <label class="control-label"
                 >Stagger
                 <input
                   type="range"
@@ -950,7 +950,7 @@ engine.addBox({
                   step="25"
                   data-bind="stagger"
                 />
-                <span class="value">150</span>ms</label
+                <span class="control-value">150</span>ms</label
               >
             </div>
           </div>
