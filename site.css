@@ -796,12 +796,7 @@ input[type="color"]::-webkit-color-swatch {
 .site-footer .kofi-link {
   display: inline-block;
   margin: 1rem 0;
-  opacity: 0.7;
   transition: opacity 0.2s;
-}
-
-.site-footer .kofi-link:hover {
-  opacity: 1;
 }
 
 .site-footer .credit {

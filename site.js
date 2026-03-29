@@ -766,7 +766,7 @@ function animateHoles({
       const h = Math.max(2, Math.floor(rows * (0.1 + Math.random() * 0.4)));
       const x = Math.floor(Math.random() * Math.max(1, cols - w));
       const y = Math.floor(Math.random() * Math.max(1, rows - h));
-      const targetDepth = rand(5, 14);
+      const targetDepth = rand(4, 15);
       holes.push({ x, y, w, h, targetDepth });
     }
 
