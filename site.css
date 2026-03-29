@@ -497,7 +497,7 @@ button:hover {
   border-color: var(--text);
 }
 
-.camera-panel {
+.settings-panel {
   position: fixed;
   top: 1.2rem;
   right: 1.2rem;
@@ -511,12 +511,12 @@ button:hover {
   transition: opacity 0.2s ease;
 }
 
-.camera-panel.visible {
+.settings-panel.visible {
   opacity: 1;
   pointer-events: auto;
 }
 
-.camera-panel summary.camera-title {
+.settings-panel summary.camera-title {
   font-family: "Aboreto", cursive;
   font-size: 0.8rem;
   padding: 0.6rem 0.8rem;
@@ -529,7 +529,7 @@ button:hover {
   gap: 1rem;
 }
 
-.camera-panel summary.camera-title::-webkit-details-marker {
+.settings-panel summary.camera-title::-webkit-details-marker {
   display: none;
 }
 
@@ -538,11 +538,11 @@ button:hover {
   transition: transform 0.3s;
 }
 
-.camera-panel[open] .details-icon-closed {
+.settings-panel[open] .details-icon-closed {
   transform: rotate(90deg);
 }
 
-.camera-panel .camera-section-title {
+.settings-panel .camera-section-title {
   font-family: "Aboreto", cursive;
   font-size: 0.8rem;
   padding: 0.6rem 0.8rem;
@@ -564,37 +564,37 @@ button:hover {
   transform: rotate(180deg);
 }
 
-.camera-panel .camera-fields {
+.settings-panel .camera-fields {
   display: flex;
   flex-direction: column;
 }
 
-.camera-panel .camera-grid-panel {
+.settings-panel .camera-grid-panel {
   padding: 0.7rem 0.8rem 0.8rem;
   border-top: 1px solid var(--line);
 }
 
-.camera-panel .camera-grid-header {
+.settings-panel .camera-grid-header {
   display: flex;
   justify-content: space-between;
   gap: 0.8rem;
   font-weight: 400;
 }
 
-.camera-panel .camera-grid-header {
+.settings-panel .camera-grid-header {
   margin-bottom: 0.5rem;
 }
 
-.camera-panel .camera-grid-values {
+.settings-panel .camera-grid-values {
   font-variant-numeric: tabular-nums;
 }
 
-.camera-panel .camera-grid-separator {
+.settings-panel .camera-grid-separator {
   opacity: 0.5;
   padding: 0 0.35em;
 }
 
-.camera-panel .camera-grid {
+.settings-panel .camera-grid {
   --x: 87.5%;
   --y: 50%;
   --distance: 37.5%;
@@ -624,7 +624,7 @@ button:hover {
   user-select: none;
 }
 
-.camera-panel .camera-grid__indicator {
+.settings-panel .camera-grid__indicator {
   position: absolute;
   left: 50%;
   top: 50%;
@@ -636,22 +636,22 @@ button:hover {
   pointer-events: none;
 }
 
-.camera-panel .camera-grid__dot,
-.camera-panel .camera-grid::after,
-.camera-panel .camera-grid__center {
+.settings-panel .camera-grid__dot,
+.settings-panel .camera-grid::after,
+.settings-panel .camera-grid__center {
   position: absolute;
   border-radius: 50%;
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
 
-.camera-panel .camera-grid__dot,
-.camera-panel .camera-grid::after {
+.settings-panel .camera-grid__dot,
+.settings-panel .camera-grid::after {
   left: var(--x);
   top: var(--y);
 }
 
-.camera-panel .camera-grid__dot {
+.settings-panel .camera-grid__dot {
   width: 0.7rem;
   height: 0.7rem;
   background: var(--bg);
@@ -660,7 +660,7 @@ button:hover {
     0 0 0 0.22rem var(--bg);
 }
 
-.camera-panel .camera-grid::after {
+.settings-panel .camera-grid::after {
   content: "";
   width: 0.35rem;
   height: 0.35rem;
@@ -670,7 +670,7 @@ button:hover {
     0 0 0 2px var(--bg);
 }
 
-.camera-panel .camera-grid__center {
+.settings-panel .camera-grid__center {
   left: 50%;
   top: 50%;
   width: 0.3rem;
@@ -679,7 +679,7 @@ button:hover {
   box-shadow: 0 0 0 1px currentColor;
 }
 
-.camera-panel label {
+.settings-panel label {
   display: flex;
   align-items: end;
   gap: 0.4rem;
@@ -688,11 +688,11 @@ button:hover {
   border-top: 1px solid var(--line);
 }
 
-.camera-panel label span:first-child {
+.settings-panel label span:first-child {
   min-width: 4.5em;
 }
 
-.camera-panel .range-wrap {
+.settings-panel .range-wrap {
   flex: 1;
   min-width: 7rem;
   transform: translateY(-1ex);
@@ -717,7 +717,7 @@ input[type="color"]::-webkit-color-swatch {
   border-radius: 1px;
 }
 
-.camera-panel select {
+.settings-panel select {
   flex: 1;
   border: none;
   background: transparent;
@@ -728,7 +728,7 @@ input[type="color"]::-webkit-color-swatch {
   cursor: pointer;
 }
 
-.camera-panel .value {
+.settings-panel .value {
   min-width: 2.2em;
   text-align: right;
   font-variant-numeric: tabular-nums;

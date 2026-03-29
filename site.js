@@ -42,8 +42,8 @@ function enhanceRange(input) {
 
 document.querySelectorAll('input[type="range"]').forEach(enhanceRange);
 
-// ─── Show camera panel when Boxes section is reached ───
-const panel = document.getElementById("camera-panel");
+// ─── Show settings panel when Boxes section is reached ───
+const panel = document.getElementById("settings-panel");
 
 // Collapse settings by default on mobile
 if (window.matchMedia("(max-width: 56rem)").matches) {
