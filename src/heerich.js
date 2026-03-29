@@ -34,6 +34,16 @@
  * @property {StyleObject} [style] - Resolved style for this face
  */
 
+/** Neighbor offsets: [dx, dy, dz, exposedFace] */
+const ADJ = [
+  [0, -1, 0, "bottom"],
+  [0, 1, 0, "top"],
+  [-1, 0, 0, "right"],
+  [1, 0, 0, "left"],
+  [0, 0, -1, "back"],
+  [0, 0, 1, "front"],
+];
+
 /**
  * A tiny engine for 3D voxel scenes rendered to SVG.
  */
@@ -119,6 +129,25 @@ export class Heerich {
   }
 
   /**
+   * Compute bounding-box center of an iterable of items.
+   * `get` extracts [x,y,z] from each item.
+   */
+  static _bboxCenter(items, get) {
+    let minX = Infinity, minY = Infinity, minZ = Infinity;
+    let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+    for (const item of items) {
+      const [x, y, z] = get(item);
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+      if (z < minZ) minZ = z;
+      if (z > maxZ) maxZ = z;
+    }
+    return [(minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2];
+  }
+
+  /**
    * Rotate a point [x,y,z] around a center by N 90° turns on the given axis.
    */
   static _rot90(x, y, z, axis, turns, cx, cy, cz) {
@@ -157,27 +186,7 @@ export class Heerich {
 
     // Must collect to compute center if not given
     const all = [...coords];
-    let [cx, cy, cz] = rotate.center || [0, 0, 0];
-
-    if (!rotate.center) {
-      let minX = Infinity,
-        minY = Infinity,
-        minZ = Infinity;
-      let maxX = -Infinity,
-        maxY = -Infinity,
-        maxZ = -Infinity;
-      for (const [x, y, z] of all) {
-        if (x < minX) minX = x;
-        if (x > maxX) maxX = x;
-        if (y < minY) minY = y;
-        if (y > maxY) maxY = y;
-        if (z < minZ) minZ = z;
-        if (z > maxZ) maxZ = z;
-      }
-      cx = (minX + maxX) / 2;
-      cy = (minY + maxY) / 2;
-      cz = (minZ + maxZ) / 2;
-    }
+    const [cx, cy, cz] = rotate.center || Heerich._bboxCenter(all, (c) => c);
 
     for (const [x, y, z] of all) {
       yield Heerich._rot90(x, y, z, rotate.axis, rotate.turns, cx, cy, cz);
@@ -190,27 +199,7 @@ export class Heerich {
    */
   rotate(opts) {
     const entries = [...this.voxels.values()];
-    let [cx, cy, cz] = opts.center || [0, 0, 0];
-
-    if (!opts.center) {
-      let minX = Infinity,
-        minY = Infinity,
-        minZ = Infinity;
-      let maxX = -Infinity,
-        maxY = -Infinity,
-        maxZ = -Infinity;
-      for (const v of entries) {
-        if (v.x < minX) minX = v.x;
-        if (v.x > maxX) maxX = v.x;
-        if (v.y < minY) minY = v.y;
-        if (v.y > maxY) maxY = v.y;
-        if (v.z < minZ) minZ = v.z;
-        if (v.z > maxZ) maxZ = v.z;
-      }
-      cx = (minX + maxX) / 2;
-      cy = (minY + maxY) / 2;
-      cz = (minZ + maxZ) / 2;
-    }
+    const [cx, cy, cz] = opts.center || Heerich._bboxCenter(entries, (v) => [v.x, v.y, v.z]);
 
     this.voxels.clear();
     for (const v of entries) {
@@ -275,7 +264,28 @@ export class Heerich {
           if (meta) voxel.meta = meta;
           this.voxels.set(key, voxel);
         } else if (mode === "subtract") {
-          this.voxels.delete(key);
+          if (this.voxels.delete(key) && style) {
+            // Style the newly exposed faces of neighboring voxels
+            for (const [dx, dy, dz, face] of ADJ) {
+              const nx = x + dx, ny = y + dy, nz = z + dz;
+              const nk = this._k(nx, ny, nz);
+              const neighbor = this.voxels.get(nk);
+              if (neighbor) {
+                const resolved = this._resolveStyles(style, nx, ny, nz);
+                if (resolved[face]) {
+                  neighbor.styles[face] = {
+                    ...(neighbor.styles[face] || {}),
+                    ...resolved[face],
+                  };
+                } else if (resolved.default) {
+                  neighbor.styles[face] = {
+                    ...(neighbor.styles[face] || {}),
+                    ...resolved.default,
+                  };
+                }
+              }
+            }
+          }
         } else if (mode === "exclude") {
           if (this.voxels.has(key)) {
             this.voxels.delete(key);
@@ -508,7 +518,7 @@ export class Heerich {
    * @param {[number,number,number]} opts.size
    */
   removeBox(opts) {
-    this._applyOp(this._boxCoords(opts.position, opts.size), "subtract");
+    this._applyOp(this._boxCoords(opts.position, opts.size), "subtract", opts.style);
   }
 
   /**
@@ -545,7 +555,7 @@ export class Heerich {
    * @param {number} opts.radius
    */
   removeSphere(opts) {
-    this._applyOp(this._sphereCoords(opts.center, opts.radius), "subtract");
+    this._applyOp(this._sphereCoords(opts.center, opts.radius), "subtract", opts.style);
   }
 
   /**
@@ -683,7 +693,21 @@ export class Heerich {
    * @param {function(number,number,number): boolean} opts.test
    */
   removeWhere(opts) {
-    this._applyOp(this._whereCoords(opts.bounds, opts.test), "subtract");
+    this._applyOp(this._whereCoords(opts.bounds, opts.test), "subtract", opts.style);
+  }
+
+  /**
+   * Restyle existing voxels at the given coordinates.
+   */
+  _styleCoords(coords, style) {
+    for (const [x, y, z] of coords) {
+      const key = this._k(x, y, z);
+      const voxel = this.voxels.get(key);
+      if (voxel) {
+        voxel.styles = this._resolveStyles(style, x, y, z, voxel.styles);
+      }
+    }
+    this._invalidate();
   }
 
   /**
@@ -694,26 +718,7 @@ export class Heerich {
    * @param {StyleParam} opts.style
    */
   styleBox(opts) {
-    const [sx, sy, sz] = opts.position;
-    const [w, h, d] = opts.size;
-    for (let z = sz; z < sz + d; z++) {
-      for (let y = sy; y < sy + h; y++) {
-        for (let x = sx; x < sx + w; x++) {
-          const key = this._k(x, y, z);
-          if (this.voxels.has(key)) {
-            const voxel = this.voxels.get(key);
-            voxel.styles = this._resolveStyles(
-              opts.style,
-              x,
-              y,
-              z,
-              voxel.styles,
-            );
-          }
-        }
-      }
-    }
-    this._invalidate();
+    this._styleCoords(this._boxCoords(opts.position, opts.size), opts.style);
   }
 
   /**
@@ -724,38 +729,7 @@ export class Heerich {
    * @param {StyleParam} opts.style
    */
   styleSphere(opts) {
-    const [cx, cy, cz] = opts.center;
-    const radius = opts.radius;
-    const top = Math.ceil(cy - radius);
-    const bottom = Math.floor(cy + radius);
-    const left = Math.ceil(cx - radius);
-    const right = Math.floor(cx + radius);
-    const front = Math.ceil(cz - radius);
-    const back = Math.floor(cz + radius);
-
-    for (let z = front; z <= back; z++) {
-      for (let y = top; y <= bottom; y++) {
-        for (let x = left; x <= right; x++) {
-          const dx = cx - x;
-          const dy = cy - y;
-          const dz = cz - z;
-          if (dx * dx + dy * dy + dz * dz <= radius * radius) {
-            const key = this._k(x, y, z);
-            if (this.voxels.has(key)) {
-              const voxel = this.voxels.get(key);
-              voxel.styles = this._resolveStyles(
-                opts.style,
-                x,
-                y,
-                z,
-                voxel.styles,
-              );
-            }
-          }
-        }
-      }
-    }
-    this._invalidate();
+    this._styleCoords(this._sphereCoords(opts.center, opts.radius), opts.style);
   }
 
   /**
@@ -768,49 +742,9 @@ export class Heerich {
    * @param {StyleParam} opts.style
    */
   styleLine(opts) {
-    const [x0, y0, z0] = opts.from;
-    const [x1, y1, z1] = opts.to;
     const radius = opts.radius || 0;
     const shape = opts.shape || "rounded";
-    const style = opts.style;
-    const dx = x1 - x0;
-    const dy = y1 - y0;
-    const dz = z1 - z0;
-    const N = Math.max(Math.abs(dx), Math.abs(dy), Math.abs(dz));
-
-    if (N === 0) {
-      if (shape === "rounded" && radius > 0) {
-        this.styleSphere({ center: [x0, y0, z0], radius, style });
-      } else {
-        const r = Math.floor(radius);
-        this.styleBox({
-          position: [x0 - r, y0 - r, z0 - r],
-          size: [r * 2 + 1, r * 2 + 1, r * 2 + 1],
-          style,
-        });
-      }
-      return;
-    }
-
-    for (let step = 0; step <= N; step++) {
-      const t = step / N;
-      const cx = Math.round(x0 + t * dx);
-      const cy = Math.round(y0 + t * dy);
-      const cz = Math.round(z0 + t * dz);
-
-      if (shape === "rounded" && radius > 0) {
-        this.styleSphere({ center: [cx, cy, cz], radius, style });
-      } else if (shape === "square" && radius > 0) {
-        const r = Math.floor(radius);
-        this.styleBox({
-          position: [cx - r, cy - r, cz - r],
-          size: [r * 2 + 1, r * 2 + 1, r * 2 + 1],
-          style,
-        });
-      } else {
-        this.styleBox({ position: [cx, cy, cz], size: [1, 1, 1], style });
-      }
-    }
+    this._styleCoords(this._lineCoords(opts.from, opts.to, radius, shape), opts.style);
   }
 
   /**
@@ -1412,30 +1346,7 @@ export class Heerich {
    * @returns {{x: number, y: number, w: number, h: number, faces: Face[]}}
    */
   getViewBoxBounds() {
-    const faces = this.getFaces();
-    let minX = Infinity,
-      minY = Infinity;
-    let maxX = -Infinity,
-      maxY = -Infinity;
-
-    if (faces.length === 0) return { x: 0, y: 0, w: 100, h: 100, faces };
-
-    for (const face of faces) {
-      for (const [px, py] of face.points) {
-        if (px < minX) minX = px;
-        if (py < minY) minY = py;
-        if (px > maxX) maxX = px;
-        if (py > maxY) maxY = py;
-      }
-    }
-
-    return {
-      x: minX,
-      y: minY,
-      w: maxX - minX,
-      h: maxY - minY,
-      faces,
-    };
+    return this._boundsFromFaces(this.getFaces());
   }
 
   /**

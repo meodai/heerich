@@ -75,6 +75,9 @@ All shape methods accept a common set of options:
 ```js
 h.addBox({ position: [0, 0, 0], size: [3, 2, 4] })
 h.removeBox({ position: [1, 0, 1], size: [1, 1, 1] })
+
+// Style the carved walls (optional)
+h.removeBox({ position: [0, 0, 0], size: [1, 1, 1], style: { default: { fill: '#222' } } })
 ```
 
 ### Sphere
@@ -82,6 +85,9 @@ h.removeBox({ position: [1, 0, 1], size: [1, 1, 1] })
 ```js
 h.addSphere({ center: [5, 5, 5], radius: 3 })
 h.removeSphere({ center: [5, 5, 5], radius: 1.5 })
+
+// Style the carved walls (optional)
+h.removeSphere({ center: [5, 5, 5], radius: 1, style: { default: { fill: '#222' } } })
 ```
 
 ### Line
@@ -137,6 +143,23 @@ h.addBox({ position: [1, 1, 1], size: [3, 3, 3], mode: 'intersect' })
 // Exclude — XOR: add where empty, remove where occupied
 h.addBox({ position: [0, 0, 0], size: [5, 5, 5], mode: 'exclude' })
 ```
+
+### Styling carved faces
+
+When removing voxels, you can pass a `style` to color the newly exposed faces of neighboring voxels — the "walls" of the carved hole:
+
+```js
+h.addBox({ position: [0, 0, 0], size: [10, 10, 10] })
+
+// Carve a hole with dark walls
+h.removeBox({
+  position: [3, 3, 0],
+  size: [4, 4, 5],
+  style: { default: { fill: '#222', stroke: '#111' } }
+})
+```
+
+This works on all remove methods (`removeBox`, `removeSphere`, `removeLine`, `removeWhere`) and on `addBox`/`addSphere` etc. with `mode: 'subtract'`. Without a `style`, subtract behaves as before — just deleting voxels.
 
 ## Styling
 

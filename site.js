@@ -880,42 +880,16 @@ function animateHoles({
 
     e.addBox({ position: [0, 0, 0], size: [cols, rows, maxDepth] });
 
-    // Carve holes
-    holes.forEach((h, i) => {
-      const d = Math.round(depths[i]);
-      if (d > 0) e.removeBox({ position: [h.x, h.y, 0], size: [h.w, h.h, d] });
-    });
-
-    // Style inside walls with outline color
+    // Carve holes — style paints the newly exposed neighbor faces
     const wallFill = { fill: "var(--stroke-c)", stroke: "var(--fill)" };
     holes.forEach((h, i) => {
       const d = Math.round(depths[i]);
-      if (d <= 0) return;
-      e.styleBox({
-        position: [h.x - 1, h.y, 0],
-        size: [1, h.h, d],
-        style: { right: wallFill },
-      });
-      e.styleBox({
-        position: [h.x + h.w, h.y, 0],
-        size: [1, h.h, d],
-        style: { left: wallFill },
-      });
-      e.styleBox({
-        position: [h.x, h.y - 1, 0],
-        size: [h.w, 1, d],
-        style: { bottom: wallFill },
-      });
-      e.styleBox({
-        position: [h.x, h.y + h.h, 0],
-        size: [h.w, 1, d],
-        style: { top: wallFill },
-      });
-      e.styleBox({
-        position: [h.x, h.y, d],
-        size: [h.w, h.h, 1],
-        style: { front: wallFill },
-      });
+      if (d > 0)
+        e.removeBox({
+          position: [h.x, h.y, 0],
+          size: [h.w, h.h, d],
+          style: { default: wallFill },
+        });
     });
 
     // Add towers — all faces use outline color
