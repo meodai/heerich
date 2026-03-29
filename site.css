@@ -812,13 +812,18 @@ input[type="color"]::-webkit-color-swatch {
   }
 }
 
-.site-footer .kofi-link {
+.kofi-link {
   display: inline-block;
-  margin: 1rem 0;
-  transition: opacity 0.2s;
+  margin: 1rem 0 1rem -0.45rem;
+  transition: filter 0.2s linear;
+  filter: sepia(1);
 }
 
-.site-footer .credit {
+.kofi-link:hover {
+  filter: sepia(0);
+}
+
+.credit {
   margin-top: 2rem;
   font-size: 0.8rem;
   color: color-mix(in oklab, var(--text) 50%, var(--bg));
