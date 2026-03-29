@@ -298,10 +298,18 @@ Note: functional styles (callbacks) cannot be serialized and will be omitted wit
 
 ## Coordinate System
 
-- **x** — left/right
-- **y** — up/down (y increases downward in screen space)
-- **z** — depth (front/back)
-- Valid range: **-512 to 511** on each axis
+- **X** — horizontal (left/right)
+- **Y** — vertical (up/down). **Note: Y increases downward**, originating from SVG/DOM screen space.
+- **Z** — depth (front/back).
+
+### Common 3D "Gotchas"
+Because the engine outputs standard SVG graphics and relies on Oblique projections, its grid behaves slightly differently than classic WebGL or mathematical 3D setups:
+
+1. **Y Pointing Down**: Setting a voxel at `y: -4` places it *above* the origin, and `y: 4` places it *below* the origin in standard rendering.
+2. **Oblique Z-Offset**: At the default angle of `315°` (pointing up and left visually), the Z-axis projects horizontally and vertically on screen.
+3. **The "Front" Quadrant**: Due to this isometric-style camera offset and Painter's Algorithm sorting, the closest visual corner pointing toward the camera is the `[-X, -Y, -Z]` (Negative) octant, not `[+X, +Y, +Z]` (Positive) as one might expect. Carving out the "front" of a block to expose the inside means subtracting negative values.
+
+Valid voxel coordinate bounds range from **-512 to 511** on each axis.
 
 ## Acknowledgements
 
