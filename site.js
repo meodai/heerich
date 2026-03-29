@@ -90,13 +90,15 @@ function roundToStep(value, min, step) {
   return Number(rounded.toFixed(4));
 }
 
+const num = (v, fallback) => { const n = parseFloat(v); return Number.isNaN(n) ? fallback : n; };
+
 function updatePerspectiveGrid() {
-  const angleMin = parseFloat(camAngle.min) || 0;
-  const angleMax = parseFloat(camAngle.max) || 360;
-  const camYMin = parseFloat(camY.min) || -10;
-  const camYMax = parseFloat(camY.max) || 20;
-  const angleValue = parseFloat(camAngle.value) || angleMin;
-  const camYValue = parseFloat(camY.value) || camYMin;
+  const angleMin = num(camAngle.min, 0);
+  const angleMax = num(camAngle.max, 360);
+  const camYMin = num(camY.min, -10);
+  const camYMax = num(camY.max, 20);
+  const angleValue = num(camAngle.value, angleMin);
+  const camYValue = num(camY.value, camYMin);
   const x = ((angleValue - angleMin) / (angleMax - angleMin)) * 100;
   const y = ((camYValue - camYMin) / (camYMax - camYMin)) * 100;
   const dx = x - 50;
@@ -116,12 +118,12 @@ function setPerspectiveFromGrid(clientX, clientY) {
   const rect = camGrid.getBoundingClientRect();
   const x = clamp((clientX - rect.left) / rect.width, 0, 1);
   const y = clamp((clientY - rect.top) / rect.height, 0, 1);
-  const angleMin = parseFloat(camAngle.min) || 0;
-  const angleMax = parseFloat(camAngle.max) || 360;
-  const angleStep = parseFloat(camAngle.step) || 1;
-  const camYMin = parseFloat(camY.min) || -10;
-  const camYMax = parseFloat(camY.max) || 20;
-  const camYStep = parseFloat(camY.step) || 1;
+  const angleMin = num(camAngle.min, 0);
+  const angleMax = num(camAngle.max, 360);
+  const angleStep = num(camAngle.step, 1);
+  const camYMin = num(camY.min, -10);
+  const camYMax = num(camY.max, 20);
+  const camYStep = num(camY.step, 1);
 
   const angleValue = roundToStep(
     angleMin + x * (angleMax - angleMin),
