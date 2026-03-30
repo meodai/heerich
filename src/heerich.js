@@ -1,6 +1,7 @@
 import { SVGRenderer } from "./renderers/svg.js";
 import { computeBounds } from "./renderers/svg.js";
 import { Points } from "./points.js";
+export { Canvas2dRenderer } from "./renderers/canvas2d.js";
 
 /**
  * @typedef {Object} StyleObject
