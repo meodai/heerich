@@ -618,7 +618,6 @@ export class Heerich {
     return engine;
   }
 
-
   /**
    * Add (or boolean-op) a box of voxels.
    * @param {Object} opts
@@ -658,11 +657,7 @@ export class Heerich {
    * @param {StyleParam} [opts.style] - Style to apply to newly exposed neighbor faces
    */
   removeBox(opts) {
-    this._applyOp(
-      boxCoords(opts.position, opts.size),
-      "subtract",
-      opts.style,
-    );
+    this._applyOp(boxCoords(opts.position, opts.size), "subtract", opts.style);
   }
 
   /**
@@ -789,11 +784,7 @@ export class Heerich {
    * @param {StyleParam} [opts.style] - Style to apply to newly exposed neighbor faces
    */
   removeWhere(opts) {
-    this._applyOp(
-      whereCoords(opts.bounds, opts.test),
-      "subtract",
-      opts.style,
-    );
+    this._applyOp(whereCoords(opts.bounds, opts.test), "subtract", opts.style);
   }
 
   /**

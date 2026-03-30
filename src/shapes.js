@@ -27,11 +27,7 @@ export function* sphereCoords(center, radius) {
   const [cx, cy, cz] = center;
   for (let z = Math.ceil(cz - radius); z <= Math.floor(cz + radius); z++)
     for (let y = Math.ceil(cy - radius); y <= Math.floor(cy + radius); y++)
-      for (
-        let x = Math.ceil(cx - radius);
-        x <= Math.floor(cx + radius);
-        x++
-      ) {
+      for (let x = Math.ceil(cx - radius); x <= Math.floor(cx + radius); x++) {
         const dx = cx - x,
           dy = cy - y,
           dz = cz - z;
@@ -89,10 +85,7 @@ export function* lineCoords(from, to, radius, shape) {
     } else if (shape === "square" && radius > 0) {
       const r = Math.floor(radius);
       yield* emit(
-        boxCoords(
-          [cx - r, cy - r, cz - r],
-          [r * 2 + 1, r * 2 + 1, r * 2 + 1],
-        ),
+        boxCoords([cx - r, cy - r, cz - r], [r * 2 + 1, r * 2 + 1, r * 2 + 1]),
       );
     } else {
       yield [cx, cy, cz];
