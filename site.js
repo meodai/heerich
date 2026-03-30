@@ -392,7 +392,60 @@ setupDemo("demo-align", (v) => {
   return e.toSVG(svgOpts);
 });
 
-// ─── Boolean operations ──────────────
+// ─── 4. Spheres ──────────────────────
+setupDemo("demo-sphere", (v) => {
+  const r = v.r;
+  const e = new Heerich({
+    tile: [28, 28],
+    camera: getCamera(),
+    style: baseStyle,
+  });
+  e.addSphere({ center: [r, r, r], radius: r });
+  return e.toSVG(svgOpts);
+});
+
+// ─── 5. Lines ────────────────────────
+setupDemo("demo-line", (v) => {
+  const e = new Heerich({
+    tile: [26, 26],
+    camera: getCamera(),
+    style: {
+      fill: "var(--fill)",
+      stroke: "var(--stroke-c)",
+      strokeWidth: "var(--stroke-w)",
+    },
+  });
+  e.addLine({
+    from: [0, 0, 0],
+    to: [v.ex, 6, v.ez],
+    radius: v.r,
+    shape: v.shape,
+  });
+  return e.toSVG(svgOpts);
+});
+
+// ─── Custom shapes ──────────────────
+setupDemo("demo-custom-shape", (v) => {
+  const s = v.size;
+  const e = new Heerich({
+    tile: [28, 28],
+    camera: getCamera(),
+    style: baseStyle,
+  });
+  e.addWhere({
+    bounds: [[0, 0, 0], [s, s, s]],
+    test: (x, y, z) => {
+      const c = Math.ceil(s / 4);
+      const nearEdge = [x, y, z].filter(
+        (v) => v < c || v >= s - c
+      ).length;
+      return nearEdge < 3;
+    },
+  });
+  return e.toSVG(svgOpts);
+});
+
+// ─── 6. Boolean operations ──────────────
 setupDemo("demo-boolean", (v) => {
   const e = new Heerich({
     tile: [26, 26],
@@ -409,7 +462,7 @@ setupDemo("demo-boolean", (v) => {
   return e.toSVG(svgOpts);
 });
 
-// ─── Rotation ────────────────────────
+// ─── 7. Rotation ────────────────────────
 setupDemo("demo-rotation", (v) => {
   const e = new Heerich({
     tile: [26, 26],
@@ -424,7 +477,7 @@ setupDemo("demo-rotation", (v) => {
   return e.toSVG(svgOpts);
 });
 
-// ─── Grouped voxels ──────────────────
+// ─── 8. Grouped voxels ──────────────────
 setupDemo("demo-group", (v) => {
   const e = new Heerich({
     tile: [26, 26],
@@ -451,7 +504,7 @@ setupDemo("demo-group", (v) => {
   return e.toSVG(svgOpts);
 });
 
-// ─── 4. Styles ───────────────────────
+// ─── 9. Styles ───────────────────────
 setupDemo("demo-style", (v) => {
   const e = new Heerich({
     tile: [30, 30],
@@ -474,7 +527,66 @@ setupDemo("demo-style", (v) => {
   return e.toSVG(svgOpts);
 });
 
-// ─── Voxel scaling ──────────────────
+// ─── 10. SVG styles ───────────────────
+setupDemo("demo-svg-styles", (v) => {
+  const e = new Heerich({
+    tile: [28, 28],
+    camera: getCamera(),
+    style: baseStyle,
+  });
+  e.addBox({
+    position: [0, 0, 0],
+    size: [4, 4, 4],
+    style: {
+      default: {
+        opacity: v.opacity,
+        strokeDasharray:
+          v.dash > 0
+            ? `${v.dash} ${Math.max(1, Math.floor(v.dash / 2))}`
+            : "none",
+      },
+    },
+  });
+  e.addBox({
+    position: [5, 0, 0],
+    size: [4, 4, 4],
+    style: { default: { opacity: 1 } },
+  });
+  return e.toSVG(svgOpts);
+});
+
+// ─── 11. Functional ───────────────────
+const hueStart = Math.random() * 360;
+setupDemo("demo-functional", (v) => {
+  const s = v.s;
+  const hueRange = v.hue;
+  const e = new Heerich({
+    tile: [28, 28],
+    camera: getCamera(),
+    style: {
+      fill: "var(--fill)",
+      stroke: "var(--stroke-c)",
+      strokeWidth: "var(--stroke-w)",
+    },
+  });
+  e.addBox({
+    position: [0, 0, 0],
+    size: [s, s, s],
+    style: {
+      default: (x, y, z) => {
+        const L = 0.4 + (y / s) * 0.5;
+        const C = 0.05 + (1 - z / s) * 0.2;
+        const H = ((x / s) * hueRange + hueStart) % 360;
+        return {
+          fill: `oklch(${L} ${C} ${H})`,
+        };
+      },
+    },
+  });
+  return e.toSVG(svgOpts);
+});
+
+// ─── 12. Voxel scaling ──────────────────
 setupDemo("demo-scale", (v) => {
   const h = v.height;
   const e = new Heerich({
@@ -522,98 +634,7 @@ setupDemo("demo-scale", (v) => {
   return e.toSVG(svgOpts);
 });
 
-// ─── 5. SVG styles ───────────────────
-setupDemo("demo-svg-styles", (v) => {
-  const e = new Heerich({
-    tile: [28, 28],
-    camera: getCamera(),
-    style: baseStyle,
-  });
-  e.addBox({
-    position: [0, 0, 0],
-    size: [4, 4, 4],
-    style: {
-      default: {
-        opacity: v.opacity,
-        strokeDasharray:
-          v.dash > 0
-            ? `${v.dash} ${Math.max(1, Math.floor(v.dash / 2))}`
-            : "none",
-      },
-    },
-  });
-  e.addBox({
-    position: [5, 0, 0],
-    size: [4, 4, 4],
-    style: { default: { opacity: 1 } },
-  });
-  return e.toSVG(svgOpts);
-});
-
-// ─── 6. Spheres ──────────────────────
-setupDemo("demo-sphere", (v) => {
-  const r = v.r;
-  const e = new Heerich({
-    tile: [28, 28],
-    camera: getCamera(),
-    style: baseStyle,
-  });
-  e.addSphere({ center: [r, r, r], radius: r });
-  return e.toSVG(svgOpts);
-});
-
-// ─── 6. Lines ────────────────────────
-setupDemo("demo-line", (v) => {
-  const e = new Heerich({
-    tile: [26, 26],
-    camera: getCamera(),
-    style: {
-      fill: "var(--fill)",
-      stroke: "var(--stroke-c)",
-      strokeWidth: "var(--stroke-w)",
-    },
-  });
-  e.addLine({
-    from: [0, 0, 0],
-    to: [v.ex, 6, v.ez],
-    radius: v.r,
-    shape: v.shape,
-  });
-  return e.toSVG(svgOpts);
-});
-
-// ─── 7. Functional ───────────────────
-const hueStart = Math.random() * 360;
-setupDemo("demo-functional", (v) => {
-  const s = v.s;
-  const hueRange = v.hue;
-  const e = new Heerich({
-    tile: [28, 28],
-    camera: getCamera(),
-    style: {
-      fill: "var(--fill)",
-      stroke: "var(--stroke-c)",
-      strokeWidth: "var(--stroke-w)",
-    },
-  });
-  e.addBox({
-    position: [0, 0, 0],
-    size: [s, s, s],
-    style: {
-      default: (x, y, z) => {
-        const L = 0.4 + (y / s) * 0.5;
-        const C = 0.05 + (1 - z / s) * 0.2;
-        const H = ((x / s) * hueRange + hueStart) % 360;
-        return {
-          fill: `oklch(${L} ${C} ${H})`,
-        };
-      },
-    },
-  });
-  return e.toSVG(svgOpts);
-});
-
-// ─── Functional scale ───────────────
+// ─── 13. Functional scale ───────────────
 setupDemo("demo-functional-scale", (v) => {
   const s = v.size;
   const taper = v.taper;
@@ -637,44 +658,6 @@ setupDemo("demo-functional-scale", (v) => {
     },
     scaleOrigin: (x, y, z) => [0.5, y % 2 === 0 ? 0 : 1, 0.5],
   });
-  return e.toSVG(svgOpts);
-});
-
-// ─── 9. Queries ──────────────────────
-setupDemo("demo-queries", (v) => {
-  const e = new Heerich({
-    tile: [24, 24],
-    camera: getCamera(),
-    style: baseStyle,
-  });
-  e.addBox({ position: [0, 0, 0], size: [6, 6, 6] });
-  e.removeSphere({ center: [3, 3, 6], radius: 2.5 });
-  e.removeBox({ position: [0, 0, 0], size: [2, 6, 3] });
-
-  e.forEach((voxel, pos) => {
-    const n = e.getNeighbors(pos);
-    const open = Object.values(n).filter((v) => !v).length;
-
-    let show = false;
-    if (v.show === "exposure") show = true;
-    else if (v.show === "edges") show = open >= 2;
-    else if (v.show === "corners") show = open >= 3;
-
-    if (show) {
-      const t = open / 6;
-      const L = Math.round(t * 100);
-      e.styleBox({
-        position: pos,
-        size: [1, 1, 1],
-        style: {
-          default: {
-            fill: `color-mix(in oklab, #000 ${100 - L}%, #fff)`,
-          },
-        },
-      });
-    }
-  });
-
   return e.toSVG(svgOpts);
 });
 
@@ -755,6 +738,44 @@ setupDemo("demo-queries", (v) => {
   render();
   demos.push(render);
 }
+
+// ─── 17. Queries ──────────────────────
+setupDemo("demo-queries", (v) => {
+  const e = new Heerich({
+    tile: [24, 24],
+    camera: getCamera(),
+    style: baseStyle,
+  });
+  e.addBox({ position: [0, 0, 0], size: [6, 6, 6] });
+  e.removeSphere({ center: [3, 3, 6], radius: 2.5 });
+  e.removeBox({ position: [0, 0, 0], size: [2, 6, 3] });
+
+  e.forEach((voxel, pos) => {
+    const n = e.getNeighbors(pos);
+    const open = Object.values(n).filter((v) => !v).length;
+
+    let show = false;
+    if (v.show === "exposure") show = true;
+    else if (v.show === "edges") show = open >= 2;
+    else if (v.show === "corners") show = open >= 3;
+
+    if (show) {
+      const t = open / 6;
+      const L = Math.round(t * 100);
+      e.styleBox({
+        position: pos,
+        size: [1, 1, 1],
+        style: {
+          default: {
+            fill: `color-mix(in oklab, #000 ${100 - L}%, #fff)`,
+          },
+        },
+      });
+    }
+  });
+
+  return e.toSVG(svgOpts);
+});
 
 // ─── Shared animation utilities ──────
 function easeInOutCubic(t) {

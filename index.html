@@ -197,20 +197,21 @@
             <li><a href="#setup">Creating an engine</a></li>
             <li><a href="#boxes">Boxes</a></li>
             <li><a href="#alignment">Coordinates &amp; alignment</a></li>
+            <li><a href="#spheres">Spheres</a></li>
+            <li><a href="#lines">Lines</a></li>
+            <li><a href="#custom-shapes">Custom shapes</a></li>
             <li><a href="#carving">Boolean operations</a></li>
             <li><a href="#rotation">Rotation</a></li>
             <li><a href="#grouping">Smooth solids</a></li>
             <li><a href="#styles">Styling faces</a></li>
-            <li><a href="#scale">Voxel scaling</a></li>
             <li><a href="#svg-styles">SVG style properties</a></li>
-            <li><a href="#spheres">Spheres</a></li>
-            <li><a href="#lines">Lines</a></li>
             <li><a href="#functional">Functional styles</a></li>
+            <li><a href="#scale">Voxel scaling</a></li>
             <li><a href="#functional-scale">Functional scale</a></li>
             <li><a href="#camera">Camera &amp; projection</a></li>
-            <li><a href="#queries">Querying voxels</a></li>
             <li><a href="#content-voxels">Content voxels</a></li>
             <li><a href="#opaque">Transparent voxels</a></li>
+            <li><a href="#queries">Querying voxels</a></li>
             <li><a href="#animation">Animation</a></li>
             <li><a href="#combined">Putting it all together</a></li>
             <li><a href="#gallery">After Heerich</a></li>
@@ -340,7 +341,150 @@ const center = big.map((b, i) => (b - small[i]) / 2)</code></pre>
         </div>
       </div>
 
-      <!-- ─── Boolean operations ─────────────────────────── -->
+      <!-- ─── 4. Spheres ────────────────────────────────── -->
+
+      <div class="section-row" id="spheres">
+        <div class="section-demo">
+          <div class="demo" id="demo-sphere">
+            <div class="demo-canvas"></div>
+            <div class="demo-controls">
+              <label class="control-label"
+                >Radius
+                <input
+                  type="range"
+                  min="1"
+                  max="8"
+                  value="4.5"
+                  step="0.5"
+                  data-bind="r"
+                />
+                <span class="control-value">4.5</span></label
+              >
+            </div>
+          </div>
+        </div>
+        <div class="section-text">
+          <h2>Spheres</h2>
+          <p>
+            <code>addSphere()</code> fills a sphere using a distance check from
+            the center. Using a <code>.5</code> radius and center (like
+            <code>3.5</code>) tends to produce the cleanest shapes on integer
+            grids.
+          </p>
+          <pre><code class="shj-lang-js">heerich.addSphere({ center: [4.5, 4.5, 4.5], radius: 4.5 })</code></pre>
+          <p>
+            <code>removeSphere()</code> carves a spherical hole — same
+            parameters, opposite effect. Combine a box and a sphere subtraction
+            for arched doorways.
+          </p>
+        </div>
+      </div>
+
+      <!-- ─── 5. Lines ──────────────────────────────────── -->
+
+      <div class="section-row" id="lines">
+        <div class="section-demo">
+          <div class="demo" id="demo-line">
+            <div class="demo-canvas"></div>
+            <div class="demo-controls">
+              <label class="control-label"
+                >Radius
+                <input
+                  type="range"
+                  min="0"
+                  max="3"
+                  value="1.5"
+                  step="0.5"
+                  data-bind="r"
+                />
+                <span class="control-value">1.5</span></label
+              >
+              <label class="control-label"
+                >Shape
+                <select class="control-select" data-bind="shape">
+                  <option value="rounded">rounded</option>
+                  <option value="square">square</option>
+                </select>
+              </label>
+              <label class="control-label"
+                >End X
+                <input type="range" min="0" max="12" value="8" data-bind="ex" />
+                <span class="control-value">8</span></label
+              >
+              <label class="control-label"
+                >End Z
+                <input type="range" min="0" max="12" value="8" data-bind="ez" />
+                <span class="control-value">8</span></label
+              >
+            </div>
+          </div>
+        </div>
+        <div class="section-text">
+          <h2>Lines</h2>
+          <p>
+            <code>addLine()</code> draws a voxelized line between two points.
+            Set <code>radius</code> to thicken it, and <code>shape</code> to
+            <code>'rounded'</code> (spheres along the path) or
+            <code>'square'</code>
+            (cubes along the path).
+          </p>
+          <pre><code class="shj-lang-js">heerich.addLine({
+  from: [0, 0, 0], to: [8, 8, 8],
+  radius: 1.5, shape: 'rounded'
+})</code></pre>
+        </div>
+      </div>
+
+      <!-- ─── Custom shapes ──────────────────────────────── -->
+
+      <div class="section-row" id="custom-shapes">
+        <div class="section-demo">
+          <div class="demo" id="demo-custom-shape">
+            <div class="demo-canvas"></div>
+            <div class="demo-controls">
+              <label class="control-label"
+                >Size
+                <input
+                  type="range"
+                  min="3"
+                  max="8"
+                  value="5"
+                  step="1"
+                  data-bind="size"
+                />
+                <span class="control-value">5</span></label
+              >
+            </div>
+          </div>
+        </div>
+        <div class="section-text">
+          <h2>Custom shapes</h2>
+          <p>
+            <code>addWhere()</code> is the general-purpose shape primitive
+            &mdash; define any shape as a function of
+            <code>(x,&nbsp;y,&nbsp;z)</code>. Boxes, spheres, and lines are
+            convenience wrappers around this same pattern.
+          </p>
+          <pre><code class="shj-lang-js">heerich.addWhere({
+  bounds: [[0, 0, 0], [s, s, s]],
+  test: (x, y, z) => {
+    const c = Math.ceil(s / 4)
+    const nearEdge = [x, y, z].filter(
+      v => v &lt; c || v >= s - c
+    ).length
+    return nearEdge &lt; 3
+  }
+})</code></pre>
+          <p>
+            The <code>test</code> function is called for every coordinate in
+            <code>bounds</code> &mdash; return <code>true</code> to place a
+            voxel. All common options (<code>style</code>, <code>scale</code>,
+            <code>mode</code>, etc.) work here too.
+          </p>
+        </div>
+      </div>
+
+      <!-- ─── 6. Boolean operations ─────────────────────────── -->
 
       <div class="section-row" id="carving">
         <div class="section-demo">
@@ -408,7 +552,7 @@ heerich.addSphere({
         </div>
       </div>
 
-      <!-- ─── Rotation ──────────────────────────────────── -->
+      <!-- ─── 7. Rotation ──────────────────────────────────── -->
 
       <div class="section-row" id="rotation">
         <div class="section-demo">
@@ -463,7 +607,7 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
         </div>
       </div>
 
-      <!-- ─── Grouped voxels ─────────────────────────── -->
+      <!-- ─── 8. Grouped voxels ─────────────────────────── -->
 
       <div class="section-row" id="grouping">
         <div class="section-demo">
@@ -504,7 +648,7 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
         </div>
       </div>
 
-      <!-- ─── Styles ──────────────────────────────────── -->
+      <!-- ─── 9. Styles ──────────────────────────────────── -->
 
       <div class="section-row" id="styles">
         <div class="section-demo">
@@ -550,63 +694,7 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
         </div>
       </div>
 
-      <!-- ─── Voxel scaling ─────────────────────────────── -->
-
-      <div class="section-row" id="scale">
-        <div class="section-demo">
-          <div class="demo" id="demo-scale">
-            <div class="demo-canvas"></div>
-            <div class="demo-controls">
-              <label class="control-label"
-                >Height
-                <input
-                  type="range"
-                  min="0.1"
-                  max="1"
-                  value="1"
-                  step="0.05"
-                  data-bind="height"
-                />
-                <span class="control-value">1</span></label
-              >
-            </div>
-          </div>
-        </div>
-        <div class="section-text">
-          <h2>Voxel scaling</h2>
-          <p>
-            Each voxel can have a <code>scale</code> &mdash; an
-            <code>[x, y, z]</code> array from 0 to 1 that shrinks it along each
-            axis. Scaled voxels automatically become non-opaque, revealing
-            neighbors behind them.
-          </p>
-          <pre><code class="shj-lang-js">// Static — same scale for every voxel
-heerich.addBox({
-  position: [0, 0, 0],
-  size: [1, 1, 1],
-  scale: [1, 0.5, 1],
-  scaleOrigin: [0.5, 1, 0.5]
-})
-
-// Functional — scale varies by position
-heerich.addBox({
-  position: [0, 0, 0],
-  size: [4, 4, 4],
-  scale: (x, y, z) => [1, 1 - y * 0.2, 1],
-  scaleOrigin: [0.5, 1, 0.5]
-})</code></pre>
-          <p>
-            The <code>scaleOrigin</code> controls where the scaling anchors
-            within the voxel cell &mdash; <code>[0.5, 1, 0.5]</code> pins to the
-            bottom-center, perfect for stairs. Defaults to
-            <code>[0.5, 0, 0.5]</code> (top-center). Both <code>scale</code> and
-            <code>scaleOrigin</code> accept functions of
-            <code>(x,&nbsp;y,&nbsp;z)</code> for per-voxel control.
-          </p>
-        </div>
-      </div>
-
-      <!-- ─── 5. SVG styles ──────────────────────────────── -->
+      <!-- ─── 10. SVG styles ──────────────────────────────── -->
 
       <div class="section-row" id="svg-styles">
         <div class="section-demo">
@@ -674,101 +762,7 @@ heerich.addBox({
         </div>
       </div>
 
-      <!-- ─── 6. Spheres ────────────────────────────────── -->
-
-      <div class="section-row" id="spheres">
-        <div class="section-demo">
-          <div class="demo" id="demo-sphere">
-            <div class="demo-canvas"></div>
-            <div class="demo-controls">
-              <label class="control-label"
-                >Radius
-                <input
-                  type="range"
-                  min="1"
-                  max="8"
-                  value="4.5"
-                  step="0.5"
-                  data-bind="r"
-                />
-                <span class="control-value">4.5</span></label
-              >
-            </div>
-          </div>
-        </div>
-        <div class="section-text">
-          <h2>Spheres</h2>
-          <p>
-            <code>addSphere()</code> fills a sphere using a distance check from
-            the center. Using a <code>.5</code> radius and center (like
-            <code>3.5</code>) tends to produce the cleanest shapes on integer
-            grids.
-          </p>
-          <pre><code class="shj-lang-js">heerich.addSphere({ center: [4.5, 4.5, 4.5], radius: 4.5 })</code></pre>
-          <p>
-            <code>removeSphere()</code> carves a spherical hole — same
-            parameters, opposite effect. Combine a box and a sphere subtraction
-            for arched doorways.
-          </p>
-        </div>
-      </div>
-
-      <!-- ─── 6. Lines ──────────────────────────────────── -->
-
-      <div class="section-row" id="lines">
-        <div class="section-demo">
-          <div class="demo" id="demo-line">
-            <div class="demo-canvas"></div>
-            <div class="demo-controls">
-              <label class="control-label"
-                >Radius
-                <input
-                  type="range"
-                  min="0"
-                  max="3"
-                  value="1.5"
-                  step="0.5"
-                  data-bind="r"
-                />
-                <span class="control-value">1.5</span></label
-              >
-              <label class="control-label"
-                >Shape
-                <select class="control-select" data-bind="shape">
-                  <option value="rounded">rounded</option>
-                  <option value="square">square</option>
-                </select>
-              </label>
-              <label class="control-label"
-                >End X
-                <input type="range" min="0" max="12" value="8" data-bind="ex" />
-                <span class="control-value">8</span></label
-              >
-              <label class="control-label"
-                >End Z
-                <input type="range" min="0" max="12" value="8" data-bind="ez" />
-                <span class="control-value">8</span></label
-              >
-            </div>
-          </div>
-        </div>
-        <div class="section-text">
-          <h2>Lines</h2>
-          <p>
-            <code>addLine()</code> draws a voxelized line between two points.
-            Set <code>radius</code> to thicken it, and <code>shape</code> to
-            <code>'rounded'</code> (spheres along the path) or
-            <code>'square'</code>
-            (cubes along the path).
-          </p>
-          <pre><code class="shj-lang-js">heerich.addLine({
-  from: [0, 0, 0], to: [8, 8, 8],
-  radius: 1.5, shape: 'rounded'
-})</code></pre>
-        </div>
-      </div>
-
-      <!-- ─── 7. Functional styles ──────────────────────── -->
+      <!-- ─── 11. Functional styles ──────────────────────── -->
 
       <div class="section-row" id="functional">
         <div class="section-demo">
@@ -825,7 +819,63 @@ heerich.addBox({
         </div>
       </div>
 
-      <!-- ─── Functional scale ────────────────────────── -->
+      <!-- ─── 12. Voxel scaling ─────────────────────────────── -->
+
+      <div class="section-row" id="scale">
+        <div class="section-demo">
+          <div class="demo" id="demo-scale">
+            <div class="demo-canvas"></div>
+            <div class="demo-controls">
+              <label class="control-label"
+                >Height
+                <input
+                  type="range"
+                  min="0.1"
+                  max="1"
+                  value="1"
+                  step="0.05"
+                  data-bind="height"
+                />
+                <span class="control-value">1</span></label
+              >
+            </div>
+          </div>
+        </div>
+        <div class="section-text">
+          <h2>Voxel scaling</h2>
+          <p>
+            Each voxel can have a <code>scale</code> &mdash; an
+            <code>[x, y, z]</code> array from 0 to 1 that shrinks it along each
+            axis. Scaled voxels automatically become non-opaque, revealing
+            neighbors behind them.
+          </p>
+          <pre><code class="shj-lang-js">// Static — same scale for every voxel
+heerich.addBox({
+  position: [0, 0, 0],
+  size: [1, 1, 1],
+  scale: [1, 0.5, 1],
+  scaleOrigin: [0.5, 1, 0.5]
+})
+
+// Functional — scale varies by position
+heerich.addBox({
+  position: [0, 0, 0],
+  size: [4, 4, 4],
+  scale: (x, y, z) => [1, 1 - y * 0.2, 1],
+  scaleOrigin: [0.5, 1, 0.5]
+})</code></pre>
+          <p>
+            The <code>scaleOrigin</code> controls where the scaling anchors
+            within the voxel cell &mdash; <code>[0.5, 1, 0.5]</code> pins to the
+            bottom-center, perfect for stairs. Defaults to
+            <code>[0.5, 0, 0.5]</code> (top-center). Both <code>scale</code> and
+            <code>scaleOrigin</code> accept functions of
+            <code>(x,&nbsp;y,&nbsp;z)</code> for per-voxel control.
+          </p>
+        </div>
+      </div>
+
+      <!-- ─── 13. Functional scale ────────────────────────── -->
 
       <div class="section-row" id="functional-scale">
         <div class="section-demo">
@@ -883,7 +933,7 @@ heerich.addBox({
         </div>
       </div>
 
-      <!-- ─── 8. Camera (text-only) ─────────────────────── -->
+      <!-- ─── 14. Camera (text-only) ─────────────────────── -->
 
       <div class="section-full">
         <h2 id="camera">Camera &amp; projection</h2>
@@ -912,54 +962,6 @@ heerich.setCamera({ type: 'perspective', position: [5, 5], distance: 12 })</code
           In perspective mode, the Angle slider moves the camera's X position,
           and very low distances can clip geometry behind the camera.
         </p>
-      </div>
-
-      <!-- ─── 9. Queries ─────────────────────────────────── -->
-
-      <div class="section-row" id="queries">
-        <div class="section-demo">
-          <div class="demo" id="demo-queries">
-            <div class="demo-canvas"></div>
-            <div class="demo-controls">
-              <label class="control-label"
-                >Show
-                <select class="control-select" data-bind="show">
-                  <option value="exposure">exposure (neighbor count)</option>
-                  <option value="edges">edges only</option>
-                  <option value="corners">corners only</option>
-                </select>
-              </label>
-            </div>
-          </div>
-        </div>
-        <div class="section-text">
-          <h2>Querying voxels</h2>
-          <p>
-            The engine exposes methods to inspect voxel state — useful for
-            procedural decoration, game logic, or custom shading based on
-            adjacency.
-          </p>
-          <pre><code class="shj-lang-js">// Color voxels by how exposed they are
-heerich.forEach((voxel, pos) => {
-  const n = heerich.getNeighbors(pos)
-  const exposed = Object.values(n)
-    .filter(v => !v).length
-  // exposed = number of open faces (0–6)
-})</code></pre>
-          <p>
-            <code>getNeighbors()</code> returns the six cardinal neighbors as
-            voxel objects or <code>null</code>. In the demo, voxels are colored
-            by how many open faces they have — fully buried voxels stay dark,
-            exposed ones light up.
-          </p>
-          <pre><code class="shj-lang-js">heerich.hasVoxel([3, 4, 5])   // boolean
-heerich.getVoxel([3, 4, 5])   // voxel data or null
-heerich.forEach((voxel, pos) => { ... })
-
-// Serialization
-const json = heerich.toJSON()
-const copy = Heerich.fromJSON(json)</code></pre>
-        </div>
       </div>
 
       <!-- ─── Content voxels ─────────────────────────────── -->
@@ -1032,6 +1034,54 @@ heerich.addBox({
   opaque: false,
   style: { default: { fill: 'none' } }
 })</code></pre>
+        </div>
+      </div>
+
+      <!-- ─── Queries ─────────────────────────────────── -->
+
+      <div class="section-row" id="queries">
+        <div class="section-demo">
+          <div class="demo" id="demo-queries">
+            <div class="demo-canvas"></div>
+            <div class="demo-controls">
+              <label class="control-label"
+                >Show
+                <select class="control-select" data-bind="show">
+                  <option value="exposure">exposure (neighbor count)</option>
+                  <option value="edges" selected>edges only</option>
+                  <option value="corners">corners only</option>
+                </select>
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="section-text">
+          <h2>Querying voxels</h2>
+          <p>
+            The engine exposes methods to inspect voxel state — useful for
+            procedural decoration, game logic, or custom shading based on
+            adjacency.
+          </p>
+          <pre><code class="shj-lang-js">// Color voxels by how exposed they are
+heerich.forEach((voxel, pos) => {
+  const n = heerich.getNeighbors(pos)
+  const exposed = Object.values(n)
+    .filter(v => !v).length
+  // exposed = number of open faces (0–6)
+})</code></pre>
+          <p>
+            <code>getNeighbors()</code> returns the six cardinal neighbors as
+            voxel objects or <code>null</code>. In the demo, voxels are colored
+            by how many open faces they have — fully buried voxels stay dark,
+            exposed ones light up.
+          </p>
+          <pre><code class="shj-lang-js">heerich.hasVoxel([3, 4, 5])   // boolean
+heerich.getVoxel([3, 4, 5])   // voxel data or null
+heerich.forEach((voxel, pos) => { ... })
+
+// Serialization
+const json = heerich.toJSON()
+const copy = Heerich.fromJSON(json)</code></pre>
         </div>
       </div>
 

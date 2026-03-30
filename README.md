@@ -108,9 +108,9 @@ h.addLine({ from: [0, 0, 0], to: [0, 10, 0], radius: 1, shape: 'square' })
 h.removeLine({ from: [3, 0, 0], to: [7, 0, 0] })
 ```
 
-### Where (Procedural)
+### Custom Shapes
 
-Add voxels anywhere a test function returns `true`:
+`addWhere` is the general-purpose shape primitive — define any shape as a function of `(x, y, z)`. Boxes, spheres, and lines are just convenience wrappers around this pattern.
 
 ```js
 // Hollow sphere
@@ -122,11 +122,23 @@ h.addWhere({
   }
 })
 
+// Torus
+h.addWhere({
+  bounds: [[-8, -3, -8], [8, 3, 8]],
+  test: (x, y, z) => {
+    const R = 6, r = 2
+    const q = Math.sqrt(x*x + z*z) - R
+    return q*q + y*y <= r*r
+  }
+})
+
 h.removeWhere({
   bounds: [[0, -6, -6], [6, 6, 6]],
   test: () => true
 })
 ```
+
+Combine with functional `scale` and `style` for fully procedural shapes — closest thing to a voxel shader.
 
 ## Boolean Operations
 
