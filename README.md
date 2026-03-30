@@ -302,8 +302,8 @@ const svg = h.toSVG({
 
 Every polygon gets data attributes for interactivity:
 
-```
-data-voxel="x,y,z"  data-x="x"  data-y="y"  data-z="z"  data-face="top"
+```html
+<... data-voxel="x,y,z"  data-x="x"  data-y="y"  data-z="z"  data-face="top" ../>
 ```
 
 Voxels with a `meta` object get additional `data-*` attributes.
@@ -406,6 +406,7 @@ Note: functional styles (callbacks) cannot be serialized and will be omitted wit
 - **Z** — depth (front/back).
 
 ### Common 3D "Gotchas"
+
 Because the engine outputs standard SVG graphics and relies on Oblique projections, its grid behaves slightly differently than classic WebGL or mathematical 3D setups:
 
 1. **Y Pointing Down**: Setting a voxel at `y: -4` places it *above* the origin, and `y: 4` places it *below* the origin in standard rendering.
@@ -417,9 +418,10 @@ Valid voxel coordinate bounds range from **-512 to 511** on each axis.
 ## Acknowledgements
 
 Shape calculations for lines and spheres are based on the excellent guides by Red Blob Games:
+
 - [Line drawing on a grid](https://www.redblobgames.com/grids/line-drawing/)
 - [Circle/sphere drawing on a grid](https://www.redblobgames.com/grids/circle-drawing/)
 
 ## License
 
-MIT
+MIT © 2026 David Aerne
