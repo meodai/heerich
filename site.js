@@ -433,12 +433,13 @@ setupDemo("demo-custom-shape", (v) => {
     style: baseStyle,
   });
   e.addWhere({
-    bounds: [[0, 0, 0], [s, s, s]],
+    bounds: [
+      [0, 0, 0],
+      [s, s, s],
+    ],
     test: (x, y, z) => {
       const c = Math.ceil(s / 4);
-      const nearEdge = [x, y, z].filter(
-        (v) => v < c || v >= s - c
-      ).length;
+      const nearEdge = [x, y, z].filter((v) => v < c || v >= s - c).length;
       return nearEdge < 3;
     },
   });
