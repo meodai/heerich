@@ -23,7 +23,8 @@
     "format": "prettier --write \"src/**/*.js\" \"*.js\" \"*.css\" \"*.html\"",
     "format:check": "prettier --check \"src/**/*.js\" \"*.js\" \"*.css\" \"*.html\"",
     "test": "vitest run",
-    "bench": "node bench.js"
+    "bench": "node bench.js",
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [
     "voxel",
@@ -46,6 +47,7 @@
     "fast-check": "^4.6.0",
     "mitata": "^1.0.34",
     "prettier": "^3.8.1",
+    "typescript": "^6.0.2",
     "vite": "^8.0.1",
     "vitest": "^4.1.2"
   }
