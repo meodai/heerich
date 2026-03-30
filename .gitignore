@@ -3,3 +3,5 @@ dist
 dist-site
 .claude/
 .vite/
+__screenshots__/
+.vitest-attachments/

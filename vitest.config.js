@@ -19,6 +19,7 @@ export default defineConfig({
           browser: {
             enabled: true,
             provider: playwright(),
+            // WebGPU tests auto-skip when adapter unavailable (headless Chromium)
             instances: [{ browser: "chromium" }],
             headless: true,
           },

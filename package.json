@@ -23,6 +23,7 @@
     "format": "prettier --write \"src/**/*.js\" \"*.js\" \"*.css\" \"*.html\"",
     "format:check": "prettier --check \"src/**/*.js\" \"*.js\" \"*.css\" \"*.html\"",
     "test": "vitest run",
+    "test:headed": "vitest run --config vitest.headed.config.js",
     "bench": "node bench.js",
     "typecheck": "tsc --noEmit"
   },
@@ -46,6 +47,7 @@
   "devDependencies": {
     "@vitest/browser": "^4.1.2",
     "@vitest/browser-playwright": "^4.1.2",
+    "@webgpu/types": "^0.1.69",
     "fast-check": "^4.6.0",
     "mitata": "^1.0.34",
     "playwright": "^1.58.2",
