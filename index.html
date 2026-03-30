@@ -242,9 +242,9 @@
 
         <p>
           A <code>Heerich</code> instance holds a 3D grid of voxels and knows
-          how to project them into 2D SVG. You create one with a few options —
-          grid dimensions, tile size for rendering, and a default style for
-          every voxel.
+          how to project them into 2D SVG. You initialize one by providing grid
+          dimensions, a rendering tile size in pixels, and an optional baseline
+          style applied universally across the active sequence.
         </p>
 
         <pre><code class="shj-lang-js">import { Heerich } from './src/heerich.js'
@@ -303,15 +303,16 @@ const { x, y, w, h } = heerich.getViewBoxBounds()</code></pre>
         <div class="section-text">
           <h2>Boxes</h2>
           <p>
-            The simplest primitive is a box — a rectangular solid defined by a
-            corner position and a size. Every voxel inside the box gets created
-            with the default style.
+            The most fundamental primitive is a box — a rectangular volume
+            anchored by a corner position and dimensions. Every voxel inside it
+            inherits the default style.
           </p>
           <pre><code class="shj-lang-js">heerich.addBox({ position: [0, 0, 0], size: [6, 4, 3] })</code></pre>
           <p>
-            Try dragging the sliders — the engine clears and rebuilds each
-            frame. Because <code>getFaces()</code> uses a dirty-flag cache,
-            re-rendering after a change is efficient.
+            Drag the sliders below — the engine clears and rebuilds the scene on
+            every frame. Because <code>getFaces()</code> utilizes a dirty-flag
+            cache, calculating rapid structural changes remains highly
+            efficient.
           </p>
         </div>
       </div>
@@ -337,10 +338,10 @@ const { x, y, w, h } = heerich.getViewBoxBounds()</code></pre>
         <div class="section-text">
           <h2>Coordinates &amp; alignment</h2>
           <p>
-            The engine has no concept of a ground plane —
-            <code>position</code> always refers to the minimum corner of the
-            shape. To align two boxes of different heights on a shared surface,
-            you offset the position yourself.
+            The system intentionally avoids a generic 'ground plane'. Instead,
+            <code>position</code> always anchors to the minimum corner of the
+            shape's bounds. To align objects of different dimensions on a shared
+            surface, you handle the offsets manually.
           </p>
           <pre><code class="shj-lang-js">const big = [6, 6, 6], small = [2, 2, 2]
 
@@ -350,9 +351,10 @@ const max = big.map((b, i) => b - small[i])
 // Center (works perfectly when difference is even)
 const center = big.map((b, i) => (b - small[i]) / 2)</code></pre>
           <p>
-            It's one subtraction per axis — the engine stays simple and you stay
-            in control. For pixel-perfect centering, keep the size difference
-            even on each axis.
+            This requires just one simple subtraction per axis, keeping the
+            engine minimal and leaving you in complete control. For
+            pixel-perfect centering on an integer grid, aim for even-numbered
+            coordinate differences.
           </p>
         </div>
       </div>
@@ -382,16 +384,17 @@ const center = big.map((b, i) => (b - small[i]) / 2)</code></pre>
         <div class="section-text">
           <h2>Spheres</h2>
           <p>
-            <code>addSphere()</code> fills a sphere using a distance check from
-            the center. Using a <code>.5</code> radius and center (like
-            <code>3.5</code>) tends to produce the cleanest shapes on integer
-            grids.
+            <code>addSphere()</code> plots a rounded volume using an internal
+            distance check. Using fractional offsets like <code>.5</code> for
+            both radius and center (e.g., center: <code>3.5</code>, radius:
+            <code>3.5</code>) tends to produce the cleanest symmetrical forms on
+            integer grids.
           </p>
           <pre><code class="shj-lang-js">heerich.addSphere({ center: [4.5, 4.5, 4.5], radius: 4.5 })</code></pre>
           <p>
-            <code>removeSphere()</code> carves a spherical hole — same
-            parameters, opposite effect. Combine a box and a sphere subtraction
-            for arched doorways.
+            Conversely, <code>removeSphere()</code> carves a hollow void using
+            the exact same parameters. Layer a sphere subtraction into a solid
+            box to effortlessly create arched doorways or dome cutouts.
           </p>
         </div>
       </div>
@@ -438,11 +441,12 @@ const center = big.map((b, i) => (b - small[i]) / 2)</code></pre>
         <div class="section-text">
           <h2>Lines</h2>
           <p>
-            <code>addLine()</code> draws a voxelized line between two points.
-            Set <code>radius</code> to thicken it, and <code>shape</code> to
-            <code>'rounded'</code> (spheres along the path) or
-            <code>'square'</code>
-            (cubes along the path).
+            <code>addLine()</code> plots a continuous voxelized path between two
+            spatial coordinates. You can thicken the stroke via
+            <code>radius</code>, and alter its joint geometry via
+            <code>shape</code> — choosing either <code>'rounded'</code> (a
+            sequence of overlapping spheres) or
+            <code>'square'</code> (overlapping cubes).
           </p>
           <pre><code class="shj-lang-js">heerich.addLine({
   from: [0, 0, 0], to: [8, 8, 8],
@@ -476,10 +480,11 @@ const center = big.map((b, i) => (b - small[i]) / 2)</code></pre>
         <div class="section-text">
           <h2>Custom shapes</h2>
           <p>
-            <code>addWhere()</code> is the general-purpose shape primitive
-            &mdash; define any shape as a function of
-            <code>(x,&nbsp;y,&nbsp;z)</code>. Boxes, spheres, and lines are
-            convenience wrappers around this same pattern.
+            <code>addWhere()</code> is the engine's architectural bedrock
+            &mdash; allowing you to define arbitrary geometry as an evaluation
+            function over <code>(x,&nbsp;y,&nbsp;z)</code>
+            coordinates. Under the hood, boxes, spheres, and lines are merely
+            convenient wrappers around this core method.
           </p>
           <pre><code class="shj-lang-js">heerich.addWhere({
   bounds: [[0, 0, 0], [s, s, s]],
@@ -492,10 +497,11 @@ const center = big.map((b, i) => (b - small[i]) / 2)</code></pre>
   }
 })</code></pre>
           <p>
-            The <code>test</code> function is called for every coordinate in
-            <code>bounds</code> &mdash; return <code>true</code> to place a
-            voxel. All common options (<code>style</code>, <code>scale</code>,
-            <code>mode</code>, etc.) work here too.
+            The <code>test</code> method evaluates every coordinate within the
+            specified <code>bounds</code> &mdash; returning
+            <code>true</code> spawns a voxel. All standard properties (like
+            <code>style</code>, <code>scale</code>, or <code>mode</code>)
+            continue to apply.
           </p>
         </div>
       </div>
@@ -539,8 +545,8 @@ const center = big.map((b, i) => (b - small[i]) / 2)</code></pre>
         <div class="section-text">
           <h2>Boolean operations</h2>
           <p>
-            Every primitive accepts a <code>mode</code> option that controls how
-            it interacts with existing voxels:
+            Every shape primitive accepts a <code>mode</code> property dictating
+            how it weaves into the existing voxel grid:
           </p>
           <ul>
             <li><strong>union</strong> — add voxels (default)</li>
@@ -601,10 +607,11 @@ heerich.addSphere({
         <div class="section-text">
           <h2>Rotation</h2>
           <p>
-            Every primitive accepts a <code>rotate</code> option for 90°
-            increments. Specify the <code>axis</code> and number of
-            <code>turns</code>. The shape rotates around its own center by
-            default, or a custom <code>center</code>.
+            Every primitive accepts a <code>rotate</code> configuration mapped
+            to precise 90° increments. Simply specify a rotation
+            <code>axis</code> and the count of quarter-<code>turns</code>. By
+            default, shapes pivot around their local center, but arbitrary
+            custom origins are seamlessly supported.
           </p>
           <pre><code class="shj-lang-js">// Build one arm, rotate a copy to make an L
 heerich.addBox({ position: [0, 0, 0], size: [2, 8, 2] })
@@ -616,9 +623,10 @@ heerich.addBox({
 // Rotate all existing voxels in place
 heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
           <p>
-            This makes it easy to build symmetric forms — define one piece, then
-            rotate copies. The Kreuzplastik in the gallery below is built from a
-            single arm rotated twice.
+            This dramatically simplifies creating symmetrical structures:
+            construct one facet, then repeatedly rotate clones around a central
+            pivot. (For example, the Kreuzplastik in the gallery below derives
+            entirely from a single arm sequence rotated into a cross.)
           </p>
         </div>
       </div>
@@ -648,18 +656,20 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
         <div class="section-text">
           <h2>Smooth solids</h2>
           <p>
-            Every voxel is 1&times;1&times;1 and gets its own stroke. To make a
-            shape look like a single smooth solid, set the
-            <code>stroke</code> to the same color as the <code>fill</code> — the
-            internal grid lines disappear.
+            By default, every 1&times;1&times;1 unit renders its own distinct
+            stroke. To fuse a shape into a single, visually seamless solid,
+            simply assign the
+            <code>stroke</code> the exact same color as the <code>fill</code>,
+            effectively rendering the internal grid geometry invisible.
           </p>
           <pre><code class="shj-lang-js">heerich.addBox({
   position: [0, 0, 0], size: [4, 4, 4],
   style: { default: { fill: '#0e0e0e', stroke: '#0e0e0e' } }
 })</code></pre>
           <p>
-            The surrounding 1&times;1&times;1 voxels keep their strokes,
-            creating a clear contrast between the smooth solid and the grid.
+            Untouched structural voxels retain their outlines, naturally
+            producing a crisp contrast between smooth, monolithic volumes and
+            articulated grids.
           </p>
         </div>
       </div>
@@ -686,12 +696,12 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
         <div class="section-text">
           <h2>Styling faces</h2>
           <p>
-            Each voxel has a style per face: <code>top</code>,
-            <code>front</code>, <code>left</code>, <code>right</code>,
-            <code>bottom</code>, <code>back</code>, and a
-            <code>default</code> that applies to all unspecified faces. You can
-            set styles when adding voxels, or apply them later with
-            <code>styleBox()</code>.
+            The engine tracks styles on a strict per-face basis:
+            <code>top</code>, <code>front</code>, <code>left</code>,
+            <code>right</code>, <code>bottom</code>, and <code>back</code>,
+            alongside a <code>default</code> fallback. You can inject these
+            styles during shape creation, or explicitly overwrite existing
+            regions later using <code>styleBox()</code>.
           </p>
           <pre><code class="shj-lang-js">heerich.addBox({
   position: [0, 0, 0], size: [4, 4, 4],
@@ -703,9 +713,10 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
   }
 })</code></pre>
           <p>
-            <code>styleBox()</code> applies styles to <em>existing</em> voxels
-            without creating new ones — useful for painting regions after
-            construction.
+            Crucially, <code>styleBox()</code> applies localized 'paint' to
+            <em>existing</em>
+            geometry without fabricating new voxels — ideal for shading specific
+            cross-sections after the overall volume is finalized.
           </p>
         </div>
       </div>
@@ -747,10 +758,11 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
         <div class="section-text">
           <h2>SVG style properties</h2>
           <p>
-            Style objects map directly to SVG attributes — so anything SVG
-            understands, you can pass in. This includes <code>opacity</code>,
-            <code>strokeDasharray</code>, <code>strokeLinecap</code>, or any
-            other
+            Internal style objects map perfectly to native SVG attributes. If
+            SVG natively understands a property, you can pass it directly. This
+            unleashes the full rendering spec — enabling <code>opacity</code>,
+            dotted edges via <code>strokeDasharray</code>, rounded
+            <code>strokeLinecap</code> margins, or any other
             <a
               href="https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute#presentation_attributes"
               >presentation attribute</a
@@ -769,11 +781,12 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
   }
 })</code></pre>
           <p>
-            Values are strings — so CSS <code>var()</code> references work too.
-            That's how the global fill color and stroke width controls on this
-            page work: the engine writes <code>var(--fill)</code> into the SVG,
-            and the browser resolves it from the document's CSS variables in
-            real time.
+            Because style values resolve as strings, you can seamlessly pass
+            native CSS
+            <code>var()</code> references. That strategy powers the interactive
+            controls across this documentation: the engine natively outputs
+            <code>var(--fill)</code>, and the browser resolves the cascade
+            against document state in real time.
           </p>
         </div>
       </div>
@@ -807,11 +820,11 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
         <div class="section-text">
           <h2>Functional styles</h2>
           <p>
-            Style values can be functions that receive the voxel's
-            <code>(x, y, z)</code>
-            coordinates and return a style object. This lets you create
-            gradients, patterns, or any position-dependent coloring without
-            manually styling each voxel.
+            Instead of static objects, styles can be assigned as pure computing
+            functions tracking over <code>(x,&nbsp;y,&nbsp;z)</code> parameters.
+            This effortlessly powers cascading gradients, periodic patterns, or
+            geometry-dependent shading rules — bypassing the need to iterate
+            through individual voxels manually.
           </p>
           <pre><code class="shj-lang-js">heerich.addBox({
   position: [0, 0, 0], size: [8, 8, 8],
@@ -828,9 +841,10 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
   }
 })</code></pre>
           <p>
-            The function is evaluated once per voxel when it's created. Each
-            face can also have its own function — mix static and functional
-            styles freely.
+            These callbacks are invoked exactly once at voxel creation.
+            Individual faces can possess their own isolated functions — letting
+            you freely cross-pollinate static hues with calculated spectral
+            shifts.
           </p>
         </div>
       </div>
@@ -860,10 +874,11 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
         <div class="section-text">
           <h2>Voxel scaling</h2>
           <p>
-            Each voxel can have a <code>scale</code> &mdash; an
-            <code>[x, y, z]</code> array from 0 to 1 that shrinks it along each
-            axis. Scaled voxels automatically become non-opaque, revealing
-            neighbors behind them.
+            Every single voxel supports an internal <code>scale</code> — an
+            <code>[x, y, z]</code> envelope mapped from 0 to 1 that collapses
+            the volume along internal axes. Scaled geometry automatically
+            triggers non-opaque rendering, correctly preserving visibility for
+            occluded geometry layered behind it.
           </p>
           <pre><code class="shj-lang-js">// Static — same scale for every voxel
 heerich.addBox({
@@ -881,12 +896,12 @@ heerich.addBox({
   scaleOrigin: [0.5, 1, 0.5]
 })</code></pre>
           <p>
-            The <code>scaleOrigin</code> controls where the scaling anchors
-            within the voxel cell &mdash; <code>[0.5, 1, 0.5]</code> pins to the
-            bottom-center, perfect for stairs. Defaults to
-            <code>[0.5, 0, 0.5]</code> (top-center). Both <code>scale</code> and
-            <code>scaleOrigin</code> accept functions of
-            <code>(x,&nbsp;y,&nbsp;z)</code> for per-voxel control.
+            The <code>scaleOrigin</code> dictates the spatial pivot for this
+            scaling inside the 1&times;1&times;1 unit block — for example,
+            <code>[0.5, 1, 0.5]</code>
+            anchors geometry strictly to the bottom-center, creating natural
+            staircase topologies. As with styles, both vectors seamlessly accept
+            functional callbacks for dynamic parameter shifting.
           </p>
         </div>
       </div>
@@ -928,10 +943,12 @@ heerich.addBox({
         <div class="section-text">
           <h2>Functional scale</h2>
           <p>
-            Like styles, <code>scale</code> can be a function of
-            <code>(x,&nbsp;y,&nbsp;z)</code> &mdash; each voxel gets its own
-            scale based on position. This lets you create tapers, organic
-            falloffs, or animation-ready shapes from a single call.
+            As implied, evaluating <code>scale</code> as an
+            <code>(x,&nbsp;y,&nbsp;z)</code> function empowers you to calculate
+            spatial decay based exclusively on local position. You can instantly
+            engineer complex tapers, rounded organic falloffs, or gracefully
+            staggered architectural elements without stepping outside a single
+            generative routine.
           </p>
           <pre><code class="shj-lang-js">heerich.addBox({
   position: [0, 0, 0], size: [s, s, s],
@@ -955,11 +972,13 @@ heerich.addBox({
         <h2 id="camera">Camera &amp; projection</h2>
 
         <p>
-          The engine supports two projections. <strong>Oblique</strong> is a
-          parallel projection where you control the angle and depth offset —
-          good for clean isometric-style views.
-          <strong>Perspective</strong> uses a single vanishing point and camera
-          position.
+          The rendering pipeline natively exposes two distinct geometric
+          projections.
+          <strong>Oblique</strong> implements parallel projection where depth
+          angles and offset scales are manually enforced — perfect for
+          hyper-clean orthographic aesthetics.
+          <strong>Perspective</strong> leans on classical single-vanishing-point
+          math anchored by an abstract camera position.
         </p>
 
         <pre><code class="shj-lang-js">// Oblique (parallel)
@@ -969,9 +988,10 @@ heerich.setCamera({ type: 'oblique', angle: 315, distance: 25 })
 heerich.setCamera({ type: 'perspective', position: [5, 5], distance: 12 })</code></pre>
 
         <p>
-          Try it now — the floating <strong>Camera</strong> panel in the top
-          right controls every demo on this page. Switch to perspective, change
-          the angle, and scroll through the demos to see them all update.
+          Look for the floating <strong>Settings</strong> panel (typically in
+          the top right). Swapping to perspective, adjusting camera elevations,
+          or shifting base hues applies sweeping, uninterrupted recalculations
+          instantly across the entire documentation.
         </p>
 
         <p class="note">
@@ -991,10 +1011,12 @@ heerich.setCamera({ type: 'perspective', position: [5, 5], distance: 12 })</code
         <div class="section-text">
           <h2>Content voxels</h2>
           <p>
-            Pass a <code>content</code> string to place arbitrary SVG inside a
-            voxel cell. The engine projects it to 2D, depth-sorts it with all
-            other faces, and wraps it in a <code>&lt;g&gt;</code> with
-            <code>transform</code> and CSS custom properties for sizing.
+            You can embed pure SVG arbitrarily into volumetric cells by
+            injecting a literal
+            <code>content</code> string. The engine intercepts these strings,
+            seamlessly calculates their projected 2D location alongside other
+            faces, enforces a strict Z-level depth sort, and encases everything
+            cleanly inside an integrated <code>&lt;g&gt;</code> element.
           </p>
           <pre><code class="shj-lang-js">heerich.addBox({
   position: [3, 0, 6], size: [1, 1, 1],
@@ -1007,9 +1029,10 @@ heerich.setCamera({ type: 'perspective', position: [5, 5], distance: 12 })</code
   &gt;A&lt;/text&gt;`
 })</code></pre>
           <p>
-            Set <code>opaque: false</code> so neighbors render their faces as if
-            the content cell is empty — otherwise the content would block
-            adjacent voxels.
+            Ensuring <code>opaque: false</code> explicitly directs neighboring
+            elements to render their intersection faces accurately. Otherwise,
+            neighbors would falsely assume a solid structure is blocking their
+            boundaries.
           </p>
           <p>
             The content is wrapped in a <code>&lt;g&gt;</code> with
@@ -1038,10 +1061,11 @@ heerich.setCamera({ type: 'perspective', position: [5, 5], distance: 12 })</code
         <div class="section-text">
           <h2>Transparent voxels</h2>
           <p>
-            Set <code>opaque: false</code> and the voxel still renders but
-            neighbors treat it as empty — their faces show through. Combine with
-            a transparent fill to create wireframe overlays, cages, or
-            see-through guides on top of solid geometry.
+            Set <code>opaque: false</code> and the voxel itself remains visible,
+            but adjacent voxels treat it as empty space — forcing their inner
+            faces to be drawn. Combine this with a transparent fill to construct
+            wireframe cages, bounding volumes, or see-through sculptural guides
+            anchored cleanly over solid geometry.
           </p>
           <pre><code class="shj-lang-js">// Wireframe cage over a solid core
 heerich.addBox({ position: [1, 1, 1], size: [3, 3, 3] })
@@ -1074,9 +1098,9 @@ heerich.addBox({
         <div class="section-text">
           <h2>Querying voxels</h2>
           <p>
-            The engine exposes methods to inspect voxel state — useful for
-            procedural decoration, game logic, or custom shading based on
-            adjacency.
+            A robust set of internal methods query localized voxel boundaries.
+            This is fundamental for evaluating complex procedural decorations,
+            handling adjacency logic, or driving edge-aware shading passes.
           </p>
           <pre><code class="shj-lang-js">// Color voxels by how exposed they are
 heerich.forEach((voxel, pos) => {
@@ -1086,10 +1110,11 @@ heerich.forEach((voxel, pos) => {
   // exposed = number of open faces (0–6)
 })</code></pre>
           <p>
-            <code>getNeighbors()</code> returns the six cardinal neighbors as
-            voxel objects or <code>null</code>. In the demo, voxels are colored
-            by how many open faces they have — fully buried voxels stay dark,
-            exposed ones light up.
+            The <code>getNeighbors()</code> query explicitly retrieves adjacent
+            solid geometry across the six cardinal planes. In the interactive
+            demo, individual cubes compute their overall exposure count —
+            completely encased shapes remain flat, while openly protruding forms
+            inherit high-contrast luminance.
           </p>
           <pre><code class="shj-lang-js">heerich.hasVoxel([3, 4, 5])   // boolean
 heerich.getVoxel([3, 4, 5])   // voxel data or null
@@ -1142,11 +1167,12 @@ const copy = Heerich.fromJSON(json)</code></pre>
         <div class="section-text">
           <h2>Animation</h2>
           <p>
-            The engine doesn't own a clock — you drive animation externally with
-            <code>requestAnimationFrame</code>. Tween a continuous value (like a
-            hole's depth) and rebuild the scene each frame. The
-            <code>removeBox</code> carves away one layer at a time as the value
-            crosses integers — smooth deconstruction.
+            The <code>heerich.js</code> architecture strictly separates state
+            from timing — animation is driven entirely externally, hooking
+            directly into your own <code>requestAnimationFrame</code> loop. By
+            interpolating a fractional value and redrawing the active sequence
+            per frame, standard voxel functions progressively toggle discrete
+            coordinates — yielding snappy, pixel-aligned deconstruction.
           </p>
           <pre><code class="shj-lang-js">const holes = [
   { x: 1, y: 1, targetDepth: 5 },
@@ -1167,8 +1193,9 @@ function frame(now) {
   if (!done) requestAnimationFrame(frame)
 }</code></pre>
           <p>
-            The stagger offset means each hole starts animating slightly after
-            the previous one, creating a cascading reveal.
+            Applying a stagger offset means each hole strictly starts animating
+            instantly after the previous one, rendering a beautifully cascading
+            reveal.
           </p>
         </div>
       </div>
@@ -1178,12 +1205,12 @@ function frame(now) {
       <div class="section-full" id="combined">
         <h2>Putting it all together</h2>
         <p>
-          A procedurally generated composition combining boxes, boolean carving,
-          functional styles, and animated deconstruction. Holes carve into a
-          full-width grid with depth-graded walls, while towers rise from
-          within. Voxel scaling smooths the transitions between integer
-          depths, so layers slide in rather than pop. Click the scene to
-          regenerate.
+          A dynamic, procedurally generated composition combining boxes, boolean
+          carving, and functional styles. Recessed voids plunge into a
+          full-width block, revealing depth-shaded walls, while towers steadily
+          rise from within. Fractional voxel scaling smooths the transitions
+          between integer depths, allowing layers to slide smoothly into place
+          rather than abruptly snapping. Click the scene to regenerate.
         </p>
       </div>
 
@@ -1196,8 +1223,9 @@ function frame(now) {
       <div class="section-full">
         <h2 id="gallery">After Heerich</h2>
         <p>
-          Recreations of Erwin Heerich's sculptures, built entirely with
-          heerich.js.
+          Exacting recreations of physical cardboard and brass sculptures
+          designed by Erwin Heerich, synthesized entirely in code using this
+          engine.
         </p>
       </div>
 
