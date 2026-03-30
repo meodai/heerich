@@ -327,6 +327,34 @@ const faces = h.getFacesFrom({
 const svg = h.toSVG({ faces })
 ```
 
+### Custom Renderers
+
+`getFaces()` returns everything you need to build your own renderer. Each face has:
+
+- `face.points` — projected 2D coordinates (flat array via `face.points.data`: `[x0, y0, x1, y1, ...]`)
+- `face.style` — resolved style object (`fill`, `stroke`, `strokeWidth`, etc.)
+- `face.type` — face direction (`'top'`, `'front'`, `'right'`, etc.) or `'content'`
+- `face.voxel` — source voxel with `x`, `y`, `z`, and optional `meta`
+- `face.depth` — depth value (array is already sorted back-to-front)
+
+```js
+const faces = h.getFaces()
+
+for (const face of faces) {
+  if (face.type === 'content') continue
+  const d = face.points.data
+  // d = [x0, y0, x1, y1, x2, y2, x3, y3] — four corners of a quad
+  ctx.beginPath()
+  ctx.moveTo(d[0], d[1])
+  ctx.lineTo(d[2], d[3])
+  ctx.lineTo(d[4], d[5])
+  ctx.lineTo(d[6], d[7])
+  ctx.closePath()
+  ctx.fillStyle = face.style.fill
+  ctx.fill()
+}
+```
+
 ### `getViewBoxBounds()` / `getOptimalViewBox(padding?, faces?)`
 
 Compute the bounding box of the rendered geometry:
