@@ -206,6 +206,7 @@
             <li><a href="#spheres">Spheres</a></li>
             <li><a href="#lines">Lines</a></li>
             <li><a href="#functional">Functional styles</a></li>
+            <li><a href="#functional-scale">Functional scale</a></li>
             <li><a href="#camera">Camera &amp; projection</a></li>
             <li><a href="#queries">Querying voxels</a></li>
             <li><a href="#content-voxels">Content voxels</a></li>
@@ -579,17 +580,28 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
             axis. Scaled voxels automatically become non-opaque, revealing
             neighbors behind them.
           </p>
-          <pre><code class="shj-lang-js">heerich.addBox({
+          <pre><code class="shj-lang-js">// Static — same scale for every voxel
+heerich.addBox({
   position: [0, 0, 0],
   size: [1, 1, 1],
   scale: [1, 0.5, 1],
+  scaleOrigin: [0.5, 1, 0.5]
+})
+
+// Functional — scale varies by position
+heerich.addBox({
+  position: [0, 0, 0],
+  size: [4, 4, 4],
+  scale: (x, y, z) => [1, 1 - y * 0.2, 1],
   scaleOrigin: [0.5, 1, 0.5]
 })</code></pre>
           <p>
             The <code>scaleOrigin</code> controls where the scaling anchors
             within the voxel cell &mdash; <code>[0.5, 1, 0.5]</code> pins to the
             bottom-center, perfect for stairs. Defaults to
-            <code>[0.5, 0, 0.5]</code> (top-center).
+            <code>[0.5, 0, 0.5]</code> (top-center). Both
+            <code>scale</code> and <code>scaleOrigin</code> accept functions of
+            <code>(x,&nbsp;y,&nbsp;z)</code> for per-voxel control.
           </p>
         </div>
       </div>
@@ -809,6 +821,64 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
             The function is evaluated once per voxel when it's created. Each
             face can also have its own function — mix static and functional
             styles freely.
+          </p>
+        </div>
+      </div>
+
+      <!-- ─── Functional scale ────────────────────────── -->
+
+      <div class="section-row" id="functional-scale">
+        <div class="section-demo">
+          <div class="demo" id="demo-functional-scale">
+            <div class="demo-canvas"></div>
+            <div class="demo-controls">
+              <label class="control-label"
+                >Size
+                <input
+                  type="range"
+                  min="2"
+                  max="8"
+                  value="3"
+                  step="1"
+                  data-bind="size"
+                />
+                <span class="control-value">5</span></label
+              >
+              <label class="control-label"
+                >Taper
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  value="0.8"
+                  step="0.05"
+                  data-bind="taper"
+                />
+                <span class="control-value">0.8</span></label
+              >
+            </div>
+          </div>
+        </div>
+        <div class="section-text">
+          <h2>Functional scale</h2>
+          <p>
+            Like styles, <code>scale</code> can be a function of
+            <code>(x,&nbsp;y,&nbsp;z)</code> &mdash; each voxel gets its own
+            scale based on position. This lets you create tapers, organic
+            falloffs, or animation-ready shapes from a single call.
+          </p>
+          <pre><code class="shj-lang-js">heerich.addBox({
+  position: [0, 0, 0], size: [s, s, s],
+  scale: (x, y, z) => {
+    const t = 1 - y / s
+    const f = 1 - t * taper
+    return [f, 1, f]
+  },
+  scaleOrigin: [0.5, 1, 0.5]
+})</code></pre>
+          <p>
+            Return <code>null</code> from the function to leave a voxel at full
+            size.
           </p>
         </div>
       </div>

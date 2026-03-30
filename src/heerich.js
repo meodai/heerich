@@ -266,9 +266,12 @@ export class Heerich {
           };
           if (content) voxel.content = content;
           if (scale) {
-            voxel.scale = scale;
-            voxel.scaleOrigin = scaleOrigin || [0.5, 0, 0.5];
-            voxel.opaque = false;
+            const s = typeof scale === "function" ? scale(x, y, z) : scale;
+            if (s) {
+              voxel.scale = s;
+              voxel.scaleOrigin = (typeof scaleOrigin === "function" ? scaleOrigin(x, y, z) : scaleOrigin) || [0.5, 0, 0.5];
+              voxel.opaque = false;
+            }
           } else if (opaque === false) {
             voxel.opaque = false;
           }
@@ -311,9 +314,12 @@ export class Heerich {
             };
             if (content) voxel.content = content;
             if (scale) {
-              voxel.scale = scale;
-              voxel.scaleOrigin = scaleOrigin || [0.5, 0, 0.5];
-              voxel.opaque = false;
+              const s = typeof scale === "function" ? scale(x, y, z) : scale;
+              if (s) {
+                voxel.scale = s;
+                voxel.scaleOrigin = (typeof scaleOrigin === "function" ? scaleOrigin(x, y, z) : scaleOrigin) || [0.5, 0, 0.5];
+                voxel.opaque = false;
+              }
             } else if (opaque === false) {
               voxel.opaque = false;
             }
@@ -518,8 +524,8 @@ export class Heerich {
    * @param {boolean} [opts.opaque=true] - Whether this voxel occludes neighbors
    * @param {Object} [opts.meta] - Arbitrary key/value pairs emitted as data-* attributes
    * @param {RotateOptions} [opts.rotate] - Rotate coordinates before placement
-   * @param {[number,number,number]} [opts.scale] - Per-axis scale 0-1 (auto-sets opaque: false)
-   * @param {[number,number,number]} [opts.scaleOrigin=[0.5,0,0.5]] - Scale origin within voxel
+   * @param {[number,number,number]|function(number,number,number):[number,number,number]} [opts.scale] - Per-axis scale 0-1, or function returning it (auto-sets opaque: false)
+   * @param {[number,number,number]|function(number,number,number):[number,number,number]} [opts.scaleOrigin=[0.5,0,0.5]] - Scale origin within voxel, or function returning it
    */
   addBox(opts) {
     const coords = this._rotateCoords(
@@ -563,8 +569,8 @@ export class Heerich {
    * @param {boolean} [opts.opaque=true]
    * @param {Object} [opts.meta]
    * @param {RotateOptions} [opts.rotate]
-   * @param {[number,number,number]} [opts.scale] - Per-axis scale 0-1 (auto-sets opaque: false)
-   * @param {[number,number,number]} [opts.scaleOrigin=[0.5,0,0.5]] - Scale origin within voxel
+   * @param {[number,number,number]|function(number,number,number):[number,number,number]} [opts.scale] - Per-axis scale 0-1, or function returning it (auto-sets opaque: false)
+   * @param {[number,number,number]|function(number,number,number):[number,number,number]} [opts.scaleOrigin=[0.5,0,0.5]] - Scale origin within voxel, or function returning it
    */
   addSphere(opts) {
     const coords = this._rotateCoords(
@@ -666,8 +672,8 @@ export class Heerich {
    * @param {boolean} [opts.opaque=true]
    * @param {Object} [opts.meta]
    * @param {RotateOptions} [opts.rotate]
-   * @param {[number,number,number]} [opts.scale] - Per-axis scale 0-1 (auto-sets opaque: false)
-   * @param {[number,number,number]} [opts.scaleOrigin=[0.5,0,0.5]] - Scale origin within voxel
+   * @param {[number,number,number]|function(number,number,number):[number,number,number]} [opts.scale] - Per-axis scale 0-1, or function returning it (auto-sets opaque: false)
+   * @param {[number,number,number]|function(number,number,number):[number,number,number]} [opts.scaleOrigin=[0.5,0,0.5]] - Scale origin within voxel, or function returning it
    */
   addLine(opts) {
     const radius = opts.radius || 0;
@@ -716,8 +722,8 @@ export class Heerich {
    * @param {string} [opts.content]
    * @param {boolean} [opts.opaque=true]
    * @param {Object} [opts.meta]
-   * @param {[number,number,number]} [opts.scale] - Per-axis scale 0-1 (auto-sets opaque: false)
-   * @param {[number,number,number]} [opts.scaleOrigin=[0.5,0,0.5]] - Scale origin within voxel
+   * @param {[number,number,number]|function(number,number,number):[number,number,number]} [opts.scale] - Per-axis scale 0-1, or function returning it (auto-sets opaque: false)
+   * @param {[number,number,number]|function(number,number,number):[number,number,number]} [opts.scaleOrigin=[0.5,0,0.5]] - Scale origin within voxel, or function returning it
    */
   addWhere(opts) {
     const coords = this._whereCoords(opts.bounds, opts.test);

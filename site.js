@@ -605,6 +605,33 @@ setupDemo("demo-functional", (v) => {
   return e.toSVG(svgOpts);
 });
 
+// ─── Functional scale ───────────────
+setupDemo("demo-functional-scale", (v) => {
+  const s = v.size;
+  const taper = v.taper;
+  const e = new Heerich({
+    tile: [28, 28],
+    camera: getCamera(),
+    style: baseStyle,
+  });
+  e.addBox({
+    position: [0, 0, 0],
+    size: [s, s, s],
+    scale: (x, y, z) => {
+      const t = 1 - y / s;
+      const f = 1 - t * taper;
+      // Voxels further from center are shorter
+      const cx = (x + 0.5) / s - 0.5;
+      const cz = (z + 0.5) / s - 0.5;
+      const dist = Math.sqrt(cx * cx + cz * cz) * 2;
+      const yf = Math.max(0.05, 1 - dist * taper);
+      return [f, yf, f];
+    },
+    scaleOrigin: (x, y, z) => [0.5, y % 2 === 0 ? 0 : 1, 0.5],
+  });
+  return e.toSVG(svgOpts);
+});
+
 // ─── 9. Queries ──────────────────────
 setupDemo("demo-queries", (v) => {
   const e = new Heerich({
