@@ -38,7 +38,7 @@ function makeGrid(gridSize, camera = { type: "oblique", angle: 45, distance: 15 
 const scenes = {};
 for (const size of [10, 20, 30]) {
   scenes[`oblique_${size}`] = makeGrid(size);
-  scenes[`perspective_${size}`] = makeGrid(size, { type: "perspective", fov: 60, distance: 80 });
+  scenes[`perspective_${size}`] = makeGrid(size, { type: "perspective", distance: 80 });
 }
 
 // ---------------------------------------------------------------------------

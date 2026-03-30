@@ -12,6 +12,12 @@ export default defineConfig({
         minesweeper: fileURLToPath(
           new URL("./minesweeper.html", import.meta.url),
         ),
+        "canvas-demo": fileURLToPath(
+          new URL("./canvas-demo.html", import.meta.url),
+        ),
+        "stress-test": fileURLToPath(
+          new URL("./stress-test.html", import.meta.url),
+        ),
       },
     },
   },

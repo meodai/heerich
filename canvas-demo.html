@@ -1,0 +1,781 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>heerich.js — Renderer Comparison</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Aboreto&family=Work+Sans:wght@300;400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./site.css" />
+    <style>
+      body {
+        min-height: 100vh;
+      }
+
+      /* ── Page header ── */
+      .page-header {
+        padding: 3rem 3rem 1.5rem;
+        border-bottom: 1px solid var(--line);
+      }
+      .page-header h1 {
+        font-size: 3rem;
+        margin: 0 0 0.3em;
+      }
+      .page-header p {
+        margin: 0;
+        color: color-mix(in oklab, var(--text) 50%, var(--bg));
+      }
+
+      /* ── Sections ── */
+      .section {
+        padding: 2.5rem 3rem;
+        border-bottom: 1px solid var(--line);
+      }
+      .section:last-child {
+        border-bottom: none;
+      }
+      .section-label {
+        font-family: "Aboreto", cursive;
+        font-size: 1.1rem;
+        margin-bottom: 1.5rem;
+      }
+
+      /* ── Demo grid ── */
+      .demo-row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1px;
+        background: var(--line);
+        border: 1px solid var(--line);
+        overflow: hidden;
+        margin-bottom: 1px;
+      }
+      .demo-cell {
+        background: var(--bg);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 1rem;
+        gap: 0.5rem;
+      }
+      .demo-cell .label {
+        font-size: 0.75rem;
+        font-weight: 400;
+        color: color-mix(in oklab, var(--text) 50%, var(--bg));
+        align-self: flex-start;
+      }
+      .demo-cell canvas,
+      .demo-cell .svg-container,
+      .demo-cell .fallback {
+        width: 100%;
+        aspect-ratio: 1;
+      }
+      .demo-cell .svg-container { overflow: hidden; }
+      .demo-cell .svg-container svg { width: 100%; height: 100%; }
+
+      /* ── Toolbar ── */
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-bottom: 1.25rem;
+      }
+      .toolbar button {
+        font-family: "Work Sans", sans-serif;
+        font-size: 0.8rem;
+        font-weight: 400;
+        padding: 0.35rem 0.8rem;
+        border: 1px solid var(--line);
+        background: transparent;
+        color: color-mix(in oklab, var(--text) 50%, var(--bg));
+        cursor: pointer;
+        transition: all 0.15s;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        transform: none;
+      }
+      .toolbar button:hover {
+        border-color: var(--text);
+        color: var(--text);
+      }
+      .toolbar button.active {
+        border-color: var(--text);
+        color: var(--text);
+        background: color-mix(in oklab, var(--text) 8%, var(--bg));
+      }
+
+      /* ── Metrics ── */
+      .metrics {
+        display: flex;
+        gap: 1px;
+        background: var(--line);
+        overflow: hidden;
+        margin-left: auto;
+      }
+      .metric {
+        background: var(--bg);
+        padding: 0.25rem 0.6rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-width: 5rem;
+      }
+      .metric .metric-label {
+        font-size: 0.65rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: color-mix(in oklab, var(--text) 40%, var(--bg));
+      }
+      .metric .metric-value {
+        font-family: "SF Mono", "Fira Code", monospace;
+        font-size: 0.8rem;
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* ── Animated grid ── */
+      .anim-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1px;
+        background: var(--line);
+        border: 1px solid var(--line);
+        overflow: hidden;
+      }
+      .anim-cell {
+        background: var(--bg);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 0.75rem;
+        gap: 0.4rem;
+      }
+      .anim-cell .label {
+        font-size: 0.75rem;
+        font-weight: 400;
+        color: color-mix(in oklab, var(--text) 50%, var(--bg));
+        align-self: flex-start;
+      }
+      .anim-cell canvas,
+      .anim-cell .svg-container,
+      .anim-cell .fallback {
+        width: 100%;
+        aspect-ratio: 1;
+      }
+      .anim-cell .svg-container { overflow: hidden; }
+      .anim-cell .svg-container svg { width: 100%; height: 100%; }
+
+      .hit-info {
+        font-size: 0.8rem;
+        color: color-mix(in oklab, var(--text) 50%, var(--bg));
+        margin-top: 1rem;
+        min-height: 1em;
+      }
+
+      .fallback {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: color-mix(in oklab, var(--text) 4%, var(--bg));
+        color: color-mix(in oklab, var(--text) 40%, var(--bg));
+        font-size: 0.85rem;
+      }
+
+      @media (max-width: 56rem) {
+        .demo-row,
+        .anim-grid {
+          grid-template-columns: 1fr;
+        }
+        .metrics {
+          margin-left: 0;
+          width: 100%;
+        }
+        .section {
+          padding: 2rem 1.5rem;
+        }
+        .page-header {
+          padding: 2rem 1.5rem 1rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+
+    <div class="page-header">
+      <h1>Renderer Comparison</h1>
+      <p>heerich.js scenes rendered to SVG, Canvas2D, and WebGPU side by side.</p>
+    </div>
+
+    <!-- Camera controls -->
+    <style>
+      #camera-bar .cam-val {
+        display: inline-block;
+        min-width: 2.5em;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+    </style>
+    <div class="toolbar" id="camera-bar" style="padding: 0.5rem 1.5rem; border-bottom: 1px solid var(--line); gap: 1.5rem; flex-wrap: wrap;">
+      <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.75rem; color: color-mix(in oklab, var(--text) 60%, var(--bg));">
+        Camera
+        <select id="cam-type" style="font-size:0.75rem; padding:0.2rem 0.4rem; background:var(--bg); color:var(--text); border:1px solid var(--line); border-radius:3px;">
+          <option value="oblique">Oblique</option>
+          <option value="perspective">Perspective</option>
+        </select>
+      </label>
+      <label id="lbl-angle" style="display:flex; align-items:center; gap:0.4rem; font-size:0.75rem; color: color-mix(in oklab, var(--text) 60%, var(--bg));">
+        Angle <input type="range" id="cam-angle" min="0" max="360" value="45" style="width:100px;"> <span class="cam-val" id="cam-angle-val">45.0</span>°
+      </label>
+      <label id="lbl-pos-x" style="display:none; align-items:center; gap:0.4rem; font-size:0.75rem; color: color-mix(in oklab, var(--text) 60%, var(--bg));">
+        Pos X <input type="range" id="cam-pos-x" min="-10" max="20" value="5" step="0.5" style="width:80px;"> <span class="cam-val" id="cam-pos-x-val">5.0</span>
+      </label>
+      <label id="lbl-pos-y" style="display:none; align-items:center; gap:0.4rem; font-size:0.75rem; color: color-mix(in oklab, var(--text) 60%, var(--bg));">
+        Pos Y <input type="range" id="cam-pos-y" min="-10" max="20" value="5" step="0.5" style="width:80px;"> <span class="cam-val" id="cam-pos-y-val">5.0</span>
+      </label>
+      <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.75rem; color: color-mix(in oklab, var(--text) 60%, var(--bg));">
+        Distance <input type="range" id="cam-dist" min="1" max="80" value="15" style="width:100px;"> <span class="cam-val" id="cam-dist-val">15.0</span>
+      </label>
+    </div>
+
+    <!-- Section 1: Static style demos -->
+    <div class="section">
+      <div class="section-label">Style Demos</div>
+      <div id="style-demos"></div>
+    </div>
+
+    <!-- Section 2: Animated scene -->
+    <div class="section">
+      <div class="section-label">Animated Scene</div>
+
+      <div class="toolbar">
+        <button class="active" id="btn-svg">SVG</button>
+        <button class="active" id="btn-canvas">Canvas</button>
+        <button class="active" id="btn-webgpu" style="display:none">WebGPU</button>
+        <div class="metrics" id="anim-metrics">
+          <div class="metric"><span class="metric-label">Faces</span><span class="metric-value" id="m-faces">&mdash;</span></div>
+          <div class="metric"><span class="metric-label">Build</span><span class="metric-value" id="m-build">&mdash;</span></div>
+          <div class="metric"><span class="metric-label">SVG</span><span class="metric-value" id="m-svg">&mdash;</span></div>
+          <div class="metric"><span class="metric-label">Canvas</span><span class="metric-value" id="m-canvas">&mdash;</span></div>
+          <div class="metric" id="m-webgpu-wrap" style="display:none"><span class="metric-label">WebGPU</span><span class="metric-value" id="m-webgpu">&mdash;</span></div>
+        </div>
+      </div>
+
+      <div class="anim-grid">
+        <div class="anim-cell">
+          <span class="label">SVGRenderer</span>
+          <div class="svg-container" id="anim-svg"></div>
+        </div>
+        <div class="anim-cell">
+          <span class="label">Canvas2dRenderer</span>
+          <canvas id="anim-canvas" width="800" height="800"></canvas>
+        </div>
+        <div class="anim-cell" id="anim-webgpu-panel">
+          <span class="label">WebGPURenderer</span>
+          <canvas id="anim-webgpu" width="800" height="800"></canvas>
+        </div>
+      </div>
+
+      <p class="hit-info" id="anim-info">Hover over canvases for hit-testing</p>
+    </div>
+
+    <script type="module">
+      import { Heerich } from "./src/heerich.js";
+      import { SVGRenderer } from "./src/renderers/svg.js";
+      import { Canvas2dRenderer } from "./src/renderers/canvas2d.js";
+      import { WebGPURenderer } from "./src/renderers/webgpu.js";
+
+      const hasWebGPU = !!navigator.gpu;
+
+      // ── Style demos ──
+
+      const styleDemos = [
+        {
+          title: "Opacity + dash",
+          build(h) {
+            h.addBox({
+              position: [0, 0, 0], size: [4, 4, 4],
+              style: {
+                default: { fill: "#6c5ce7", stroke: "#2d3436", strokeWidth: 1, opacity: 0.85 },
+                top: { fill: "#a29bfe", stroke: "#2d3436", strokeWidth: 1, opacity: 0.85 },
+              },
+            });
+            h.addBox({
+              position: [2, 2, 2], size: [4, 4, 4],
+              style: {
+                default: { fill: "#fd79a8", stroke: "#d63031", strokeWidth: 0.8, strokeDasharray: "3 2", opacity: 0.6 },
+                top: { fill: "#fab1a0", stroke: "#d63031", strokeWidth: 0.8, strokeDasharray: "3 2", opacity: 0.6 },
+              },
+            });
+          },
+        },
+        {
+          title: "Per-face callbacks",
+          build(h) {
+            h.addSphere({
+              center: [3, 3, 3], radius: 3,
+              style: {
+                default: (x, y, z) => {
+                  const t = (y - 0) / 6;
+                  const r = Math.round(50 + t * 180);
+                  const g = Math.round(100 + (1 - t) * 100);
+                  const b = Math.round(200 - t * 100);
+                  return { fill: `rgb(${r},${g},${b})`, stroke: "#333", strokeWidth: 0.4 };
+                },
+                top: (x, y, z) => {
+                  const t = (y - 0) / 6;
+                  const r = Math.round(80 + t * 175);
+                  const g = Math.round(130 + (1 - t) * 100);
+                  const b = Math.round(220 - t * 80);
+                  return { fill: `rgb(${r},${g},${b})`, stroke: "#333", strokeWidth: 0.4 };
+                },
+              },
+            });
+          },
+        },
+        {
+          title: "Boolean subtract",
+          build(h) {
+            h.addBox({
+              position: [0, 0, 0], size: [6, 6, 6],
+              style: {
+                default: { fill: "#dfe6e9", stroke: "#636e72", strokeWidth: 0.6 },
+                top: { fill: "#f0f3f4", stroke: "#636e72", strokeWidth: 0.6 },
+              },
+            });
+            h.addSphere({
+              center: [3, 3, 3], radius: 3,
+              mode: "subtract",
+            });
+          },
+        },
+        {
+          title: "Thick strokes + caps",
+          build(h) {
+            h.addLine({
+              from: [0, 0, 0], to: [6, 6, 0], radius: 1, shape: "rounded",
+              style: {
+                default: { fill: "#00b894", stroke: "#00695c", strokeWidth: 2, strokeLinejoin: "bevel" },
+                top: { fill: "#55efc4", stroke: "#00695c", strokeWidth: 2 },
+              },
+            });
+            h.addLine({
+              from: [6, 0, 0], to: [0, 6, 0], radius: 1, shape: "square",
+              style: {
+                default: { fill: "#e17055", stroke: "#8b3a2a", strokeWidth: 2, strokeLinejoin: "miter" },
+                top: { fill: "#fab1a0", stroke: "#8b3a2a", strokeWidth: 2 },
+              },
+            });
+          },
+        },
+        {
+          title: "Scale",
+          build(h) {
+            // Base platform
+            h.addBox({
+              position: [-3, 0, -3], size: [6, 1, 6],
+              style: { default: { fill: "#b0c4de", stroke: "#7a8fa5", strokeWidth: 0.4 }, top: { fill: "#d4e3f5" } },
+            });
+            // Scaled pillars at different sizes
+            const colors = ["#e8927c", "#7cc8a0", "#6c5ce7", "#fdcb6e"];
+            const strokes = ["#c47060", "#5ea87e", "#4834a8", "#c8a020"];
+            for (let i = 0; i < 4; i++) {
+              const x = -2 + i * 2, z = -1;
+              const s = 0.3 + i * 0.2;
+              h.addBox({
+                position: [x, 1, z], size: [1, 3 + i, 1],
+                style: { default: { fill: colors[i], stroke: strokes[i], strokeWidth: 0.5 }, top: { fill: colors[i] } },
+                scale: [s, 1, s], scaleOrigin: [0.5, 0, 0.5],
+              });
+            }
+            // Full-size box for contrast
+            h.addBox({
+              position: [0, 1, 1], size: [2, 2, 2],
+              style: { default: { fill: "#fd79a8", stroke: "#d63071", strokeWidth: 0.5 }, top: { fill: "#fab1a0" } },
+            });
+          },
+        },
+        {
+          title: "Rotation",
+          build(h) {
+            // L-shaped piece rotated 4 ways
+            const colors = ["#e8927c", "#7cc8a0", "#6c5ce7", "#fdcb6e"];
+            const strokes = ["#c47060", "#5ea87e", "#4834a8", "#c8a020"];
+            for (let turn = 0; turn < 4; turn++) {
+              const y = turn * 3;
+              h.addBox({
+                position: [0, y, 0], size: [3, 1, 1],
+                style: { default: { fill: colors[turn], stroke: strokes[turn], strokeWidth: 0.4 }, top: { fill: colors[turn] } },
+                rotate: { axis: "y", turns: turn, center: [1.5, y + 0.5, 1.5] },
+              });
+              h.addBox({
+                position: [0, y, 0], size: [1, 1, 3],
+                style: { default: { fill: colors[turn], stroke: strokes[turn], strokeWidth: 0.4 }, top: { fill: colors[turn] } },
+                rotate: { axis: "y", turns: turn, center: [1.5, y + 0.5, 1.5] },
+              });
+            }
+          },
+        },
+      ];
+
+      const svgRenderer = new SVGRenderer();
+      const demosContainer = document.getElementById("style-demos");
+      const dpr = window.devicePixelRatio || 1;
+
+      // ── Camera state ──
+      let camType = "oblique", camAngle = 45, camDist = 15, camPosX = 5, camPosY = 5;
+      const camTypeEl = document.getElementById("cam-type");
+      const camAngleEl = document.getElementById("cam-angle");
+      const camDistEl = document.getElementById("cam-dist");
+      const camPosXEl = document.getElementById("cam-pos-x");
+      const camPosYEl = document.getElementById("cam-pos-y");
+      const camAngleVal = document.getElementById("cam-angle-val");
+      const camDistVal = document.getElementById("cam-dist-val");
+      const camPosXVal = document.getElementById("cam-pos-x-val");
+      const camPosYVal = document.getElementById("cam-pos-y-val");
+      const lblAngle = document.getElementById("lbl-angle");
+      const lblPosX = document.getElementById("lbl-pos-x");
+      const lblPosY = document.getElementById("lbl-pos-y");
+
+      function getCameraOpts() {
+        if (camType === "perspective") return { type: "perspective", position: [camPosX, camPosY], distance: camDist };
+        return { type: "oblique", angle: camAngle, distance: camDist };
+      }
+
+      function updateCameraVisibility() {
+        const isPersp = camType === "perspective";
+        lblAngle.style.display = isPersp ? "none" : "flex";
+        lblPosX.style.display = isPersp ? "flex" : "none";
+        lblPosY.style.display = isPersp ? "flex" : "none";
+      }
+
+      camTypeEl.addEventListener("change", () => {
+        camType = camTypeEl.value;
+        updateCameraVisibility();
+        rebuildStaticDemos();
+      });
+      camAngleEl.addEventListener("input", () => {
+        camAngle = +camAngleEl.value;
+        camAngleVal.textContent = camAngle.toFixed(1);
+        rebuildStaticDemos();
+      });
+      camDistEl.addEventListener("input", () => {
+        camDist = +camDistEl.value;
+        camDistVal.textContent = camDist.toFixed(1);
+        rebuildStaticDemos();
+      });
+      camPosXEl.addEventListener("input", () => {
+        camPosX = +camPosXEl.value;
+        camPosXVal.textContent = camPosX.toFixed(1);
+        rebuildStaticDemos();
+      });
+      camPosYEl.addEventListener("input", () => {
+        camPosY = +camPosYEl.value;
+        camPosYVal.textContent = camPosY.toFixed(1);
+        rebuildStaticDemos();
+      });
+
+      // ── Static demos (rebuilt on camera change) ──
+
+      /** @type {{canvas: HTMLCanvasElement, renderer: Canvas2dRenderer}[]} */
+      const canvasRenderers = [];
+      /** @type {{canvas: HTMLCanvasElement, renderer: WebGPURenderer|null}[]} */
+      const webgpuRenderers = [];
+      let webgpuReady = false;
+
+      function buildStaticDemoDOM() {
+        demosContainer.innerHTML = "";
+        canvasRenderers.length = 0;
+        webgpuRenderers.length = 0;
+
+        for (const demo of styleDemos) {
+          const row = document.createElement("div");
+          row.className = "demo-row";
+
+          // SVG cell
+          const svgCell = document.createElement("div");
+          svgCell.className = "demo-cell";
+          svgCell.innerHTML = `<span class="label">${demo.title} / SVG</span>`;
+          const svgDiv = document.createElement("div");
+          svgDiv.className = "svg-container";
+          svgCell.appendChild(svgDiv);
+          row.appendChild(svgCell);
+
+          // Canvas cell
+          const canvasCell = document.createElement("div");
+          canvasCell.className = "demo-cell";
+          canvasCell.innerHTML = `<span class="label">${demo.title} / Canvas</span>`;
+          const cvs = document.createElement("canvas");
+          cvs.width = 400 * dpr;
+          cvs.height = 400 * dpr;
+          canvasCell.appendChild(cvs);
+          row.appendChild(canvasCell);
+          const cr = new Canvas2dRenderer(cvs);
+          canvasRenderers.push({ canvas: cvs, renderer: cr, demo });
+
+          // WebGPU cell
+          const gpuCell = document.createElement("div");
+          gpuCell.className = "demo-cell";
+          gpuCell.innerHTML = `<span class="label">${demo.title} / WebGPU</span>`;
+          if (hasWebGPU) {
+            const gpuCvs = document.createElement("canvas");
+            gpuCvs.width = 400 * dpr;
+            gpuCvs.height = 400 * dpr;
+            gpuCell.appendChild(gpuCvs);
+            webgpuRenderers.push({ canvas: gpuCvs, renderer: null, demo });
+          } else {
+            const fb = document.createElement("div");
+            fb.className = "fallback";
+            fb.textContent = "WebGPU unavailable";
+            gpuCell.appendChild(fb);
+          }
+          row.appendChild(gpuCell);
+
+          demosContainer.appendChild(row);
+        }
+      }
+
+      function rebuildStaticDemos() {
+        const cam = getCameraOpts();
+        for (let i = 0; i < styleDemos.length; i++) {
+          const demo = styleDemos[i];
+          const h = new Heerich({ camera: cam });
+          demo.build(h);
+          const faces = h.getFaces();
+
+          // SVG
+          const svgDiv = demosContainer.children[i].querySelector(".svg-container");
+          svgDiv.innerHTML = svgRenderer.render(faces, { padding: 20, tileW: h.renderOptions.tileW });
+
+          // Canvas2D
+          canvasRenderers[i].renderer.render(faces, { padding: 20 });
+
+          // WebGPU
+          if (webgpuRenderers[i] && webgpuRenderers[i].renderer) {
+            webgpuRenderers[i].renderer.render(faces, { padding: 20 });
+          }
+        }
+      }
+
+      buildStaticDemoDOM();
+      rebuildStaticDemos();
+
+      // Init WebGPU renderers asynchronously
+      if (hasWebGPU) {
+        (async () => {
+          for (const entry of webgpuRenderers) {
+            entry.renderer = await WebGPURenderer.create(entry.canvas);
+          }
+          webgpuReady = true;
+          rebuildStaticDemos();
+        })();
+      }
+
+      // ── Animated scene ──
+
+      const animSvgEl = document.getElementById("anim-svg");
+      const animCanvas = document.getElementById("anim-canvas");
+      const animCanvasRenderer = new Canvas2dRenderer(animCanvas);
+      const animInfo = document.getElementById("anim-info");
+      const animWebgpuCanvas = document.getElementById("anim-webgpu");
+      const animWebgpuPanel = document.getElementById("anim-webgpu-panel");
+      const btnWebgpu = document.getElementById("btn-webgpu");
+
+      const mFaces = document.getElementById("m-faces");
+      const mBuild = document.getElementById("m-build");
+      const mSvg = document.getElementById("m-svg");
+      const mCanvas = document.getElementById("m-canvas");
+      const mWebgpu = document.getElementById("m-webgpu");
+      const mWebgpuWrap = document.getElementById("m-webgpu-wrap");
+
+      let animWebgpuRenderer = null;
+      let svgRunning = true, canvasRunning = true, webgpuRunning = true;
+
+      document.getElementById("btn-svg").addEventListener("click", (e) => {
+        svgRunning = !svgRunning;
+        e.target.textContent = svgRunning ? "SVG" : "SVG off";
+        e.target.classList.toggle("active", svgRunning);
+      });
+      document.getElementById("btn-canvas").addEventListener("click", (e) => {
+        canvasRunning = !canvasRunning;
+        e.target.textContent = canvasRunning ? "Canvas" : "Canvas off";
+        e.target.classList.toggle("active", canvasRunning);
+      });
+      btnWebgpu.addEventListener("click", (e) => {
+        webgpuRunning = !webgpuRunning;
+        e.target.textContent = webgpuRunning ? "WebGPU" : "WebGPU off";
+        e.target.classList.toggle("active", webgpuRunning);
+      });
+
+      animCanvas.addEventListener("mousemove", (e) => {
+        const rect = animCanvas.getBoundingClientRect();
+        const x = (e.clientX - rect.left) * (animCanvas.width / rect.width);
+        const y = (e.clientY - rect.top) * (animCanvas.height / rect.height);
+        const face = animCanvasRenderer.hitTest(x, y);
+        if (face) {
+          const v = face.voxel;
+          animInfo.textContent = `Canvas  ${face.type}  (${v.x}, ${v.y}, ${v.z})  ${face.style.fill}`;
+        } else {
+          animInfo.textContent = "Hover over canvases for hit-testing";
+        }
+      });
+
+      animWebgpuCanvas.addEventListener("mousemove", (e) => {
+        if (!animWebgpuRenderer) return;
+        const rect = animWebgpuCanvas.getBoundingClientRect();
+        const x = (e.clientX - rect.left) * (animWebgpuCanvas.width / rect.width);
+        const y = (e.clientY - rect.top) * (animWebgpuCanvas.height / rect.height);
+        const face = animWebgpuRenderer.hitTest(x, y);
+        if (face) {
+          const v = face.voxel;
+          animInfo.textContent = `WebGPU  ${face.type}  (${v.x}, ${v.y}, ${v.z})  ${face.style.fill}`;
+        } else {
+          animInfo.textContent = "Hover over canvases for hit-testing";
+        }
+      });
+
+      function buildAnimScene(t) {
+        const h = new Heerich({ camera: getCameraOpts() });
+        const platformY = Math.sin(t * 0.5) * 0.5;
+        h.addBox({
+          position: [-5, Math.round(platformY), -5], size: [10, 1, 10],
+          style: {
+            default: { fill: "#b0c4de", stroke: "#7a8fa5", strokeWidth: 0.5 },
+            top: { fill: "#d4e3f5", stroke: "#7a8fa5", strokeWidth: 0.5 },
+          },
+        });
+        const numTowers = 5;
+        const colors = ["#e8927c", "#7cc8a0", "#6c5ce7", "#fdcb6e", "#fd79a8"];
+        const strokes = ["#c47060", "#5ea87e", "#4834a8", "#c8a020", "#d63071"];
+        for (let i = 0; i < numTowers; i++) {
+          const angle = t * 0.8 + (i * Math.PI * 2) / numTowers;
+          const radius = 3;
+          const cx = Math.round(Math.cos(angle) * radius);
+          const cz = Math.round(Math.sin(angle) * radius);
+          const height = 2 + Math.round(Math.abs(Math.sin(t + i * 1.2)) * 4);
+          h.addBox({
+            position: [cx - 1, 1, cz - 1], size: [2, height, 2],
+            style: {
+              default: { fill: colors[i], stroke: strokes[i], strokeWidth: 0.5 },
+              top: { fill: colors[i] + "cc", stroke: strokes[i], strokeWidth: 0.5 },
+            },
+          });
+        }
+        const sphereR = 1 + Math.abs(Math.sin(t * 1.5)) * 2;
+        h.addSphere({
+          center: [0, Math.round(3 + Math.sin(t * 2) * 2), 0],
+          radius: Math.round(sphereR),
+          style: {
+            default: (x, y, z) => {
+              const phase = (Math.atan2(z, x) + Math.PI) / (Math.PI * 2);
+              const hue = ((phase * 360 + t * 60) % 360) | 0;
+              return { fill: `hsl(${hue}, 70%, 65%)`, stroke: `hsl(${hue}, 50%, 40%)`, strokeWidth: 0.4 };
+            },
+            top: (x, y, z) => {
+              const phase = (Math.atan2(z, x) + Math.PI) / (Math.PI * 2);
+              const hue = ((phase * 360 + t * 60) % 360) | 0;
+              return { fill: `hsl(${hue}, 70%, 75%)`, stroke: `hsl(${hue}, 50%, 45%)`, strokeWidth: 0.4 };
+            },
+          },
+        });
+        // Scaled pillars that breathe
+        for (let i = 0; i < 4; i++) {
+          const floatAngle = t * 1.2 + i * Math.PI * 0.5;
+          const fx = Math.round(Math.cos(floatAngle) * 5);
+          const fz = Math.round(Math.sin(floatAngle) * 5);
+          const s = 0.4 + Math.abs(Math.sin(t * 2 + i * 1.5)) * 0.6;
+          h.addBox({
+            position: [fx, 1, fz], size: [1, 3, 1],
+            style: {
+              default: { fill: "#dfe6e9", stroke: "#636e72", strokeWidth: 0.5, opacity: 0.9 },
+              top: { fill: "#f0f3f4", stroke: "#636e72", strokeWidth: 0.5, opacity: 0.9 },
+            },
+            scale: [s, 1, s], scaleOrigin: [0.5, 0, 0.5],
+          });
+        }
+        // Rotating L-piece
+        const turn = Math.floor(t) % 4;
+        h.addBox({
+          position: [-6, 0, -6], size: [3, 1, 1],
+          style: { default: { fill: "#00b894", stroke: "#00695c", strokeWidth: 0.5 }, top: { fill: "#55efc4" } },
+          rotate: { axis: "y", turns: turn, center: [-4.5, 0.5, -4.5] },
+        });
+        h.addBox({
+          position: [-6, 0, -6], size: [1, 1, 3],
+          style: { default: { fill: "#00b894", stroke: "#00695c", strokeWidth: 0.5 }, top: { fill: "#55efc4" } },
+          rotate: { axis: "y", turns: turn, center: [-4.5, 0.5, -4.5] },
+        });
+        return h;
+      }
+
+      let frame = 0;
+      let svgMs = 0, canvasMs = 0, webgpuMs = 0, buildMs = 0, faceCount = 0;
+      const smoothing = 0.9;
+
+      function animate() {
+        requestAnimationFrame(animate);
+        const t = performance.now() / 1000;
+        if (!svgRunning && !canvasRunning && !webgpuRunning) { frame++; return; }
+
+        const buildStart = performance.now();
+        const h = buildAnimScene(t);
+        const faces = h.getFaces();
+        buildMs = buildMs * smoothing + (performance.now() - buildStart) * (1 - smoothing);
+        faceCount = faces.length;
+
+        if (svgRunning) {
+          const s = performance.now();
+          animSvgEl.innerHTML = svgRenderer.render(faces, { padding: 20, tileW: h.renderOptions.tileW });
+          svgMs = svgMs * smoothing + (performance.now() - s) * (1 - smoothing);
+        }
+        if (canvasRunning) {
+          const s = performance.now();
+          animCanvasRenderer.render(faces, { padding: 20 });
+          canvasMs = canvasMs * smoothing + (performance.now() - s) * (1 - smoothing);
+        }
+        if (webgpuRunning && animWebgpuRenderer) {
+          const s = performance.now();
+          animWebgpuRenderer.render(faces, { padding: 20 });
+          webgpuMs = webgpuMs * smoothing + (performance.now() - s) * (1 - smoothing);
+        }
+
+        frame++;
+        if (frame % 10 === 0) {
+          mFaces.textContent = faceCount;
+          mBuild.textContent = buildMs.toFixed(1) + "ms";
+          mSvg.textContent = svgMs.toFixed(1) + "ms";
+          mCanvas.textContent = canvasMs.toFixed(1) + "ms";
+          if (animWebgpuRenderer) mWebgpu.textContent = webgpuMs.toFixed(1) + "ms";
+        }
+      }
+
+      async function initWebGPU() {
+        if (!hasWebGPU) {
+          animWebgpuCanvas.style.display = "none";
+          const fb = document.createElement("div");
+          fb.className = "fallback";
+          fb.textContent = "WebGPU unavailable";
+          animWebgpuPanel.appendChild(fb);
+          return;
+        }
+        try {
+          animWebgpuRenderer = await WebGPURenderer.create(animWebgpuCanvas);
+          btnWebgpu.style.display = "";
+          mWebgpuWrap.style.display = "";
+        } catch (err) {
+          console.warn("WebGPU init failed:", err);
+          animWebgpuCanvas.style.display = "none";
+          const fb = document.createElement("div");
+          fb.className = "fallback";
+          fb.textContent = "WebGPU init failed";
+          animWebgpuPanel.appendChild(fb);
+        }
+      }
+
+      initWebGPU();
+      animate();
+    </script>
+  </body>
+</html>

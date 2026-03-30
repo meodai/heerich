@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>heerich.js — Stress Test</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Aboreto&family=Work+Sans:wght@300;400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./site.css" />
+    <style>
+      body {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* ── Page header ── */
+      .page-header {
+        padding: 3rem 3rem 1.5rem;
+        border-bottom: 1px solid var(--line);
+      }
+      .page-header h1 {
+        font-size: 3rem;
+        margin: 0 0 0.3em;
+      }
+      .page-header p {
+        margin: 0;
+        color: color-mix(in oklab, var(--text) 50%, var(--bg));
+      }
+
+      /* ── Controls bar ── */
+      .controls-bar {
+        padding: 1rem 3rem;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        flex-wrap: wrap;
+      }
+
+      .control-group {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .controls-bar .control-label {
+        display: inline;
+        font-size: 0.8rem;
+        font-weight: 400;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: color-mix(in oklab, var(--text) 40%, var(--bg));
+      }
+
+      .grid-control {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .grid-value {
+        font-family: "SF Mono", "Fira Code", monospace;
+        font-size: 0.9rem;
+        font-weight: 400;
+        min-width: 2ch;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .controls-bar input[type="range"] {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 160px;
+        height: 2px;
+        background: var(--line);
+        border-radius: 1px;
+        outline: none;
+      }
+      .controls-bar input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--text);
+        cursor: pointer;
+        border: none;
+      }
+      .controls-bar input[type="range"]::-moz-range-thumb {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--text);
+        cursor: pointer;
+        border: none;
+      }
+
+      .checkbox-control {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        cursor: pointer;
+      }
+      .checkbox-control input {
+        accent-color: var(--text);
+      }
+      .checkbox-control span {
+        font-size: 0.8rem;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: color-mix(in oklab, var(--text) 50%, var(--bg));
+      }
+
+      .controls-bar .toggle {
+        font-family: "Work Sans", sans-serif;
+        font-size: 0.8rem;
+        font-weight: 400;
+        padding: 0.35rem 0.8rem;
+        border: 1px solid var(--line);
+        background: transparent;
+        color: color-mix(in oklab, var(--text) 50%, var(--bg));
+        cursor: pointer;
+        transition: all 0.15s;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        transform: none;
+      }
+      .controls-bar .toggle:hover {
+        border-color: var(--text);
+        color: var(--text);
+      }
+      .controls-bar .toggle.active {
+        border-color: var(--text);
+        color: var(--text);
+        background: color-mix(in oklab, var(--text) 8%, var(--bg));
+      }
+
+      .btn-start {
+        font-family: "Aboreto", cursive;
+        font-size: 0.9rem;
+        padding: 0.5rem 1.5rem;
+        border: 1px solid var(--text);
+        background: transparent;
+        color: var(--text);
+        cursor: pointer;
+        transform: none;
+        transition: all 0.15s;
+        letter-spacing: 0.05em;
+      }
+      .btn-start:hover {
+        background: color-mix(in oklab, var(--text) 8%, var(--bg));
+      }
+      .btn-start.running {
+        border-color: color-mix(in oklab, var(--text) 40%, var(--bg));
+        color: color-mix(in oklab, var(--text) 60%, var(--bg));
+      }
+
+      /* ── Metrics strip ── */
+      .metrics-strip {
+        padding: 0;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        background: var(--line);
+        gap: 1px;
+      }
+      .metric {
+        background: var(--bg);
+        flex: 1;
+        padding: 0.6rem 1rem;
+        display: flex;
+        align-items: baseline;
+        gap: 0.5rem;
+      }
+      .metric .metric-label {
+        font-size: 0.65rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: color-mix(in oklab, var(--text) 40%, var(--bg));
+      }
+      .metric .metric-value {
+        font-family: "SF Mono", "Fira Code", monospace;
+        font-size: 0.9rem;
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* ── Renderer panels ── */
+      .renderers {
+        flex: 1;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1px;
+        background: var(--line);
+      }
+      .panel {
+        background: var(--bg);
+        display: flex;
+        flex-direction: column;
+        padding: 0.75rem;
+        gap: 0.4rem;
+      }
+      .panel .panel-label {
+        font-size: 0.75rem;
+        font-weight: 400;
+        color: color-mix(in oklab, var(--text) 50%, var(--bg));
+        text-transform: uppercase;
+      }
+      .panel canvas,
+      .panel .svg-container {
+        flex: 1;
+        width: 100%;
+        min-height: 300px;
+        aspect-ratio: 1;
+      }
+      .panel canvas {
+        object-fit: contain;
+      }
+      .panel .svg-container {
+        overflow: hidden;
+      }
+      .panel .svg-container svg {
+        width: 100%;
+        height: 100%;
+      }
+
+      .fallback {
+        flex: 1;
+        width: 100%;
+        min-height: 300px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: color-mix(in oklab, var(--text) 4%, var(--bg));
+        color: color-mix(in oklab, var(--text) 40%, var(--bg));
+        font-size: 0.85rem;
+      }
+
+      @media (max-width: 56rem) {
+        .renderers {
+          grid-template-columns: 1fr;
+        }
+        .controls-bar {
+          padding: 1rem 1.5rem;
+        }
+        .page-header {
+          padding: 2rem 1.5rem 1rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+
+    <div class="page-header">
+      <h1>Stress Test</h1>
+      <p>N&times;N grid of voxel towers &mdash; increase grid size to push face counts into the thousands.</p>
+    </div>
+
+    <div class="controls-bar">
+      <button class="btn-start" id="btn-start">Start</button>
+
+      <div class="control-group">
+        <span class="control-label">Grid</span>
+        <div class="grid-control">
+          <span class="grid-value" id="grid-val">8</span>
+          <input type="range" id="grid-slider" min="2" max="30" value="8">
+        </div>
+      </div>
+
+      <label class="checkbox-control">
+        <input type="checkbox" id="chk-animate" checked>
+        <span>Animate</span>
+      </label>
+      <label class="checkbox-control">
+        <input type="checkbox" id="chk-strokes" checked>
+        <span>Strokes</span>
+      </label>
+
+      <div class="control-group" style="margin-left:auto">
+        <button class="toggle active" id="btn-svg">SVG</button>
+        <button class="toggle active" id="btn-canvas">Canvas</button>
+        <button class="toggle active" id="btn-webgpu">WebGPU</button>
+      </div>
+    </div>
+
+    <div class="metrics-strip">
+      <div class="metric"><span class="metric-label">Faces</span><span class="metric-value" id="m-faces">&mdash;</span></div>
+      <div class="metric"><span class="metric-label">Build</span><span class="metric-value" id="m-build">&mdash;</span></div>
+      <div class="metric"><span class="metric-label">SVG</span><span class="metric-value" id="m-svg">&mdash;</span></div>
+      <div class="metric"><span class="metric-label">Canvas2D</span><span class="metric-value" id="m-canvas">&mdash;</span></div>
+      <div class="metric"><span class="metric-label">WebGPU</span><span class="metric-value" id="m-webgpu">&mdash;</span></div>
+    </div>
+
+    <div class="renderers">
+      <div class="panel">
+        <span class="panel-label">SVGRenderer</span>
+        <div class="svg-container" id="svg-container"></div>
+      </div>
+      <div class="panel">
+        <span class="panel-label">Canvas2dRenderer</span>
+        <canvas id="cvs-canvas" width="1000" height="1000"></canvas>
+      </div>
+      <div class="panel" id="webgpu-panel">
+        <span class="panel-label">WebGPURenderer</span>
+        <canvas id="cvs-webgpu" width="1000" height="1000"></canvas>
+      </div>
+    </div>
+
+    <script type="module">
+      import { Heerich } from "./src/heerich.js";
+      import { SVGRenderer } from "./src/renderers/svg.js";
+      import { Canvas2dRenderer } from "./src/renderers/canvas2d.js";
+      import { WebGPURenderer } from "./src/renderers/webgpu.js";
+
+      const gridSlider = document.getElementById("grid-slider");
+      const gridVal = document.getElementById("grid-val");
+      const chkAnimate = document.getElementById("chk-animate");
+      const chkStrokes = document.getElementById("chk-strokes");
+      const btnSvg = document.getElementById("btn-svg");
+      const btnCanvas = document.getElementById("btn-canvas");
+      const btnWebgpu = document.getElementById("btn-webgpu");
+      const btnStart = document.getElementById("btn-start");
+
+      const mFaces = document.getElementById("m-faces");
+      const mBuild = document.getElementById("m-build");
+      const mSvgEl = document.getElementById("m-svg");
+      const mCanvasEl = document.getElementById("m-canvas");
+      const mWebgpuEl = document.getElementById("m-webgpu");
+
+      const svgContainer = document.getElementById("svg-container");
+      const cvsCanvas = document.getElementById("cvs-canvas");
+      const cvsWebgpu = document.getElementById("cvs-webgpu");
+      const webgpuPanel = document.getElementById("webgpu-panel");
+
+      // Scale canvas pixel buffers for high-DPI displays
+      const dpr = window.devicePixelRatio || 1;
+      cvsCanvas.width = 1000 * dpr;
+      cvsCanvas.height = 1000 * dpr;
+      cvsWebgpu.width = 1000 * dpr;
+      cvsWebgpu.height = 1000 * dpr;
+
+      const svgRenderer = new SVGRenderer();
+      const canvasRenderer = new Canvas2dRenderer(cvsCanvas);
+      let webgpuRenderer = null;
+      let svgOn = true, canvasOn = true, webgpuOn = true;
+      let running = false;
+      let animId = null;
+
+      const colors = ["#e8927c", "#7cc8a0", "#6c5ce7", "#fdcb6e", "#fd79a8", "#00b894", "#b0c4de", "#e17055"];
+      const strokeColors = ["#c47060", "#5ea87e", "#4834a8", "#c8a020", "#d63071", "#00695c", "#7a8fa5", "#8b3a2a"];
+
+      btnSvg.addEventListener("click", (e) => {
+        svgOn = !svgOn;
+        e.target.textContent = svgOn ? "SVG" : "SVG off";
+        e.target.classList.toggle("active", svgOn);
+      });
+      btnCanvas.addEventListener("click", (e) => {
+        canvasOn = !canvasOn;
+        e.target.textContent = canvasOn ? "Canvas" : "Canvas off";
+        e.target.classList.toggle("active", canvasOn);
+      });
+      btnWebgpu.addEventListener("click", (e) => {
+        webgpuOn = !webgpuOn;
+        e.target.textContent = webgpuOn ? "WebGPU" : "WebGPU off";
+        e.target.classList.toggle("active", webgpuOn);
+      });
+
+      gridSlider.addEventListener("input", () => {
+        gridVal.textContent = gridSlider.value;
+      });
+
+      btnStart.addEventListener("click", () => {
+        if (running) {
+          running = false;
+          if (animId) {
+            cancelAnimationFrame(animId);
+            animId = null;
+          }
+          btnStart.textContent = "Start";
+          btnStart.classList.remove("running");
+        } else {
+          running = true;
+          btnStart.textContent = "Stop";
+          btnStart.classList.add("running");
+          // Reset smoothed metrics
+          svgMs = 0;
+          canvasMs = 0;
+          webgpuMs = 0;
+          buildMs = 0;
+          frame = 0;
+          animate();
+        }
+      });
+
+      function buildScene(t, gridSize, strokes) {
+        const h = new Heerich({ camera: { type: "oblique", angle: 45, distance: 15 } });
+        const strokeWidth = strokes ? 0.4 : 0;
+
+        for (let gx = 0; gx < gridSize; gx++) {
+          for (let gz = 0; gz < gridSize; gz++) {
+            const ci = (gx * 7 + gz * 13) % colors.length;
+            const baseHeight = 1 + ((gx + gz) % 4);
+            const animHeight = chkAnimate.checked
+              ? Math.round(Math.abs(Math.sin(t + gx * 0.7 + gz * 0.5)) * 4)
+              : 0;
+            const height = baseHeight + animHeight;
+            const spacing = 3;
+            const ox = gx * spacing - (gridSize * spacing) / 2;
+            const oz = gz * spacing - (gridSize * spacing) / 2;
+
+            h.addBox({
+              position: [ox, 0, oz], size: [2, height, 2],
+              style: {
+                default: { fill: colors[ci], stroke: strokeColors[ci], strokeWidth },
+                top: { fill: colors[(ci + 1) % colors.length], stroke: strokeColors[ci], strokeWidth },
+              },
+            });
+          }
+        }
+
+        return h;
+      }
+
+      let svgMs = 0, canvasMs = 0, webgpuMs = 0, buildMs = 0, faceCount = 0;
+      const smoothing = 0.85;
+      let frame = 0;
+
+      function animate() {
+        if (!running) return;
+        animId = requestAnimationFrame(animate);
+        const t = performance.now() / 1000;
+        const gridSize = parseInt(gridSlider.value);
+        const strokes = chkStrokes.checked;
+
+        const buildStart = performance.now();
+        const h = buildScene(t, gridSize, strokes);
+        const faces = h.getFaces();
+        buildMs = buildMs * smoothing + (performance.now() - buildStart) * (1 - smoothing);
+        faceCount = faces.length;
+
+        if (svgOn) {
+          const s = performance.now();
+          svgContainer.innerHTML = svgRenderer.render(faces, { padding: 10, tileW: h.renderOptions.tileW });
+          svgMs = svgMs * smoothing + (performance.now() - s) * (1 - smoothing);
+        }
+
+        if (canvasOn) {
+          const s = performance.now();
+          canvasRenderer.render(faces, { padding: 10 });
+          canvasMs = canvasMs * smoothing + (performance.now() - s) * (1 - smoothing);
+        }
+
+        if (webgpuOn && webgpuRenderer) {
+          const s = performance.now();
+          webgpuRenderer.render(faces, { padding: 10 });
+          webgpuMs = webgpuMs * smoothing + (performance.now() - s) * (1 - smoothing);
+        }
+
+        frame++;
+        if (frame % 10 === 0) {
+          mFaces.textContent = faceCount;
+          mBuild.textContent = buildMs.toFixed(1) + "ms";
+          mSvgEl.textContent = svgMs.toFixed(1) + "ms";
+          mCanvasEl.textContent = canvasMs.toFixed(1) + "ms";
+          mWebgpuEl.textContent = webgpuRenderer ? webgpuMs.toFixed(1) + "ms" : "n/a";
+        }
+      }
+
+      async function init() {
+        if (navigator.gpu) {
+          try {
+            webgpuRenderer = await WebGPURenderer.create(cvsWebgpu);
+          } catch (err) {
+            console.warn("WebGPU init failed:", err);
+            cvsWebgpu.style.display = "none";
+            const fb = document.createElement("div");
+            fb.className = "fallback";
+            fb.textContent = "WebGPU init failed: " + err.message;
+            webgpuPanel.appendChild(fb);
+          }
+        } else {
+          cvsWebgpu.style.display = "none";
+          const fb = document.createElement("div");
+          fb.className = "fallback";
+          fb.textContent = "WebGPU not available";
+          webgpuPanel.appendChild(fb);
+        }
+        // Do NOT auto-start — wait for the Start button
+      }
+
+      init();
+    </script>
+  </body>
+</html>
