@@ -21,7 +21,9 @@
     "build:site": "vite build --config vite.site.config.js",
     "preview": "vite preview",
     "format": "prettier --write \"src/**/*.js\" \"*.js\" \"*.css\" \"*.html\"",
-    "format:check": "prettier --check \"src/**/*.js\" \"*.js\" \"*.css\" \"*.html\""
+    "format:check": "prettier --check \"src/**/*.js\" \"*.js\" \"*.css\" \"*.html\"",
+    "test": "vitest run",
+    "bench": "node bench.js"
   },
   "keywords": [
     "voxel",
@@ -41,7 +43,10 @@
   "author": "meodai",
   "license": "MIT",
   "devDependencies": {
+    "fast-check": "^4.6.0",
+    "mitata": "^1.0.34",
     "prettier": "^3.8.1",
-    "vite": "^8.0.1"
+    "vite": "^8.0.1",
+    "vitest": "^4.1.2"
   }
 }
