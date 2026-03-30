@@ -518,7 +518,7 @@ setupDemo("demo-group", (v) => {
   e.addBox({
     position: [0, 0, 0],
     size: [gs, gs, gs],
-    style: { default: { fill: "#0e0e0e", stroke: "#0e0e0e" } },
+    style: { default: { fill: camOutlineColor.value, stroke: camOutlineColor.value } },
   });
 
   // 1x1x1 voxels bordering all four sides, offset 1 back
