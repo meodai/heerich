@@ -1013,10 +1013,8 @@ function animateHoles({
         const holeDepth = Math.round(depths[tower.holeIndex]);
         const fullH = Math.floor(th);
         const frac = th - fullH;
-        const topZ = Math.max(0, holeDepth - fullH);
-        const height = holeDepth - topZ;
-        const startZ = tower.overflow ? -Math.max(0, fullH - holeDepth) : topZ;
-        const totalH = tower.overflow ? fullH : height;
+        const startZ = tower.overflow ? holeDepth - fullH : Math.max(0, holeDepth - fullH);
+        const totalH = tower.overflow ? fullH : holeDepth - startZ;
         if (totalH > 0)
           e.addBox({
             position: [tower.x, tower.y, startZ],
@@ -1025,12 +1023,12 @@ function animateHoles({
           });
         // Fractional layer growing on top (toward lower z)
         if (frac > 0.01) {
-          const fracZ = tower.overflow ? startZ - 1 : topZ - 1;
+          const fracZ = startZ - 1;
           e.addBox({
             position: [tower.x, tower.y, fracZ],
             size: [tower.w, tower.h, 1],
             scale: [1, 1, frac],
-            scaleOrigin: [0.5, 0.5, 0],
+            scaleOrigin: [0.5, 0.5, 1],
             style: { default: wallFill },
           });
         }
