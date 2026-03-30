@@ -1,6 +1,8 @@
 import { SVGRenderer } from "./renderers/svg.js";
 import { computeBounds } from "./renderers/svg.js";
 import { Points } from "./points.js";
+import { boxCoords, sphereCoords, lineCoords, whereCoords } from "./shapes.js";
+export { boxCoords, sphereCoords, lineCoords, whereCoords };
 
 /**
  * @typedef {Object} StyleObject
@@ -130,11 +132,22 @@ export class Heerich {
     /** @type {Map<number, Voxel>} */
     this.voxels = new Map();
     /** @type {boolean} */
-    this._dirty = true;
+    /** @type {number} Monotonically increasing epoch — bumped on every mutation */
+    this._epoch = 0;
+    /** @type {number} Epoch at which _cachedFaces was computed */
+    this._cachedEpoch = -1;
     /** @type {Face[]|null} */
     this._cachedFaces = null;
     /** @type {SVGRenderer|null} */
     this._svgRenderer = null;
+    /** @type {boolean} */
+    this._batching = false;
+    /** @type {Set<number>} Voxel keys that changed since last getFaces */
+    this._dirtyKeys = new Set();
+    /** @type {Map<number, Object[]>} Cached 3D faces per voxel key */
+    this._faceCache3D = new Map();
+    /** @type {number} Epoch at which the full cache was last valid */
+    this._faceCacheEpoch = -1;
   }
 
   /**
@@ -160,7 +173,8 @@ export class Heerich {
         opts.distance !== undefined ? opts.distance : 10;
     }
 
-    this._dirty = true;
+    if (this._faceCache3D) this._faceCache3D.clear();
+    this._invalidate();
   }
 
   /**
@@ -175,10 +189,46 @@ export class Heerich {
     return ((x + 512) << 20) | ((y + 512) << 10) | (z + 512);
   }
 
-  /** Mark the scene as modified, clearing any cached face data. */
+  /** Mark the scene as modified. */
   _invalidate() {
-    this._dirty = true;
-    this._cachedFaces = null;
+    this._epoch++;
+    if (!this._batching) this._cachedFaces = null;
+  }
+
+  /**
+   * Mark a voxel and its 6 neighbors as needing face regeneration.
+   * @param {number} x
+   * @param {number} y
+   * @param {number} z
+   */
+  _markDirty(x, y, z) {
+    this._dirtyKeys.add(this._k(x, y, z));
+    for (const [dx, dy, dz] of ADJ) {
+      this._dirtyKeys.add(this._k(x + dx, y + dy, z + dz));
+    }
+  }
+
+  /**
+   * Current mutation epoch. Consumers can compare this against their own
+   * last-rendered epoch to know whether they need to re-render.
+   * @returns {number}
+   */
+  get epoch() {
+    return this._epoch;
+  }
+
+  /**
+   * Batch multiple operations so face recomputation is deferred until the end.
+   * @param {function(): void} fn - Operations to batch
+   */
+  batch(fn) {
+    this._batching = true;
+    try {
+      fn();
+    } finally {
+      this._batching = false;
+      this._cachedFaces = null;
+    }
   }
 
   /**
@@ -271,6 +321,7 @@ export class Heerich {
       opts.center || Heerich._bboxCenter(entries, (v) => [v.x, v.y, v.z]);
 
     this.voxels.clear();
+    this._faceCache3D.clear();
     for (const v of entries) {
       const [nx, ny, nz] = Heerich._rot90(
         v.x,
@@ -306,8 +357,11 @@ export class Heerich {
         const key = this._k(x, y, z);
         if (this.voxels.has(key)) keep.add(key);
       }
-      for (const key of this.voxels.keys()) {
-        if (!keep.has(key)) this.voxels.delete(key);
+      for (const [key, v] of this.voxels.entries()) {
+        if (!keep.has(key)) {
+          this._markDirty(v.x, v.y, v.z);
+          this.voxels.delete(key);
+        }
       }
       // Apply style to remaining voxels if provided
       if (style) {
@@ -326,6 +380,7 @@ export class Heerich {
     } else {
       for (const [x, y, z] of coords) {
         const key = this._k(x, y, z);
+        this._markDirty(x, y, z);
         if (mode === "union") {
           const voxel = {
             x,
@@ -438,6 +493,7 @@ export class Heerich {
   /** Remove all voxels. */
   clear() {
     this.voxels.clear();
+    this._faceCache3D.clear();
     this._invalidate();
   }
 
@@ -563,42 +619,6 @@ export class Heerich {
   }
 
   /**
-   * Iterate coordinates for a box shape.
-   * @param {[number,number,number]} position
-   * @param {[number,number,number]} size
-   * @returns {Generator<number[], void, unknown>}
-   */
-  *_boxCoords(position, size) {
-    const [sx, sy, sz] = position;
-    const [w, h, d] = size;
-    for (let z = sz; z < sz + d; z++)
-      for (let y = sy; y < sy + h; y++)
-        for (let x = sx; x < sx + w; x++) yield [x, y, z];
-  }
-
-  /**
-   * Iterate coordinates for a sphere shape.
-   * @param {[number,number,number]} center
-   * @param {number} radius
-   * @returns {Generator<number[], void, unknown>}
-   */
-  *_sphereCoords(center, radius) {
-    const [cx, cy, cz] = center;
-    for (let z = Math.ceil(cz - radius); z <= Math.floor(cz + radius); z++)
-      for (let y = Math.ceil(cy - radius); y <= Math.floor(cy + radius); y++)
-        for (
-          let x = Math.ceil(cx - radius);
-          x <= Math.floor(cx + radius);
-          x++
-        ) {
-          const dx = cx - x,
-            dy = cy - y,
-            dz = cz - z;
-          if (dx * dx + dy * dy + dz * dz <= radius * radius) yield [x, y, z];
-        }
-  }
-
-  /**
    * Add (or boolean-op) a box of voxels.
    * @param {Object} opts
    * @param {[number,number,number]} opts.position - Corner position [x, y, z]
@@ -614,7 +634,7 @@ export class Heerich {
    */
   addBox(opts) {
     const coords = this._rotateCoords(
-      this._boxCoords(opts.position, opts.size),
+      boxCoords(opts.position, opts.size),
       opts.rotate,
     );
     this._applyOp(
@@ -637,11 +657,7 @@ export class Heerich {
    * @param {StyleParam} [opts.style] - Style to apply to newly exposed neighbor faces
    */
   removeBox(opts) {
-    this._applyOp(
-      this._boxCoords(opts.position, opts.size),
-      "subtract",
-      opts.style,
-    );
+    this._applyOp(boxCoords(opts.position, opts.size), "subtract", opts.style);
   }
 
   /**
@@ -660,7 +676,7 @@ export class Heerich {
    */
   addSphere(opts) {
     const coords = this._rotateCoords(
-      this._sphereCoords(opts.center, opts.radius),
+      sphereCoords(opts.center, opts.radius),
       opts.rotate,
     );
     this._applyOp(
@@ -684,71 +700,10 @@ export class Heerich {
    */
   removeSphere(opts) {
     this._applyOp(
-      this._sphereCoords(opts.center, opts.radius),
+      sphereCoords(opts.center, opts.radius),
       "subtract",
       opts.style,
     );
-  }
-
-  /**
-   * Iterate coordinates for a line shape (with optional radius/shape).
-   * Collects all unique coords via a Set to avoid redundant writes from overlapping stamps.
-   * @param {[number,number,number]} from
-   * @param {[number,number,number]} to
-   * @param {number} radius
-   * @param {'rounded'|'square'} shape
-   * @returns {Generator<number[], void, unknown>}
-   */
-  *_lineCoords(from, to, radius, shape) {
-    const [x0, y0, z0] = from;
-    const [x1, y1, z1] = to;
-    const dx = x1 - x0,
-      dy = y1 - y0,
-      dz = z1 - z0;
-    const N = Math.max(Math.abs(dx), Math.abs(dy), Math.abs(dz));
-    const seen = radius > 0 ? new Set() : null;
-
-    const emit = function* (coords) {
-      if (!seen) {
-        yield* coords;
-        return;
-      }
-      for (const c of coords) {
-        const k = ((c[0] + 512) << 20) | ((c[1] + 512) << 10) | (c[2] + 512);
-        if (!seen.has(k)) {
-          seen.add(k);
-          yield c;
-        }
-      }
-    };
-
-    const steps =
-      N === 0
-        ? [[x0, y0, z0]]
-        : Array.from({ length: N + 1 }, (_, i) => {
-            const t = i / N;
-            return [
-              Math.round(x0 + t * dx),
-              Math.round(y0 + t * dy),
-              Math.round(z0 + t * dz),
-            ];
-          });
-
-    for (const [cx, cy, cz] of steps) {
-      if (shape === "rounded" && radius > 0) {
-        yield* emit(this._sphereCoords([cx, cy, cz], radius));
-      } else if (shape === "square" && radius > 0) {
-        const r = Math.floor(radius);
-        yield* emit(
-          this._boxCoords(
-            [cx - r, cy - r, cz - r],
-            [r * 2 + 1, r * 2 + 1, r * 2 + 1],
-          ),
-        );
-      } else {
-        yield [cx, cy, cz];
-      }
-    }
   }
 
   /**
@@ -771,7 +726,7 @@ export class Heerich {
     const radius = opts.radius || 0;
     const shape = opts.shape || "rounded";
     const coords = this._rotateCoords(
-      this._lineCoords(opts.from, opts.to, radius, shape),
+      lineCoords(opts.from, opts.to, radius, shape),
       opts.rotate,
     );
     this._applyOp(
@@ -795,19 +750,6 @@ export class Heerich {
   }
 
   /**
-   * Iterate coordinates within bounds where test returns true.
-   * @param {[[number,number,number],[number,number,number]]} bounds - [min, max] corners
-   * @param {function(number,number,number): boolean} test
-   * @returns {Generator<number[], void, unknown>}
-   */
-  *_whereCoords(bounds, test) {
-    const [[minX, minY, minZ], [maxX, maxY, maxZ]] = bounds;
-    for (let z = minZ; z < maxZ; z++)
-      for (let y = minY; y < maxY; y++)
-        for (let x = minX; x < maxX; x++) if (test(x, y, z)) yield [x, y, z];
-  }
-
-  /**
    * Add voxels within a bounding box where a test function returns true.
    * @param {Object} opts
    * @param {[[number,number,number],[number,number,number]]} opts.bounds - Min and max corners
@@ -821,7 +763,7 @@ export class Heerich {
    * @param {[number,number,number]|function(number,number,number):[number,number,number]} [opts.scaleOrigin=[0.5,0,0.5]] - Scale origin within voxel, or function returning it
    */
   addWhere(opts) {
-    const coords = this._whereCoords(opts.bounds, opts.test);
+    const coords = whereCoords(opts.bounds, opts.test);
     this._applyOp(
       coords,
       opts.mode || "union",
@@ -842,11 +784,7 @@ export class Heerich {
    * @param {StyleParam} [opts.style] - Style to apply to newly exposed neighbor faces
    */
   removeWhere(opts) {
-    this._applyOp(
-      this._whereCoords(opts.bounds, opts.test),
-      "subtract",
-      opts.style,
-    );
+    this._applyOp(whereCoords(opts.bounds, opts.test), "subtract", opts.style);
   }
 
   /**
@@ -871,7 +809,7 @@ export class Heerich {
    * @param {StyleParam} opts.style
    */
   styleBox(opts) {
-    this._styleCoords(this._boxCoords(opts.position, opts.size), opts.style);
+    this._styleCoords(boxCoords(opts.position, opts.size), opts.style);
   }
 
   /**
@@ -882,7 +820,7 @@ export class Heerich {
    * @param {StyleParam} opts.style
    */
   styleSphere(opts) {
-    this._styleCoords(this._sphereCoords(opts.center, opts.radius), opts.style);
+    this._styleCoords(sphereCoords(opts.center, opts.radius), opts.style);
   }
 
   /**
@@ -898,7 +836,7 @@ export class Heerich {
     const radius = opts.radius || 0;
     const shape = opts.shape || "rounded";
     this._styleCoords(
-      this._lineCoords(opts.from, opts.to, radius, shape),
+      lineCoords(opts.from, opts.to, radius, shape),
       opts.style,
     );
   }
@@ -924,7 +862,7 @@ export class Heerich {
    * @returns {Face[]}
    */
   getFaces() {
-    if (!this._dirty && this._cachedFaces) {
+    if (this._cachedEpoch === this._epoch && this._cachedFaces) {
       return this._cachedFaces;
     }
 
@@ -949,10 +887,30 @@ export class Heerich {
     const dx_norm = projection === "oblique" ? depthOffsetX / tileW : 0;
     const dy_norm = projection === "oblique" ? depthOffsetY / tileH : 0;
 
-    // First: Generate all exposed 3D Faces
+    // Incremental: only regenerate 3D faces for dirty voxels
+    const dirtyKeys = this._dirtyKeys;
+    const useIncremental = dirtyKeys.size > 0 && this._faceCache3D.size > 0;
+
+    // Remove cache entries for deleted voxels
+    if (useIncremental) {
+      for (const dk of dirtyKeys) {
+        this._faceCache3D.delete(dk);
+      }
+    }
+
     const faces3D = [];
     for (const [key, voxel] of this.voxels.entries()) {
+      // Reuse cached 3D faces for unchanged voxels
+      if (useIncremental && !dirtyKeys.has(key)) {
+        const cached = this._faceCache3D.get(key);
+        if (cached) {
+          for (let i = 0; i < cached.length; i++) faces3D.push(cached[i]);
+          continue;
+        }
+      }
+
       const { x, y, z, styles } = voxel;
+      const faceStart = faces3D.length;
 
       // Content voxels: emit a content entry instead of polygon faces
       if (voxel.content) {
@@ -962,6 +920,7 @@ export class Heerich {
           content: voxel.content,
           _pos: [x, y, z],
         });
+        this._faceCache3D.set(key, faces3D.slice(faceStart));
         continue;
       }
 
@@ -1166,11 +1125,19 @@ export class Heerich {
             [x + 0.5, y + 0.5, z + 1],
           );
       }
+
+      // Cache this voxel's 3D faces for incremental updates
+      if (faces3D.length > faceStart) {
+        this._faceCache3D.set(key, faces3D.slice(faceStart));
+      }
     }
+
+    this._dirtyKeys.clear();
+    this._faceCacheEpoch = this._epoch;
 
     const result = this._projectAndSort(faces3D);
     this._cachedFaces = result;
-    this._dirty = false;
+    this._cachedEpoch = this._epoch;
     return result;
   }
 
@@ -1489,9 +1456,9 @@ export class Heerich {
           face.points = new Points(flat);
         }
         face.depth = depth;
-        face._px = px;
-        face._py = py;
-        face._scale = scale;
+        face._px = Math.round(px * 1e4) / 1e4;
+        face._py = Math.round(py * 1e4) / 1e4;
+        face._scale = Math.round(scale * 1e4) / 1e4;
         projectedFaces.push(face);
         continue;
       }
