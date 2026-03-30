@@ -1,3 +1,7 @@
+import { SVGRenderer } from "./renderers/svg.js";
+import { computeBounds } from "./renderers/svg.js";
+import { Points } from "./points.js";
+
 /**
  * @typedef {Object} StyleObject
  * @property {string} [fill] - Fill color
@@ -68,7 +72,7 @@
  * @typedef {Object} Face
  * @property {FaceType} type - Face name
  * @property {Voxel} voxel - Source voxel data
- * @property {Array<[number,number]>} points - Projected 2D polygon points
+ * @property {import('./points.js').Points} points - Projected 2D polygon points
  * @property {number} depth - Depth value for sorting
  * @property {StyleObject} [style] - Resolved style for this face
  * @property {string} [content] - SVG content string (content faces only)
@@ -129,6 +133,8 @@ export class Heerich {
     this._dirty = true;
     /** @type {Face[]|null} */
     this._cachedFaces = null;
+    /** @type {SVGRenderer|null} */
+    this._svgRenderer = null;
   }
 
   /**
@@ -1461,18 +1467,18 @@ export class Heerich {
           [cx + 1, cy + 1, cz],
         ];
         if (projection === "oblique") {
-          face.points = corners.map(([vx, vy, vz]) => [
-            vx * tileW + vz * depthOffsetX,
-            vy * tileH + vz * depthOffsetY,
-          ]);
+          const flat = [];
+          for (const [vx, vy, vz] of corners) {
+            flat.push(vx * tileW + vz * depthOffsetX, vy * tileH + vz * depthOffsetY);
+          }
+          face.points = new Points(flat);
         } else {
-          face.points = corners.map(([vx, vy, vz]) => {
+          const flat = [];
+          for (const [vx, vy, vz] of corners) {
             const ct = cameraDistance / (vz + cameraDistance);
-            return [
-              (cameraX + (vx - cameraX) * ct) * tileW,
-              (cameraY + (vy - cameraY) * ct) * tileH,
-            ];
-          });
+            flat.push((cameraX + (vx - cameraX) * ct) * tileW, (cameraY + (vy - cameraY) * ct) * tileH);
+          }
+          face.points = new Points(flat);
         }
         face.depth = depth;
         face._px = px;
@@ -1483,10 +1489,11 @@ export class Heerich {
       }
 
       if (projection === "oblique") {
-        face.points = face.vertices.map((v) => [
-          v[0] * tileW + v[2] * depthOffsetX,
-          v[1] * tileH + v[2] * depthOffsetY,
-        ]);
+        const flat = [];
+        for (const v of face.vertices) {
+          flat.push(v[0] * tileW + v[2] * depthOffsetX, v[1] * tileH + v[2] * depthOffsetY);
+        }
+        face.points = new Points(flat);
       } else if (projection === "perspective") {
         const Cx = cameraX;
         const Cy = cameraY;
@@ -1503,12 +1510,12 @@ export class Heerich {
         if (face.vertices.some((v) => v[2] + cameraDistance < minDenom))
           continue;
 
-        face.points = face.vertices.map((v) => {
+        const flat = [];
+        for (const v of face.vertices) {
           const t = cameraDistance / (v[2] + cameraDistance);
-          const px = Cx + (v[0] - Cx) * t;
-          const py = Cy + (v[1] - Cy) * t;
-          return [px * tileW, py * tileH];
-        });
+          flat.push((Cx + (v[0] - Cx) * t) * tileW, (Cy + (v[1] - Cy) * t) * tileH);
+        }
+        face.points = new Points(flat);
 
         face.depth =
           viewVec[0] * viewVec[0] +
@@ -1528,7 +1535,9 @@ export class Heerich {
    * @returns {{x: number, y: number, w: number, h: number, faces: Face[]}}
    */
   getViewBoxBounds() {
-    return this._boundsFromFaces(this.getFaces());
+    const faces = this.getFaces();
+    const b = computeBounds(faces);
+    return { ...b, faces };
   }
 
   /**
@@ -1554,7 +1563,9 @@ export class Heerich {
       maxY = -Infinity;
     if (faces.length === 0) return { x: 0, y: 0, w: 100, h: 100, faces };
     for (const face of faces) {
-      for (const [px, py] of face.points) {
+      const d = face.points.data;
+      for (let i = 0; i < d.length; i += 2) {
+        const px = d[i], py = d[i + 1];
         if (px < minX) minX = px;
         if (py < minY) minY = py;
         if (px > maxX) maxX = px;
@@ -1562,34 +1573,6 @@ export class Heerich {
       }
     }
     return { x: minX, y: minY, w: maxX - minX, h: maxY - minY, faces };
-  }
-
-  /**
-   * Helper to convert an object of styles to an SVG attribute string.
-   * Caches both camelCase → kebab-case key conversions and full style-string results.
-   * @param {StyleObject} styleObj
-   * @returns {string} SVG attribute string (e.g. ' fill="#aaa" stroke="#000"')
-   */
-  _buildSvgAttributes(styleObj) {
-    // Check style-string cache — same object identity = same result
-    const cached = Heerich._styleCache.get(styleObj);
-    if (cached) return cached;
-
-    const merged = { strokeLinejoin: "round", ...styleObj };
-    let attrStr = "";
-    for (const [key, value] of Object.entries(merged)) {
-      if (value !== undefined && value !== null) {
-        const kebabKey =
-          Heerich._kebabCache[key] ||
-          (Heerich._kebabCache[key] = key
-            .replace(/([A-Z])/g, "-$1")
-            .toLowerCase());
-        attrStr += ` ${kebabKey}="${value}"`;
-      }
-    }
-
-    Heerich._styleCache.set(styleObj, attrStr);
-    return attrStr;
   }
 
   /**
@@ -1605,94 +1588,12 @@ export class Heerich {
    * @returns {string} SVG markup
    */
   toSVG(options = {}) {
-    const pad = options.padding || 20;
-    // Allow passing pre-computed faces (e.g. from getFacesFrom)
-    const bounds = options.faces
-      ? this._boundsFromFaces(options.faces)
-      : this.getViewBoxBounds();
-    const faces = bounds.faces;
-
-    // Allow custom viewBox override
-    const vbX = options.viewBox ? options.viewBox[0] : bounds.x - pad;
-    const vbY = options.viewBox ? options.viewBox[1] : bounds.y - pad;
-    const vbW = options.viewBox ? options.viewBox[2] : bounds.w + pad * 2;
-    const vbH = options.viewBox ? options.viewBox[3] : bounds.h + pad * 2;
-
-    const offset = options.offset || [0, 0];
-    const tw = this.renderOptions.tileW;
-    const faceAttrFn = options.faceAttributes || null;
-    const parts = [
-      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vbX} ${vbY} ${vbW} ${vbH}" style="width:100%; height:100%;">`,
-    ];
-
-    if (options.prepend) parts.push(options.prepend);
-
-    parts.push(`<g transform="translate(${offset[0]}, ${offset[1]})">`);
-
-    for (const face of faces) {
-      if (face.type === "content") {
-        parts.push(
-          `<g transform="translate(${face._px}, ${face._py}) scale(${face._scale})" style="--x:${face._px};--y:${face._py};--z:${face._pos[2]};--scale:${face._scale};--tile:${tw}">`,
-          face.content,
-          "</g>",
-        );
-        continue;
-      }
-
-      const ptsStr = face.points.map((p) => `${p[0]},${p[1]}`).join(" ");
-      const v = face.voxel;
-
-      // faceAttributes can override style props (fill, stroke, etc.) and add extra SVG attrs
-      let style = face.style;
-      let extraAttrs = "";
-      if (faceAttrFn) {
-        const custom = faceAttrFn(face);
-        if (custom) {
-          const styleOverrides = {};
-          for (const [key, value] of Object.entries(custom)) {
-            if (value === undefined || value === null) continue;
-            // Known SVG presentation attributes → merge into style
-            if (
-              key === "fill" ||
-              key === "stroke" ||
-              key === "strokeWidth" ||
-              key === "opacity" ||
-              key === "strokeDasharray" ||
-              key === "strokeLinecap" ||
-              key === "strokeLinejoin" ||
-              key === "fillOpacity" ||
-              key === "strokeOpacity"
-            ) {
-              styleOverrides[key] = value;
-            } else {
-              extraAttrs += ` ${key}="${value}"`;
-            }
-          }
-          if (Object.keys(styleOverrides).length > 0) {
-            style = { ...style, ...styleOverrides };
-          }
-        }
-      }
-
-      // Map voxel meta to data-* attributes
-      let metaAttrs = "";
-      if (v.meta) {
-        for (const [mk, mv] of Object.entries(v.meta)) {
-          metaAttrs += ` data-${mk}="${mv}"`;
-        }
-      }
-
-      parts.push(
-        `<polygon points="${ptsStr}"${this._buildSvgAttributes(style)} data-voxel="${v.x},${v.y},${v.z}" data-x="${v.x}" data-y="${v.y}" data-z="${v.z}" data-face="${face.type}"${metaAttrs}${extraAttrs} />`,
-      );
-    }
-
-    parts.push("</g>");
-    if (options.append) parts.push(options.append);
-    parts.push("</svg>");
-    return parts.join("");
+    if (!this._svgRenderer) this._svgRenderer = new SVGRenderer();
+    const faces = options.faces || this.getFaces();
+    return this._svgRenderer.render(faces, {
+      ...options,
+      tileW: this.renderOptions.tileW,
+    });
   }
 }
 
-Heerich._kebabCache = {};
-Heerich._styleCache = new WeakMap();

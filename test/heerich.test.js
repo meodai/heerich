@@ -255,13 +255,10 @@ describe("getFaces", () => {
     for (const f of faces) {
       if (f.type === "content") continue;
       expect(f.type).toMatch(/^(top|bottom|left|right|front|back)$/);
-      expect(f.points).toBeInstanceOf(Array);
       expect(f.points.length).toBe(4);
-      for (const pt of f.points) {
-        expect(pt).toBeInstanceOf(Array);
-        expect(pt.length).toBe(2);
-        expect(typeof pt[0]).toBe("number");
-        expect(typeof pt[1]).toBe("number");
+      for (const [px, py] of f.points) {
+        expect(typeof px).toBe("number");
+        expect(typeof py).toBe("number");
       }
       expect(typeof f.depth).toBe("number");
       expect(f.style).toBeDefined();
@@ -723,7 +720,7 @@ describe("snapshot", () => {
       type: f.type,
       vx: f.voxel.x, vy: f.voxel.y, vz: f.voxel.z,
       depth: Math.round(f.depth * 100) / 100,
-      points: f.points.map(([x, y]) => [Math.round(x * 100) / 100, Math.round(y * 100) / 100]),
+      points: [...f.points].map(([x, y]) => [Math.round(x * 100) / 100, Math.round(y * 100) / 100]),
     }));
     expect(snapshot).toMatchSnapshot();
   });
@@ -880,9 +877,9 @@ describe("properties", () => {
           expect(Number.isFinite(py)).toBe(true);
         }
         // Quad has positive area (cross product of diagonals is non-zero)
-        const [p0, p1, p2, p3] = f.points;
-        const dx1 = p2[0] - p0[0], dy1 = p2[1] - p0[1];
-        const dx2 = p3[0] - p1[0], dy2 = p3[1] - p1[1];
+        const p = f.points;
+        const dx1 = p.x(2) - p.x(0), dy1 = p.y(2) - p.y(0);
+        const dx2 = p.x(3) - p.x(1), dy2 = p.y(3) - p.y(1);
         const cross = Math.abs(dx1 * dy2 - dy1 * dx2);
         expect(cross).toBeGreaterThan(0);
       }
@@ -892,12 +889,12 @@ describe("properties", () => {
   it("winding order is consistent per face type", () => {
     // All faces of the same type should wind in the same direction.
     // Compute signed area (positive = counterclockwise, negative = clockwise).
-    function signedArea(points) {
+    function signedArea(pts) {
       let area = 0;
-      for (let i = 0; i < points.length; i++) {
-        const [x1, y1] = points[i];
-        const [x2, y2] = points[(i + 1) % points.length];
-        area += (x2 - x1) * (y2 + y1);
+      const n = pts.length;
+      for (let i = 0; i < n; i++) {
+        const j = (i + 1) % n;
+        area += (pts.x(j) - pts.x(i)) * (pts.y(j) + pts.y(i));
       }
       return area;
     }
