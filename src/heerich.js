@@ -1,3 +1,7 @@
+import { SVGRenderer } from "./renderers/svg.js";
+import { computeBounds } from "./renderers/svg.js";
+import { Points } from "./points.js";
+
 /**
  * @typedef {Object} StyleObject
  * @property {string} [fill] - Fill color
@@ -6,11 +10,25 @@
  * @property {number} [opacity] - Overall opacity
  * @property {number} [fillOpacity] - Fill opacity
  * @property {number} [strokeOpacity] - Stroke opacity
+ * @property {string} [strokeDasharray] - Dash pattern
+ * @property {string} [strokeLinecap] - Line cap style
+ * @property {string} [strokeLinejoin] - Line join style
  */
 
 /**
- * @typedef {Object|function(number,number,number): Object} StyleParam
- * Per-face style map (keys: 'default','top','bottom','left','right','front','back').
+ * @typedef {Object} FaceStyleMap
+ * @property {StyleObject | function(number,number,number): StyleObject} [default]
+ * @property {StyleObject | function(number,number,number): StyleObject} [top]
+ * @property {StyleObject | function(number,number,number): StyleObject} [bottom]
+ * @property {StyleObject | function(number,number,number): StyleObject} [left]
+ * @property {StyleObject | function(number,number,number): StyleObject} [right]
+ * @property {StyleObject | function(number,number,number): StyleObject} [front]
+ * @property {StyleObject | function(number,number,number): StyleObject} [back]
+ */
+
+/**
+ * @typedef {FaceStyleMap | function(number,number,number): FaceStyleMap} StyleParam
+ * Per-face style map or a function that returns one.
  * Values can be StyleObjects or `(x,y,z) => StyleObject` callbacks.
  */
 
@@ -26,15 +44,46 @@
  */
 
 /**
+ * @typedef {Object} Voxel
+ * @property {number} x
+ * @property {number} y
+ * @property {number} z
+ * @property {Object} [styles] - Per-face resolved styles
+ * @property {string} [content] - SVG content to embed
+ * @property {boolean} [opaque] - Whether this voxel occludes neighbors (default true)
+ * @property {Object} [meta] - Arbitrary key-value pairs for data-* attributes
+ * @property {number} [scale] - Voxel scale factor
+ * @property {[number,number,number]} [scaleOrigin] - Scale transform origin
+ */
+
+/**
+ * @typedef {'top'|'bottom'|'left'|'right'|'front'|'back'|'content'} FaceType
+ */
+
+/**
+ * @typedef {Object} CameraOptions
+ * @property {'oblique'|'perspective'} [type='oblique'] - Projection type
+ * @property {number} [angle=45] - Oblique camera angle in degrees
+ * @property {number} [distance=15] - Camera distance
+ * @property {[number,number]} [position] - Perspective camera position [x, y]
+ */
+
+/**
  * @typedef {Object} Face
- * @property {string} type - Face name: 'top','bottom','left','right','front','back', or 'content'
- * @property {Object} voxel - Source voxel data
- * @property {Array<[number,number]>} points - Projected 2D polygon points
+ * @property {FaceType} type - Face name
+ * @property {Voxel} voxel - Source voxel data
+ * @property {import('./points.js').Points} points - Projected 2D polygon points
  * @property {number} depth - Depth value for sorting
  * @property {StyleObject} [style] - Resolved style for this face
+ * @property {string} [content] - SVG content string (content faces only)
+ * @property {[number,number,number]} [_pos] - Original 3D position (content faces only)
+ * @property {number} [_px] - Projected 2D x (content faces only)
+ * @property {number} [_py] - Projected 2D y (content faces only)
+ * @property {number} [_scale] - Perspective scale factor (content faces only)
  */
 
 /** Neighbor offsets: [dx, dy, dz, exposedFace] */
+/** @type {[number, number, number, string][]} */
 const ADJ = [
   [0, -1, 0, "bottom"],
   [0, 1, 0, "top"],
@@ -52,15 +101,12 @@ export class Heerich {
    * @param {Object} [options]
    * @param {[number,number]} [options.tile=[40,40]] - Tile size in pixels [width, height]
    * @param {StyleObject} [options.style] - Default face style
-   * @param {Object} [options.camera] - Camera configuration
-   * @param {'oblique'|'perspective'} [options.camera.type='oblique'] - Projection type
-   * @param {number} [options.camera.angle=45] - Oblique camera angle in degrees
-   * @param {number} [options.camera.distance=15] - Camera distance
-   * @param {[number,number]} [options.camera.position=[5,5]] - Perspective camera position [x, y]
+   * @param {CameraOptions} [options.camera] - Camera configuration
    */
   constructor(options = {}) {
     const tile = options.tile || [40, 40];
 
+    /** @type {StyleObject} */
     this.defaultStyle = options.style || {
       fill: "#aaaaaa",
       stroke: "#000000",
@@ -68,6 +114,7 @@ export class Heerich {
     };
 
     const cam = options.camera || { type: "oblique", angle: 45, distance: 15 };
+    /** @type {{projection: string, tileW: number, tileH: number, depthOffsetX: number, depthOffsetY: number, cameraX: number, cameraY: number, cameraDistance: number}} */
     this.renderOptions = {
       projection: cam.type || "oblique",
       tileW: tile[0],
@@ -80,19 +127,20 @@ export class Heerich {
     };
 
     this.setCamera(cam);
+    /** @type {Map<number, Voxel>} */
     this.voxels = new Map();
+    /** @type {boolean} */
     this._dirty = true;
+    /** @type {Face[]|null} */
     this._cachedFaces = null;
+    /** @type {SVGRenderer|null} */
+    this._svgRenderer = null;
   }
 
   /**
    * Update camera settings. Oblique cameras use angle + distance;
    * perspective cameras use position + distance.
-   * @param {Object} [opts]
-   * @param {'oblique'|'perspective'} [opts.type] - Projection type
-   * @param {number} [opts.angle] - Oblique angle in degrees
-   * @param {number} [opts.distance] - Camera distance
-   * @param {[number,number]} [opts.position] - Perspective camera position [x, y]
+   * @param {CameraOptions} [opts]
    */
   setCamera(opts = {}) {
     const type = opts.type || this.renderOptions.projection;
@@ -118,11 +166,16 @@ export class Heerich {
   /**
    * Pack coordinates into a single integer key for fast Map lookups.
    * Supports coordinates from -512 to 511 on each axis (10 bits + sign).
+   * @param {number} x
+   * @param {number} y
+   * @param {number} z
+   * @returns {number}
    */
   _k(x, y, z) {
     return ((x + 512) << 20) | ((y + 512) << 10) | (z + 512);
   }
 
+  /** Mark the scene as modified, clearing any cached face data. */
   _invalidate() {
     this._dirty = true;
     this._cachedFaces = null;
@@ -153,6 +206,15 @@ export class Heerich {
 
   /**
    * Rotate a point [x,y,z] around a center by N 90° turns on the given axis.
+   * @param {number} x
+   * @param {number} y
+   * @param {number} z
+   * @param {'x'|'y'|'z'} axis
+   * @param {number} turns - Number of 90° turns (1-3)
+   * @param {number} cx - Center X
+   * @param {number} cy - Center Y
+   * @param {number} cz - Center Z
+   * @returns {[number, number, number]}
    */
   static _rot90(x, y, z, axis, turns, cx, cy, cz) {
     let dx = x - cx,
@@ -179,8 +241,10 @@ export class Heerich {
 
   /**
    * Wrap a coordinate iterator with rotation.
-   * rotate: { axis: 'x'|'y'|'z', turns: 1-3, center?: [cx,cy,cz] }
    * If no center given, computes bounding box center of the coords.
+   * @param {Iterable<number[]>} coords
+   * @param {RotateOptions} rotate
+   * @returns {Generator<number[], void, unknown>}
    */
   *_rotateCoords(coords, rotate) {
     if (!rotate) {
@@ -225,9 +289,14 @@ export class Heerich {
 
   /**
    * Apply a boolean operation using coordinates from an iterator.
-   * coords: iterable of [x, y, z]
-   * mode: 'union' | 'subtract' | 'intersect' | 'exclude'
-   * style: optional style param
+   * @param {Iterable<number[]>} coords
+   * @param {BooleanMode} mode
+   * @param {StyleParam} [style]
+   * @param {string} [content] - SVG content to embed in voxel
+   * @param {boolean} [opaque] - Whether voxels occlude neighbors (default true)
+   * @param {Object} [meta] - Arbitrary key-value pairs for data-* attributes
+   * @param {[number,number,number]|function(number,number,number): [number,number,number]} [scale] - Per-axis scale 0-1
+   * @param {[number,number,number]|function(number,number,number): [number,number,number]} [scaleOrigin] - Scale origin within voxel
    */
   _applyOp(coords, mode, style, content, opaque, meta, scale, scaleOrigin) {
     if (mode === "intersect") {
@@ -337,7 +406,13 @@ export class Heerich {
   }
 
   /**
-   * Resolves a style parameter (which might be a function) into a static style object
+   * Resolves a style parameter (which might be a function) into a static style object.
+   * @param {StyleParam} styleParam
+   * @param {number} x
+   * @param {number} y
+   * @param {number} z
+   * @param {Object|null} [existingStyles] - Existing per-face styles to merge into
+   * @returns {Object} Resolved per-face style map (keys: 'default', 'top', etc.)
    */
   _resolveStyles(styleParam, x, y, z, existingStyles = null) {
     if (!styleParam) {
@@ -488,7 +563,10 @@ export class Heerich {
   }
 
   /**
-   * Iterate coordinates for a box shape
+   * Iterate coordinates for a box shape.
+   * @param {[number,number,number]} position
+   * @param {[number,number,number]} size
+   * @returns {Generator<number[], void, unknown>}
    */
   *_boxCoords(position, size) {
     const [sx, sy, sz] = position;
@@ -499,7 +577,10 @@ export class Heerich {
   }
 
   /**
-   * Iterate coordinates for a sphere shape
+   * Iterate coordinates for a sphere shape.
+   * @param {[number,number,number]} center
+   * @param {number} radius
+   * @returns {Generator<number[], void, unknown>}
    */
   *_sphereCoords(center, radius) {
     const [cx, cy, cz] = center;
@@ -553,6 +634,7 @@ export class Heerich {
    * @param {Object} opts
    * @param {[number,number,number]} opts.position
    * @param {[number,number,number]} opts.size
+   * @param {StyleParam} [opts.style] - Style to apply to newly exposed neighbor faces
    */
   removeBox(opts) {
     this._applyOp(
@@ -598,6 +680,7 @@ export class Heerich {
    * @param {Object} opts
    * @param {[number,number,number]} opts.center
    * @param {number} opts.radius
+   * @param {StyleParam} [opts.style] - Style to apply to newly exposed neighbor faces
    */
   removeSphere(opts) {
     this._applyOp(
@@ -610,6 +693,11 @@ export class Heerich {
   /**
    * Iterate coordinates for a line shape (with optional radius/shape).
    * Collects all unique coords via a Set to avoid redundant writes from overlapping stamps.
+   * @param {[number,number,number]} from
+   * @param {[number,number,number]} to
+   * @param {number} radius
+   * @param {'rounded'|'square'} shape
+   * @returns {Generator<number[], void, unknown>}
    */
   *_lineCoords(from, to, radius, shape) {
     const [x0, y0, z0] = from;
@@ -708,6 +796,9 @@ export class Heerich {
 
   /**
    * Iterate coordinates within bounds where test returns true.
+   * @param {[[number,number,number],[number,number,number]]} bounds - [min, max] corners
+   * @param {function(number,number,number): boolean} test
+   * @returns {Generator<number[], void, unknown>}
    */
   *_whereCoords(bounds, test) {
     const [[minX, minY, minZ], [maxX, maxY, maxZ]] = bounds;
@@ -748,6 +839,7 @@ export class Heerich {
    * @param {Object} opts
    * @param {[[number,number,number],[number,number,number]]} opts.bounds
    * @param {function(number,number,number): boolean} opts.test
+   * @param {StyleParam} [opts.style] - Style to apply to newly exposed neighbor faces
    */
   removeWhere(opts) {
     this._applyOp(
@@ -1096,7 +1188,9 @@ export class Heerich {
     const regions = opts.regions || [opts.bounds];
     const test = opts.test;
     const styleFn = typeof opts.style === "function" ? opts.style : null;
-    const styleObj = !styleFn ? opts.style || null : null;
+    const styleObj = /** @type {FaceStyleMap|null} */ (
+      !styleFn ? opts.style || null : null
+    );
     const defaultStyle = this.defaultStyle;
 
     const { projection, depthOffsetX, depthOffsetY, tileW, tileH } =
@@ -1331,6 +1425,8 @@ export class Heerich {
 
   /**
    * Project 3D faces to 2D and sort by depth (shared by getFaces and getFacesFrom).
+   * @param {Object[]} faces3D - Face objects with `vertices` (3D) or `points` (already 2D)
+   * @returns {Face[]} Projected, depth-sorted face array
    */
   _projectAndSort(faces3D) {
     const projectedFaces = [];
@@ -1373,18 +1469,24 @@ export class Heerich {
           [cx + 1, cy + 1, cz],
         ];
         if (projection === "oblique") {
-          face.points = corners.map(([vx, vy, vz]) => [
-            vx * tileW + vz * depthOffsetX,
-            vy * tileH + vz * depthOffsetY,
-          ]);
+          const flat = [];
+          for (const [vx, vy, vz] of corners) {
+            flat.push(
+              vx * tileW + vz * depthOffsetX,
+              vy * tileH + vz * depthOffsetY,
+            );
+          }
+          face.points = new Points(flat);
         } else {
-          face.points = corners.map(([vx, vy, vz]) => {
+          const flat = [];
+          for (const [vx, vy, vz] of corners) {
             const ct = cameraDistance / (vz + cameraDistance);
-            return [
+            flat.push(
               (cameraX + (vx - cameraX) * ct) * tileW,
               (cameraY + (vy - cameraY) * ct) * tileH,
-            ];
-          });
+            );
+          }
+          face.points = new Points(flat);
         }
         face.depth = depth;
         face._px = px;
@@ -1395,10 +1497,14 @@ export class Heerich {
       }
 
       if (projection === "oblique") {
-        face.points = face.vertices.map((v) => [
-          v[0] * tileW + v[2] * depthOffsetX,
-          v[1] * tileH + v[2] * depthOffsetY,
-        ]);
+        const flat = [];
+        for (const v of face.vertices) {
+          flat.push(
+            v[0] * tileW + v[2] * depthOffsetX,
+            v[1] * tileH + v[2] * depthOffsetY,
+          );
+        }
+        face.points = new Points(flat);
       } else if (projection === "perspective") {
         const Cx = cameraX;
         const Cy = cameraY;
@@ -1415,12 +1521,15 @@ export class Heerich {
         if (face.vertices.some((v) => v[2] + cameraDistance < minDenom))
           continue;
 
-        face.points = face.vertices.map((v) => {
+        const flat = [];
+        for (const v of face.vertices) {
           const t = cameraDistance / (v[2] + cameraDistance);
-          const px = Cx + (v[0] - Cx) * t;
-          const py = Cy + (v[1] - Cy) * t;
-          return [px * tileW, py * tileH];
-        });
+          flat.push(
+            (Cx + (v[0] - Cx) * t) * tileW,
+            (Cy + (v[1] - Cy) * t) * tileH,
+          );
+        }
+        face.points = new Points(flat);
 
         face.depth =
           viewVec[0] * viewVec[0] +
@@ -1440,7 +1549,9 @@ export class Heerich {
    * @returns {{x: number, y: number, w: number, h: number, faces: Face[]}}
    */
   getViewBoxBounds() {
-    return this._boundsFromFaces(this.getFaces());
+    const faces = this.getFaces();
+    const b = computeBounds(faces);
+    return { ...b, faces };
   }
 
   /**
@@ -1454,6 +1565,11 @@ export class Heerich {
     return [b.x - padding, b.y - padding, b.w + padding * 2, b.h + padding * 2];
   }
 
+  /**
+   * Compute 2D bounding box from projected face points.
+   * @param {Face[]} faces
+   * @returns {{x: number, y: number, w: number, h: number, faces: Face[]}}
+   */
   _boundsFromFaces(faces) {
     let minX = Infinity,
       minY = Infinity;
@@ -1461,7 +1577,10 @@ export class Heerich {
       maxY = -Infinity;
     if (faces.length === 0) return { x: 0, y: 0, w: 100, h: 100, faces };
     for (const face of faces) {
-      for (const [px, py] of face.points) {
+      const d = face.points.data;
+      for (let i = 0; i < d.length; i += 2) {
+        const px = d[i],
+          py = d[i + 1];
         if (px < minX) minX = px;
         if (py < minY) minY = py;
         if (px > maxX) maxX = px;
@@ -1469,32 +1588,6 @@ export class Heerich {
       }
     }
     return { x: minX, y: minY, w: maxX - minX, h: maxY - minY, faces };
-  }
-
-  /**
-   * Helper to convert an object of styles to an SVG attribute string.
-   * Caches both camelCase → kebab-case key conversions and full style-string results.
-   */
-  _buildSvgAttributes(styleObj) {
-    // Check style-string cache — same object identity = same result
-    const cached = Heerich._styleCache.get(styleObj);
-    if (cached) return cached;
-
-    const merged = { strokeLinejoin: "round", ...styleObj };
-    let attrStr = "";
-    for (const [key, value] of Object.entries(merged)) {
-      if (value !== undefined && value !== null) {
-        const kebabKey =
-          Heerich._kebabCache[key] ||
-          (Heerich._kebabCache[key] = key
-            .replace(/([A-Z])/g, "-$1")
-            .toLowerCase());
-        attrStr += ` ${kebabKey}="${value}"`;
-      }
-    }
-
-    Heerich._styleCache.set(styleObj, attrStr);
-    return attrStr;
   }
 
   /**
@@ -1510,94 +1603,11 @@ export class Heerich {
    * @returns {string} SVG markup
    */
   toSVG(options = {}) {
-    const pad = options.padding || 20;
-    // Allow passing pre-computed faces (e.g. from getFacesFrom)
-    const bounds = options.faces
-      ? this._boundsFromFaces(options.faces)
-      : this.getViewBoxBounds();
-    const faces = bounds.faces;
-
-    // Allow custom viewBox override
-    const vbX = options.viewBox ? options.viewBox[0] : bounds.x - pad;
-    const vbY = options.viewBox ? options.viewBox[1] : bounds.y - pad;
-    const vbW = options.viewBox ? options.viewBox[2] : bounds.w + pad * 2;
-    const vbH = options.viewBox ? options.viewBox[3] : bounds.h + pad * 2;
-
-    const offset = options.offset || [0, 0];
-    const tw = this.renderOptions.tileW;
-    const faceAttrFn = options.faceAttributes || null;
-    const parts = [
-      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vbX} ${vbY} ${vbW} ${vbH}" style="width:100%; height:100%;">`,
-    ];
-
-    if (options.prepend) parts.push(options.prepend);
-
-    parts.push(`<g transform="translate(${offset[0]}, ${offset[1]})">`);
-
-    for (const face of faces) {
-      if (face.type === "content") {
-        parts.push(
-          `<g transform="translate(${face._px}, ${face._py}) scale(${face._scale})" style="--x:${face._px};--y:${face._py};--z:${face._pos[2]};--scale:${face._scale};--tile:${tw}">`,
-          face.content,
-          "</g>",
-        );
-        continue;
-      }
-
-      const ptsStr = face.points.map((p) => `${p[0]},${p[1]}`).join(" ");
-      const v = face.voxel;
-
-      // faceAttributes can override style props (fill, stroke, etc.) and add extra SVG attrs
-      let style = face.style;
-      let extraAttrs = "";
-      if (faceAttrFn) {
-        const custom = faceAttrFn(face);
-        if (custom) {
-          const styleOverrides = {};
-          for (const [key, value] of Object.entries(custom)) {
-            if (value === undefined || value === null) continue;
-            // Known SVG presentation attributes → merge into style
-            if (
-              key === "fill" ||
-              key === "stroke" ||
-              key === "strokeWidth" ||
-              key === "opacity" ||
-              key === "strokeDasharray" ||
-              key === "strokeLinecap" ||
-              key === "strokeLinejoin" ||
-              key === "fillOpacity" ||
-              key === "strokeOpacity"
-            ) {
-              styleOverrides[key] = value;
-            } else {
-              extraAttrs += ` ${key}="${value}"`;
-            }
-          }
-          if (Object.keys(styleOverrides).length > 0) {
-            style = { ...style, ...styleOverrides };
-          }
-        }
-      }
-
-      // Map voxel meta to data-* attributes
-      let metaAttrs = "";
-      if (v.meta) {
-        for (const [mk, mv] of Object.entries(v.meta)) {
-          metaAttrs += ` data-${mk}="${mv}"`;
-        }
-      }
-
-      parts.push(
-        `<polygon points="${ptsStr}"${this._buildSvgAttributes(style)} data-voxel="${v.x},${v.y},${v.z}" data-x="${v.x}" data-y="${v.y}" data-z="${v.z}" data-face="${face.type}"${metaAttrs}${extraAttrs} />`,
-      );
-    }
-
-    parts.push("</g>");
-    if (options.append) parts.push(options.append);
-    parts.push("</svg>");
-    return parts.join("");
+    if (!this._svgRenderer) this._svgRenderer = new SVGRenderer();
+    const faces = options.faces || this.getFaces();
+    return this._svgRenderer.render(faces, {
+      ...options,
+      tileW: this.renderOptions.tileW,
+    });
   }
 }
-
-Heerich._kebabCache = {};
-Heerich._styleCache = new WeakMap();
