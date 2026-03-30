@@ -69,6 +69,8 @@ All shape methods accept a common set of options:
 | `opaque`  | boolean | Whether this voxel occludes neighbors (default: `true`) |
 | `meta`    | object | Key/value pairs emitted as `data-*` attributes on SVG polygons |
 | `rotate`  | object | Rotate coordinates before placement (see [Rotation](#rotation)) |
+| `scale`   | `[x, y, z]` | Per-axis scale 0–1 (auto-sets `opaque: false`) |
+| `scaleOrigin` | `[x, y, z]` | Scale anchor within the voxel cell (default: `[0.5, 0, 0.5]`) |
 
 ### Box
 
@@ -204,6 +206,22 @@ h.styleBox({ position: [0, 0, 0], size: [3, 3, 3], style: { top: { fill: 'red' }
 h.styleSphere({ center: [5, 5, 5], radius: 2, style: { default: { fill: 'gold' } } })
 h.styleLine({ from: [0, 0, 0], to: [10, 0, 0], radius: 1, style: { default: { fill: 'blue' } } })
 ```
+
+## Voxel Scaling
+
+Shrink individual voxels along any axis. Scaled voxels automatically become non-opaque, revealing neighbors behind them.
+
+```js
+// Half-height step anchored to the floor
+h.addBox({
+  position: [0, 0, 0],
+  size: [1, 1, 1],
+  scale: [1, 0.5, 1],
+  scaleOrigin: [0.5, 1, 0.5]
+})
+```
+
+The `scaleOrigin` sets where scaling anchors within the voxel cell (0–1 per axis). `[0.5, 1, 0.5]` pins to the bottom-center (floor), `[0.5, 0, 0.5]` pins to the top-center (ceiling).
 
 ## Rotation
 
