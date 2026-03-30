@@ -1,6 +1,8 @@
 import { SVGRenderer } from "./renderers/svg.js";
 import { computeBounds } from "./renderers/svg.js";
 import { Points } from "./points.js";
+import { boxCoords, sphereCoords, lineCoords, whereCoords } from "./shapes.js";
+export { boxCoords, sphereCoords, lineCoords, whereCoords };
 
 /**
  * @typedef {Object} StyleObject
@@ -616,41 +618,6 @@ export class Heerich {
     return engine;
   }
 
-  /**
-   * Iterate coordinates for a box shape.
-   * @param {[number,number,number]} position
-   * @param {[number,number,number]} size
-   * @returns {Generator<number[], void, unknown>}
-   */
-  *_boxCoords(position, size) {
-    const [sx, sy, sz] = position;
-    const [w, h, d] = size;
-    for (let z = sz; z < sz + d; z++)
-      for (let y = sy; y < sy + h; y++)
-        for (let x = sx; x < sx + w; x++) yield [x, y, z];
-  }
-
-  /**
-   * Iterate coordinates for a sphere shape.
-   * @param {[number,number,number]} center
-   * @param {number} radius
-   * @returns {Generator<number[], void, unknown>}
-   */
-  *_sphereCoords(center, radius) {
-    const [cx, cy, cz] = center;
-    for (let z = Math.ceil(cz - radius); z <= Math.floor(cz + radius); z++)
-      for (let y = Math.ceil(cy - radius); y <= Math.floor(cy + radius); y++)
-        for (
-          let x = Math.ceil(cx - radius);
-          x <= Math.floor(cx + radius);
-          x++
-        ) {
-          const dx = cx - x,
-            dy = cy - y,
-            dz = cz - z;
-          if (dx * dx + dy * dy + dz * dz <= radius * radius) yield [x, y, z];
-        }
-  }
 
   /**
    * Add (or boolean-op) a box of voxels.
@@ -668,7 +635,7 @@ export class Heerich {
    */
   addBox(opts) {
     const coords = this._rotateCoords(
-      this._boxCoords(opts.position, opts.size),
+      boxCoords(opts.position, opts.size),
       opts.rotate,
     );
     this._applyOp(
@@ -692,7 +659,7 @@ export class Heerich {
    */
   removeBox(opts) {
     this._applyOp(
-      this._boxCoords(opts.position, opts.size),
+      boxCoords(opts.position, opts.size),
       "subtract",
       opts.style,
     );
@@ -714,7 +681,7 @@ export class Heerich {
    */
   addSphere(opts) {
     const coords = this._rotateCoords(
-      this._sphereCoords(opts.center, opts.radius),
+      sphereCoords(opts.center, opts.radius),
       opts.rotate,
     );
     this._applyOp(
@@ -738,71 +705,10 @@ export class Heerich {
    */
   removeSphere(opts) {
     this._applyOp(
-      this._sphereCoords(opts.center, opts.radius),
+      sphereCoords(opts.center, opts.radius),
       "subtract",
       opts.style,
     );
-  }
-
-  /**
-   * Iterate coordinates for a line shape (with optional radius/shape).
-   * Collects all unique coords via a Set to avoid redundant writes from overlapping stamps.
-   * @param {[number,number,number]} from
-   * @param {[number,number,number]} to
-   * @param {number} radius
-   * @param {'rounded'|'square'} shape
-   * @returns {Generator<number[], void, unknown>}
-   */
-  *_lineCoords(from, to, radius, shape) {
-    const [x0, y0, z0] = from;
-    const [x1, y1, z1] = to;
-    const dx = x1 - x0,
-      dy = y1 - y0,
-      dz = z1 - z0;
-    const N = Math.max(Math.abs(dx), Math.abs(dy), Math.abs(dz));
-    const seen = radius > 0 ? new Set() : null;
-
-    const emit = function* (coords) {
-      if (!seen) {
-        yield* coords;
-        return;
-      }
-      for (const c of coords) {
-        const k = ((c[0] + 512) << 20) | ((c[1] + 512) << 10) | (c[2] + 512);
-        if (!seen.has(k)) {
-          seen.add(k);
-          yield c;
-        }
-      }
-    };
-
-    const steps =
-      N === 0
-        ? [[x0, y0, z0]]
-        : Array.from({ length: N + 1 }, (_, i) => {
-            const t = i / N;
-            return [
-              Math.round(x0 + t * dx),
-              Math.round(y0 + t * dy),
-              Math.round(z0 + t * dz),
-            ];
-          });
-
-    for (const [cx, cy, cz] of steps) {
-      if (shape === "rounded" && radius > 0) {
-        yield* emit(this._sphereCoords([cx, cy, cz], radius));
-      } else if (shape === "square" && radius > 0) {
-        const r = Math.floor(radius);
-        yield* emit(
-          this._boxCoords(
-            [cx - r, cy - r, cz - r],
-            [r * 2 + 1, r * 2 + 1, r * 2 + 1],
-          ),
-        );
-      } else {
-        yield [cx, cy, cz];
-      }
-    }
   }
 
   /**
@@ -825,7 +731,7 @@ export class Heerich {
     const radius = opts.radius || 0;
     const shape = opts.shape || "rounded";
     const coords = this._rotateCoords(
-      this._lineCoords(opts.from, opts.to, radius, shape),
+      lineCoords(opts.from, opts.to, radius, shape),
       opts.rotate,
     );
     this._applyOp(
@@ -849,19 +755,6 @@ export class Heerich {
   }
 
   /**
-   * Iterate coordinates within bounds where test returns true.
-   * @param {[[number,number,number],[number,number,number]]} bounds - [min, max] corners
-   * @param {function(number,number,number): boolean} test
-   * @returns {Generator<number[], void, unknown>}
-   */
-  *_whereCoords(bounds, test) {
-    const [[minX, minY, minZ], [maxX, maxY, maxZ]] = bounds;
-    for (let z = minZ; z < maxZ; z++)
-      for (let y = minY; y < maxY; y++)
-        for (let x = minX; x < maxX; x++) if (test(x, y, z)) yield [x, y, z];
-  }
-
-  /**
    * Add voxels within a bounding box where a test function returns true.
    * @param {Object} opts
    * @param {[[number,number,number],[number,number,number]]} opts.bounds - Min and max corners
@@ -875,7 +768,7 @@ export class Heerich {
    * @param {[number,number,number]|function(number,number,number):[number,number,number]} [opts.scaleOrigin=[0.5,0,0.5]] - Scale origin within voxel, or function returning it
    */
   addWhere(opts) {
-    const coords = this._whereCoords(opts.bounds, opts.test);
+    const coords = whereCoords(opts.bounds, opts.test);
     this._applyOp(
       coords,
       opts.mode || "union",
@@ -897,7 +790,7 @@ export class Heerich {
    */
   removeWhere(opts) {
     this._applyOp(
-      this._whereCoords(opts.bounds, opts.test),
+      whereCoords(opts.bounds, opts.test),
       "subtract",
       opts.style,
     );
@@ -925,7 +818,7 @@ export class Heerich {
    * @param {StyleParam} opts.style
    */
   styleBox(opts) {
-    this._styleCoords(this._boxCoords(opts.position, opts.size), opts.style);
+    this._styleCoords(boxCoords(opts.position, opts.size), opts.style);
   }
 
   /**
@@ -936,7 +829,7 @@ export class Heerich {
    * @param {StyleParam} opts.style
    */
   styleSphere(opts) {
-    this._styleCoords(this._sphereCoords(opts.center, opts.radius), opts.style);
+    this._styleCoords(sphereCoords(opts.center, opts.radius), opts.style);
   }
 
   /**
@@ -952,7 +845,7 @@ export class Heerich {
     const radius = opts.radius || 0;
     const shape = opts.shape || "rounded";
     this._styleCoords(
-      this._lineCoords(opts.from, opts.to, radius, shape),
+      lineCoords(opts.from, opts.to, radius, shape),
       opts.style,
     );
   }
