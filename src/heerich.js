@@ -1190,7 +1190,9 @@ export class Heerich {
     const regions = opts.regions || [opts.bounds];
     const test = opts.test;
     const styleFn = typeof opts.style === "function" ? opts.style : null;
-    const styleObj = /** @type {FaceStyleMap|null} */ (!styleFn ? opts.style || null : null);
+    const styleObj = /** @type {FaceStyleMap|null} */ (
+      !styleFn ? opts.style || null : null
+    );
     const defaultStyle = this.defaultStyle;
 
     const { projection, depthOffsetX, depthOffsetY, tileW, tileH } =
@@ -1471,14 +1473,20 @@ export class Heerich {
         if (projection === "oblique") {
           const flat = [];
           for (const [vx, vy, vz] of corners) {
-            flat.push(vx * tileW + vz * depthOffsetX, vy * tileH + vz * depthOffsetY);
+            flat.push(
+              vx * tileW + vz * depthOffsetX,
+              vy * tileH + vz * depthOffsetY,
+            );
           }
           face.points = new Points(flat);
         } else {
           const flat = [];
           for (const [vx, vy, vz] of corners) {
             const ct = cameraDistance / (vz + cameraDistance);
-            flat.push((cameraX + (vx - cameraX) * ct) * tileW, (cameraY + (vy - cameraY) * ct) * tileH);
+            flat.push(
+              (cameraX + (vx - cameraX) * ct) * tileW,
+              (cameraY + (vy - cameraY) * ct) * tileH,
+            );
           }
           face.points = new Points(flat);
         }
@@ -1493,7 +1501,10 @@ export class Heerich {
       if (projection === "oblique") {
         const flat = [];
         for (const v of face.vertices) {
-          flat.push(v[0] * tileW + v[2] * depthOffsetX, v[1] * tileH + v[2] * depthOffsetY);
+          flat.push(
+            v[0] * tileW + v[2] * depthOffsetX,
+            v[1] * tileH + v[2] * depthOffsetY,
+          );
         }
         face.points = new Points(flat);
       } else if (projection === "perspective") {
@@ -1515,7 +1526,10 @@ export class Heerich {
         const flat = [];
         for (const v of face.vertices) {
           const t = cameraDistance / (v[2] + cameraDistance);
-          flat.push((Cx + (v[0] - Cx) * t) * tileW, (Cy + (v[1] - Cy) * t) * tileH);
+          flat.push(
+            (Cx + (v[0] - Cx) * t) * tileW,
+            (Cy + (v[1] - Cy) * t) * tileH,
+          );
         }
         face.points = new Points(flat);
 
@@ -1567,7 +1581,8 @@ export class Heerich {
     for (const face of faces) {
       const d = face.points.data;
       for (let i = 0; i < d.length; i += 2) {
-        const px = d[i], py = d[i + 1];
+        const px = d[i],
+          py = d[i + 1];
         if (px < minX) minX = px;
         if (py < minY) minY = py;
         if (px > maxX) maxX = px;
@@ -1598,4 +1613,3 @@ export class Heerich {
     });
   }
 }
-

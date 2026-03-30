@@ -113,7 +113,8 @@ export function computeBounds(faces) {
   for (let fi = 0; fi < faces.length; fi++) {
     const d = faces[fi].points.data;
     for (let i = 0; i < d.length; i += 2) {
-      const px = d[i], py = d[i + 1];
+      const px = d[i],
+        py = d[i + 1];
       if (px < minX) minX = px;
       if (py < minY) minY = py;
       if (px > maxX) maxX = px;

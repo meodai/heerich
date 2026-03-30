@@ -4,24 +4,32 @@
  */
 export class Points {
   /** @param {number[]} data — flat [x0, y0, x1, y1, ...] */
-  constructor(data) { this.data = data; }
+  constructor(data) {
+    this.data = data;
+  }
 
   /** Number of points. */
-  get length() { return this.data.length >> 1; }
+  get length() {
+    return this.data.length >> 1;
+  }
 
   /**
    * X coordinate of point i.
    * @param {number} i
    * @returns {number}
    */
-  x(i) { return this.data[i * 2]; }
+  x(i) {
+    return this.data[i * 2];
+  }
 
   /**
    * Y coordinate of point i.
    * @param {number} i
    * @returns {number}
    */
-  y(i) { return this.data[i * 2 + 1]; }
+  y(i) {
+    return this.data[i * 2 + 1];
+  }
 
   /**
    * Iterate [x, y] pairs. Convenient for non-hot-path code;

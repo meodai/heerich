@@ -45,7 +45,10 @@ export class Canvas2dRenderer {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
 
-    let scaleX = 1, scaleY = 1, tx = 0, ty = 0;
+    let scaleX = 1,
+      scaleY = 1,
+      tx = 0,
+      ty = 0;
     if (fitCanvas && vpW > 0 && vpH > 0) {
       const scale = Math.min(canvas.width / vpW, canvas.height / vpH);
       scaleX = scale;
@@ -58,7 +61,14 @@ export class Canvas2dRenderer {
     this._lastFaces = faces;
 
     ctx.save();
-    ctx.setTransform(scaleX, 0, 0, scaleY, tx + offset[0] * scaleX, ty + offset[1] * scaleY);
+    ctx.setTransform(
+      scaleX,
+      0,
+      0,
+      scaleY,
+      tx + offset[0] * scaleX,
+      ty + offset[1] * scaleY,
+    );
     ctx.lineJoin = "round";
 
     // Track previous style to avoid redundant canvas state changes
@@ -82,10 +92,15 @@ export class Canvas2dRenderer {
             const value = custom[key];
             if (value === undefined || value === null) continue;
             if (
-              key === "fill" || key === "stroke" || key === "strokeWidth" ||
-              key === "opacity" || key === "strokeDasharray" ||
-              key === "strokeLinecap" || key === "strokeLinejoin" ||
-              key === "fillOpacity" || key === "strokeOpacity"
+              key === "fill" ||
+              key === "stroke" ||
+              key === "strokeWidth" ||
+              key === "opacity" ||
+              key === "strokeDasharray" ||
+              key === "strokeLinecap" ||
+              key === "strokeLinejoin" ||
+              key === "fillOpacity" ||
+              key === "strokeOpacity"
             ) {
               styleOverrides[key] = value;
               hasOverrides = true;
@@ -107,11 +122,17 @@ export class Canvas2dRenderer {
 
       // Opacity
       const alpha = style.opacity !== undefined ? style.opacity : 1;
-      if (alpha !== prevAlpha) { ctx.globalAlpha = alpha; prevAlpha = alpha; }
+      if (alpha !== prevAlpha) {
+        ctx.globalAlpha = alpha;
+        prevAlpha = alpha;
+      }
 
       // Fill
       if (style.fill && style.fill !== "none") {
-        if (style.fill !== prevFill) { ctx.fillStyle = style.fill; prevFill = style.fill; }
+        if (style.fill !== prevFill) {
+          ctx.fillStyle = style.fill;
+          prevFill = style.fill;
+        }
         if (style.fillOpacity !== undefined) {
           const a = alpha * style.fillOpacity;
           ctx.globalAlpha = a;
@@ -124,11 +145,21 @@ export class Canvas2dRenderer {
 
       // Stroke
       if (style.stroke && style.stroke !== "none") {
-        if (style.stroke !== prevStroke) { ctx.strokeStyle = style.stroke; prevStroke = style.stroke; }
+        if (style.stroke !== prevStroke) {
+          ctx.strokeStyle = style.stroke;
+          prevStroke = style.stroke;
+        }
         const lw = style.strokeWidth !== undefined ? style.strokeWidth : 1;
-        if (lw !== prevLineWidth) { ctx.lineWidth = lw; prevLineWidth = lw; }
-        ctx.lineJoin = /** @type {CanvasLineJoin} */ (style.strokeLinejoin || "round");
-        ctx.lineCap = /** @type {CanvasLineCap} */ (style.strokeLinecap || "butt");
+        if (lw !== prevLineWidth) {
+          ctx.lineWidth = lw;
+          prevLineWidth = lw;
+        }
+        ctx.lineJoin = /** @type {CanvasLineJoin} */ (
+          style.strokeLinejoin || "round"
+        );
+        ctx.lineCap = /** @type {CanvasLineCap} */ (
+          style.strokeLinecap || "butt"
+        );
         if (style.strokeDasharray) {
           ctx.setLineDash(style.strokeDasharray.split(/[\s,]+/).map(Number));
         } else {
@@ -183,9 +214,11 @@ function _pointInPolygon(x, y, d) {
   let inside = false;
   const n = d.length;
   for (let i = 0, j = n - 2; i < n; j = i, i += 2) {
-    const xi = d[i], yi = d[i + 1];
-    const xj = d[j], yj = d[j + 1];
-    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) {
+    const xi = d[i],
+      yi = d[i + 1];
+    const xj = d[j],
+      yj = d[j + 1];
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) {
       inside = !inside;
     }
   }

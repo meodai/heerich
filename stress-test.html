@@ -249,10 +249,12 @@
     </style>
   </head>
   <body>
-
     <div class="page-header">
       <h1>Stress Test</h1>
-      <p>N&times;N grid of voxel towers &mdash; increase grid size to push face counts into the thousands.</p>
+      <p>
+        N&times;N grid of voxel towers &mdash; increase grid size to push face
+        counts into the thousands.
+      </p>
     </div>
 
     <div class="controls-bar">
@@ -262,20 +264,20 @@
         <span class="control-label">Grid</span>
         <div class="grid-control">
           <span class="grid-value" id="grid-val">8</span>
-          <input type="range" id="grid-slider" min="2" max="30" value="8">
+          <input type="range" id="grid-slider" min="2" max="30" value="8" />
         </div>
       </div>
 
       <label class="checkbox-control">
-        <input type="checkbox" id="chk-animate" checked>
+        <input type="checkbox" id="chk-animate" checked />
         <span>Animate</span>
       </label>
       <label class="checkbox-control">
-        <input type="checkbox" id="chk-strokes" checked>
+        <input type="checkbox" id="chk-strokes" checked />
         <span>Strokes</span>
       </label>
 
-      <div class="control-group" style="margin-left:auto">
+      <div class="control-group" style="margin-left: auto">
         <button class="toggle active" id="btn-svg">SVG</button>
         <button class="toggle active" id="btn-canvas">Canvas</button>
         <button class="toggle active" id="btn-webgpu">WebGPU</button>
@@ -283,11 +285,26 @@
     </div>
 
     <div class="metrics-strip">
-      <div class="metric"><span class="metric-label">Faces</span><span class="metric-value" id="m-faces">&mdash;</span></div>
-      <div class="metric"><span class="metric-label">Build</span><span class="metric-value" id="m-build">&mdash;</span></div>
-      <div class="metric"><span class="metric-label">SVG</span><span class="metric-value" id="m-svg">&mdash;</span></div>
-      <div class="metric"><span class="metric-label">Canvas2D</span><span class="metric-value" id="m-canvas">&mdash;</span></div>
-      <div class="metric"><span class="metric-label">WebGPU</span><span class="metric-value" id="m-webgpu">&mdash;</span></div>
+      <div class="metric">
+        <span class="metric-label">Faces</span
+        ><span class="metric-value" id="m-faces">&mdash;</span>
+      </div>
+      <div class="metric">
+        <span class="metric-label">Build</span
+        ><span class="metric-value" id="m-build">&mdash;</span>
+      </div>
+      <div class="metric">
+        <span class="metric-label">SVG</span
+        ><span class="metric-value" id="m-svg">&mdash;</span>
+      </div>
+      <div class="metric">
+        <span class="metric-label">Canvas2D</span
+        ><span class="metric-value" id="m-canvas">&mdash;</span>
+      </div>
+      <div class="metric">
+        <span class="metric-label">WebGPU</span
+        ><span class="metric-value" id="m-webgpu">&mdash;</span>
+      </div>
     </div>
 
     <div class="renderers">
@@ -341,12 +358,32 @@
       const svgRenderer = new SVGRenderer();
       const canvasRenderer = new Canvas2dRenderer(cvsCanvas);
       let webgpuRenderer = null;
-      let svgOn = true, canvasOn = true, webgpuOn = true;
+      let svgOn = true,
+        canvasOn = true,
+        webgpuOn = true;
       let running = false;
       let animId = null;
 
-      const colors = ["#e8927c", "#7cc8a0", "#6c5ce7", "#fdcb6e", "#fd79a8", "#00b894", "#b0c4de", "#e17055"];
-      const strokeColors = ["#c47060", "#5ea87e", "#4834a8", "#c8a020", "#d63071", "#00695c", "#7a8fa5", "#8b3a2a"];
+      const colors = [
+        "#e8927c",
+        "#7cc8a0",
+        "#6c5ce7",
+        "#fdcb6e",
+        "#fd79a8",
+        "#00b894",
+        "#b0c4de",
+        "#e17055",
+      ];
+      const strokeColors = [
+        "#c47060",
+        "#5ea87e",
+        "#4834a8",
+        "#c8a020",
+        "#d63071",
+        "#00695c",
+        "#7a8fa5",
+        "#8b3a2a",
+      ];
 
       btnSvg.addEventListener("click", (e) => {
         svgOn = !svgOn;
@@ -392,7 +429,9 @@
       });
 
       function buildScene(t, gridSize, strokes) {
-        const h = new Heerich({ camera: { type: "oblique", angle: 45, distance: 15 } });
+        const h = new Heerich({
+          camera: { type: "oblique", angle: 45, distance: 15 },
+        });
         const strokeWidth = strokes ? 0.4 : 0;
 
         for (let gx = 0; gx < gridSize; gx++) {
@@ -408,10 +447,19 @@
             const oz = gz * spacing - (gridSize * spacing) / 2;
 
             h.addBox({
-              position: [ox, 0, oz], size: [2, height, 2],
+              position: [ox, 0, oz],
+              size: [2, height, 2],
               style: {
-                default: { fill: colors[ci], stroke: strokeColors[ci], strokeWidth },
-                top: { fill: colors[(ci + 1) % colors.length], stroke: strokeColors[ci], strokeWidth },
+                default: {
+                  fill: colors[ci],
+                  stroke: strokeColors[ci],
+                  strokeWidth,
+                },
+                top: {
+                  fill: colors[(ci + 1) % colors.length],
+                  stroke: strokeColors[ci],
+                  strokeWidth,
+                },
               },
             });
           }
@@ -420,7 +468,11 @@
         return h;
       }
 
-      let svgMs = 0, canvasMs = 0, webgpuMs = 0, buildMs = 0, faceCount = 0;
+      let svgMs = 0,
+        canvasMs = 0,
+        webgpuMs = 0,
+        buildMs = 0,
+        faceCount = 0;
       const smoothing = 0.85;
       let frame = 0;
 
@@ -434,25 +486,32 @@
         const buildStart = performance.now();
         const h = buildScene(t, gridSize, strokes);
         const faces = h.getFaces();
-        buildMs = buildMs * smoothing + (performance.now() - buildStart) * (1 - smoothing);
+        buildMs =
+          buildMs * smoothing +
+          (performance.now() - buildStart) * (1 - smoothing);
         faceCount = faces.length;
 
         if (svgOn) {
           const s = performance.now();
-          svgContainer.innerHTML = svgRenderer.render(faces, { padding: 10, tileW: h.renderOptions.tileW });
+          svgContainer.innerHTML = svgRenderer.render(faces, {
+            padding: 10,
+            tileW: h.renderOptions.tileW,
+          });
           svgMs = svgMs * smoothing + (performance.now() - s) * (1 - smoothing);
         }
 
         if (canvasOn) {
           const s = performance.now();
           canvasRenderer.render(faces, { padding: 10 });
-          canvasMs = canvasMs * smoothing + (performance.now() - s) * (1 - smoothing);
+          canvasMs =
+            canvasMs * smoothing + (performance.now() - s) * (1 - smoothing);
         }
 
         if (webgpuOn && webgpuRenderer) {
           const s = performance.now();
           webgpuRenderer.render(faces, { padding: 10 });
-          webgpuMs = webgpuMs * smoothing + (performance.now() - s) * (1 - smoothing);
+          webgpuMs =
+            webgpuMs * smoothing + (performance.now() - s) * (1 - smoothing);
         }
 
         frame++;
@@ -461,7 +520,9 @@
           mBuild.textContent = buildMs.toFixed(1) + "ms";
           mSvgEl.textContent = svgMs.toFixed(1) + "ms";
           mCanvasEl.textContent = canvasMs.toFixed(1) + "ms";
-          mWebgpuEl.textContent = webgpuRenderer ? webgpuMs.toFixed(1) + "ms" : "n/a";
+          mWebgpuEl.textContent = webgpuRenderer
+            ? webgpuMs.toFixed(1) + "ms"
+            : "n/a";
         }
       }
 
