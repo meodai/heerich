@@ -229,7 +229,7 @@ export class Heerich {
    * mode: 'union' | 'subtract' | 'intersect' | 'exclude'
    * style: optional style param
    */
-  _applyOp(coords, mode, style, content, opaque, meta) {
+  _applyOp(coords, mode, style, content, opaque, meta, scale, scaleOrigin) {
     if (mode === "intersect") {
       // Collect shape coords, then delete everything not in the set
       const keep = new Set();
@@ -265,7 +265,18 @@ export class Heerich {
             styles: this._resolveStyles(style || null, x, y, z),
           };
           if (content) voxel.content = content;
-          if (opaque === false) voxel.opaque = false;
+          if (scale) {
+            const s = typeof scale === "function" ? scale(x, y, z) : scale;
+            if (s) {
+              voxel.scale = s;
+              voxel.scaleOrigin = (typeof scaleOrigin === "function"
+                ? scaleOrigin(x, y, z)
+                : scaleOrigin) || [0.5, 0, 0.5];
+              voxel.opaque = false;
+            }
+          } else if (opaque === false) {
+            voxel.opaque = false;
+          }
           if (meta) voxel.meta = meta;
           this.voxels.set(key, voxel);
         } else if (mode === "subtract") {
@@ -304,7 +315,18 @@ export class Heerich {
               styles: this._resolveStyles(style || null, x, y, z),
             };
             if (content) voxel.content = content;
-            if (opaque === false) voxel.opaque = false;
+            if (scale) {
+              const s = typeof scale === "function" ? scale(x, y, z) : scale;
+              if (s) {
+                voxel.scale = s;
+                voxel.scaleOrigin = (typeof scaleOrigin === "function"
+                  ? scaleOrigin(x, y, z)
+                  : scaleOrigin) || [0.5, 0, 0.5];
+                voxel.opaque = false;
+              }
+            } else if (opaque === false) {
+              voxel.opaque = false;
+            }
             if (meta) voxel.meta = meta;
             this.voxels.set(key, voxel);
           }
@@ -412,6 +434,8 @@ export class Heerich {
       if (voxel.content) entry.content = voxel.content;
       if (voxel.opaque === false) entry.opaque = false;
       if (voxel.meta) entry.meta = voxel.meta;
+      if (voxel.scale) entry.scale = voxel.scale;
+      if (voxel.scaleOrigin) entry.scaleOrigin = voxel.scaleOrigin;
       voxelData.push(entry);
     }
 
@@ -454,6 +478,8 @@ export class Heerich {
       if (v.content) voxel.content = v.content;
       if (v.opaque === false) voxel.opaque = false;
       if (v.meta) voxel.meta = v.meta;
+      if (v.scale) voxel.scale = v.scale;
+      if (v.scaleOrigin) voxel.scaleOrigin = v.scaleOrigin;
       engine.voxels.set(engine._k(v.x, v.y, v.z), voxel);
     }
 
@@ -502,6 +528,8 @@ export class Heerich {
    * @param {boolean} [opts.opaque=true] - Whether this voxel occludes neighbors
    * @param {Object} [opts.meta] - Arbitrary key/value pairs emitted as data-* attributes
    * @param {RotateOptions} [opts.rotate] - Rotate coordinates before placement
+   * @param {[number,number,number]|function(number,number,number):[number,number,number]} [opts.scale] - Per-axis scale 0-1, or function returning it (auto-sets opaque: false)
+   * @param {[number,number,number]|function(number,number,number):[number,number,number]} [opts.scaleOrigin=[0.5,0,0.5]] - Scale origin within voxel, or function returning it
    */
   addBox(opts) {
     const coords = this._rotateCoords(
@@ -515,6 +543,8 @@ export class Heerich {
       opts.content,
       opts.opaque,
       opts.meta,
+      opts.scale,
+      opts.scaleOrigin,
     );
   }
 
@@ -543,6 +573,8 @@ export class Heerich {
    * @param {boolean} [opts.opaque=true]
    * @param {Object} [opts.meta]
    * @param {RotateOptions} [opts.rotate]
+   * @param {[number,number,number]|function(number,number,number):[number,number,number]} [opts.scale] - Per-axis scale 0-1, or function returning it (auto-sets opaque: false)
+   * @param {[number,number,number]|function(number,number,number):[number,number,number]} [opts.scaleOrigin=[0.5,0,0.5]] - Scale origin within voxel, or function returning it
    */
   addSphere(opts) {
     const coords = this._rotateCoords(
@@ -556,6 +588,8 @@ export class Heerich {
       opts.content,
       opts.opaque,
       opts.meta,
+      opts.scale,
+      opts.scaleOrigin,
     );
   }
 
@@ -642,6 +676,8 @@ export class Heerich {
    * @param {boolean} [opts.opaque=true]
    * @param {Object} [opts.meta]
    * @param {RotateOptions} [opts.rotate]
+   * @param {[number,number,number]|function(number,number,number):[number,number,number]} [opts.scale] - Per-axis scale 0-1, or function returning it (auto-sets opaque: false)
+   * @param {[number,number,number]|function(number,number,number):[number,number,number]} [opts.scaleOrigin=[0.5,0,0.5]] - Scale origin within voxel, or function returning it
    */
   addLine(opts) {
     const radius = opts.radius || 0;
@@ -657,6 +693,8 @@ export class Heerich {
       opts.content,
       opts.opaque,
       opts.meta,
+      opts.scale,
+      opts.scaleOrigin,
     );
   }
 
@@ -688,6 +726,8 @@ export class Heerich {
    * @param {string} [opts.content]
    * @param {boolean} [opts.opaque=true]
    * @param {Object} [opts.meta]
+   * @param {[number,number,number]|function(number,number,number):[number,number,number]} [opts.scale] - Per-axis scale 0-1, or function returning it (auto-sets opaque: false)
+   * @param {[number,number,number]|function(number,number,number):[number,number,number]} [opts.scaleOrigin=[0.5,0,0.5]] - Scale origin within voxel, or function returning it
    */
   addWhere(opts) {
     const coords = this._whereCoords(opts.bounds, opts.test);
@@ -698,6 +738,8 @@ export class Heerich {
       opts.content,
       opts.opaque,
       opts.meta,
+      opts.scale,
+      opts.scaleOrigin,
     );
   }
 
@@ -770,6 +812,21 @@ export class Heerich {
   }
 
   /**
+   * Scale face vertices around an origin within a voxel.
+   * scale: [sx, sy, sz], origin: [ox, oy, oz] (0-1 within voxel)
+   */
+  static _scaleVertices(vertices, x, y, z, scale, origin) {
+    const ox = x + origin[0],
+      oy = y + origin[1],
+      oz = z + origin[2];
+    return vertices.map(([vx, vy, vz]) => [
+      ox + (vx - ox) * scale[0],
+      oy + (vy - oy) * scale[1],
+      oz + (vz - oz) * scale[2],
+    ]);
+  }
+
+  /**
    * Generate an array of renderable 2D polygon faces from stored voxels, properly depth-sorted.
    * Results are cached until the scene is modified.
    * @returns {Face[]}
@@ -830,6 +887,9 @@ export class Heerich {
       // If we just mapped raw vectors, parallel walls get confused by the math.
       // We fall back conditionally to explicit voxel checking for oblique, but true vector calculation for perspective.
 
+      const sc = voxel.scale;
+      const so = voxel.scaleOrigin;
+
       if (projection === "oblique") {
         const getDepth = (cx, cy, cz) => cz - cx * dx_norm - cy * dy_norm;
 
@@ -837,14 +897,17 @@ export class Heerich {
           faces3D.push({
             type,
             voxel,
-            vertices,
+            vertices: sc
+              ? Heerich._scaleVertices(vertices, x, y, z, sc, so)
+              : vertices,
             depth: getDepth(cx, cy, cz),
             style: getStyles(type),
           });
         };
 
         // For oblique, we strictly cull invisible orientations
-        if (depthOffsetY < 0 && !hasVoxel(x, y - 1, z))
+        // Scaled voxels bypass neighbor occlusion (they don't fill the cell)
+        if (depthOffsetY < 0 && (sc || !hasVoxel(x, y - 1, z)))
           addObliqueFace(
             "top",
             [
@@ -857,7 +920,7 @@ export class Heerich {
             y,
             z + 0.5,
           );
-        if (depthOffsetY > 0 && !hasVoxel(x, y + 1, z))
+        if (depthOffsetY > 0 && (sc || !hasVoxel(x, y + 1, z)))
           addObliqueFace(
             "bottom",
             [
@@ -871,7 +934,7 @@ export class Heerich {
             z + 0.5,
           );
 
-        if (depthOffsetX < 0 && !hasVoxel(x - 1, y, z))
+        if (depthOffsetX < 0 && (sc || !hasVoxel(x - 1, y, z)))
           addObliqueFace(
             "left",
             [
@@ -884,7 +947,7 @@ export class Heerich {
             y + 0.5,
             z + 0.5,
           );
-        if (depthOffsetX > 0 && !hasVoxel(x + 1, y, z))
+        if (depthOffsetX > 0 && (sc || !hasVoxel(x + 1, y, z)))
           addObliqueFace(
             "right",
             [
@@ -898,7 +961,7 @@ export class Heerich {
             z + 0.5,
           );
 
-        if (!hasVoxel(x, y, z - 1))
+        if (sc || !hasVoxel(x, y, z - 1))
           addObliqueFace(
             "front",
             [
@@ -911,7 +974,7 @@ export class Heerich {
             y + 0.5,
             z,
           );
-        if (!hasVoxel(x, y, z + 1))
+        if (sc || !hasVoxel(x, y, z + 1))
           addObliqueFace(
             "back",
             [
@@ -927,9 +990,18 @@ export class Heerich {
       } else {
         // Perspective Mode uses robust 3D math and backface culling
         const addPerspFace = (type, vertices, n, c) =>
-          faces3D.push({ type, voxel, vertices, n, c, style: getStyles(type) });
+          faces3D.push({
+            type,
+            voxel,
+            vertices: sc
+              ? Heerich._scaleVertices(vertices, x, y, z, sc, so)
+              : vertices,
+            n,
+            c,
+            style: getStyles(type),
+          });
 
-        if (!hasVoxel(x, y - 1, z))
+        if (sc || !hasVoxel(x, y - 1, z))
           addPerspFace(
             "top",
             [
@@ -941,7 +1013,7 @@ export class Heerich {
             [0, -1, 0],
             [x + 0.5, y, z + 0.5],
           );
-        if (!hasVoxel(x, y + 1, z))
+        if (sc || !hasVoxel(x, y + 1, z))
           addPerspFace(
             "bottom",
             [
@@ -953,7 +1025,7 @@ export class Heerich {
             [0, 1, 0],
             [x + 0.5, y + 1, z + 0.5],
           );
-        if (!hasVoxel(x - 1, y, z))
+        if (sc || !hasVoxel(x - 1, y, z))
           addPerspFace(
             "left",
             [
@@ -965,7 +1037,7 @@ export class Heerich {
             [-1, 0, 0],
             [x, y + 0.5, z + 0.5],
           );
-        if (!hasVoxel(x + 1, y, z))
+        if (sc || !hasVoxel(x + 1, y, z))
           addPerspFace(
             "right",
             [
@@ -977,7 +1049,7 @@ export class Heerich {
             [1, 0, 0],
             [x + 1, y + 0.5, z + 0.5],
           );
-        if (!hasVoxel(x, y, z - 1))
+        if (sc || !hasVoxel(x, y, z - 1))
           addPerspFace(
             "front",
             [
@@ -989,7 +1061,7 @@ export class Heerich {
             [0, 0, -1],
             [x + 0.5, y + 0.5, z],
           );
-        if (!hasVoxel(x, y, z + 1))
+        if (sc || !hasVoxel(x, y, z + 1))
           addPerspFace(
             "back",
             [

@@ -201,10 +201,12 @@
             <li><a href="#rotation">Rotation</a></li>
             <li><a href="#grouping">Smooth solids</a></li>
             <li><a href="#styles">Styling faces</a></li>
+            <li><a href="#scale">Voxel scaling</a></li>
             <li><a href="#svg-styles">SVG style properties</a></li>
             <li><a href="#spheres">Spheres</a></li>
             <li><a href="#lines">Lines</a></li>
             <li><a href="#functional">Functional styles</a></li>
+            <li><a href="#functional-scale">Functional scale</a></li>
             <li><a href="#camera">Camera &amp; projection</a></li>
             <li><a href="#queries">Querying voxels</a></li>
             <li><a href="#content-voxels">Content voxels</a></li>
@@ -230,7 +232,7 @@
 
         <pre><code class="shj-lang-js">import { Heerich } from './src/heerich.js'
 
-const engine = new Heerich({
+const heerich = new Heerich({
   tile: [30, 30],           // pixel size per tile
   camera: { type: 'oblique', angle: 315, distance: 25 },
   style: { fill: '#ddd', stroke: 'var(--stroke-c)', strokeWidth: 0.5 }
@@ -238,7 +240,7 @@ const engine = new Heerich({
 
         <p>
           All options are optional — <code>new Heerich()</code> works with
-          sensible defaults. Call <code>engine.toSVG()</code> to get an SVG
+          sensible defaults. Call <code>heerich.toSVG()</code> to get an SVG
           string you can drop into the DOM.
         </p>
 
@@ -250,10 +252,10 @@ const engine = new Heerich({
         </p>
 
         <pre><code class="shj-lang-js">// Auto-centered with padding
-document.body.innerHTML = engine.toSVG({ padding: 30 })
+document.body.innerHTML = heerich.toSVG({ padding: 30 })
 
 // Access raw bounds if you need them
-const { x, y, w, h } = engine.getViewBoxBounds()</code></pre>
+const { x, y, w, h } = heerich.getViewBoxBounds()</code></pre>
       </div>
 
       <!-- ─── 2. Boxes ──────────────────────────────────── -->
@@ -288,7 +290,7 @@ const { x, y, w, h } = engine.getViewBoxBounds()</code></pre>
             corner position and a size. Every voxel inside the box gets created
             with the default style.
           </p>
-          <pre><code class="shj-lang-js">engine.addBox({ position: [0, 0, 0], size: [6, 4, 3] })</code></pre>
+          <pre><code class="shj-lang-js">heerich.addBox({ position: [0, 0, 0], size: [6, 4, 3] })</code></pre>
           <p>
             Try dragging the sliders — the engine clears and rebuilds each
             frame. Because <code>getFaces()</code> uses a dirty-flag cache,
@@ -386,16 +388,16 @@ const center = big.map((b, i) => (b - small[i]) / 2)</code></pre>
             <li><strong>intersect</strong> — keep only the overlap</li>
             <li><strong>exclude</strong> — XOR, toggle each voxel</li>
           </ul>
-          <pre><code class="shj-lang-js">engine.addBox({ position: [0, 0, 0], size: [6, 6, 6] })
+          <pre><code class="shj-lang-js">heerich.addBox({ position: [0, 0, 0], size: [6, 6, 6] })
 
 // Carve a sphere out of the box
-engine.addSphere({
+heerich.addSphere({
   center: [3, 3, 3], radius: 3,
   mode: 'subtract'
 })
 
 // Keep only where box and sphere overlap
-engine.addSphere({
+heerich.addSphere({
   center: [3, 3, 3], radius: 3,
   mode: 'intersect'
 })</code></pre>
@@ -445,14 +447,14 @@ engine.addSphere({
             default, or a custom <code>center</code>.
           </p>
           <pre><code class="shj-lang-js">// Build one arm, rotate a copy to make an L
-engine.addBox({ position: [0, 0, 0], size: [2, 8, 2] })
-engine.addBox({
+heerich.addBox({ position: [0, 0, 0], size: [2, 8, 2] })
+heerich.addBox({
   position: [0, 0, 0], size: [2, 8, 2],
   rotate: { axis: 'z', turns: 1 }
 })
 
 // Rotate all existing voxels in place
-engine.rotate({ axis: 'y', turns: 2 })</code></pre>
+heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
           <p>
             This makes it easy to build symmetric forms — define one piece, then
             rotate copies. The Kreuzplastik in the gallery below is built from a
@@ -491,7 +493,7 @@ engine.rotate({ axis: 'y', turns: 2 })</code></pre>
             <code>stroke</code> to the same color as the <code>fill</code> — the
             internal grid lines disappear.
           </p>
-          <pre><code class="shj-lang-js">engine.addBox({
+          <pre><code class="shj-lang-js">heerich.addBox({
   position: [0, 0, 0], size: [4, 4, 4],
   style: { default: { fill: '#0e0e0e', stroke: '#0e0e0e' } }
 })</code></pre>
@@ -531,7 +533,7 @@ engine.rotate({ axis: 'y', turns: 2 })</code></pre>
             set styles when adding voxels, or apply them later with
             <code>styleBox()</code>.
           </p>
-          <pre><code class="shj-lang-js">engine.addBox({
+          <pre><code class="shj-lang-js">heerich.addBox({
   position: [0, 0, 0], size: [4, 4, 4],
   style: {
     default: { fill: '#eee', stroke: '#333' },
@@ -544,6 +546,62 @@ engine.rotate({ axis: 'y', turns: 2 })</code></pre>
             <code>styleBox()</code> applies styles to <em>existing</em> voxels
             without creating new ones — useful for painting regions after
             construction.
+          </p>
+        </div>
+      </div>
+
+      <!-- ─── Voxel scaling ─────────────────────────────── -->
+
+      <div class="section-row" id="scale">
+        <div class="section-demo">
+          <div class="demo" id="demo-scale">
+            <div class="demo-canvas"></div>
+            <div class="demo-controls">
+              <label class="control-label"
+                >Height
+                <input
+                  type="range"
+                  min="0.1"
+                  max="1"
+                  value="1"
+                  step="0.05"
+                  data-bind="height"
+                />
+                <span class="control-value">1</span></label
+              >
+            </div>
+          </div>
+        </div>
+        <div class="section-text">
+          <h2>Voxel scaling</h2>
+          <p>
+            Each voxel can have a <code>scale</code> &mdash; an
+            <code>[x, y, z]</code> array from 0 to 1 that shrinks it along each
+            axis. Scaled voxels automatically become non-opaque, revealing
+            neighbors behind them.
+          </p>
+          <pre><code class="shj-lang-js">// Static — same scale for every voxel
+heerich.addBox({
+  position: [0, 0, 0],
+  size: [1, 1, 1],
+  scale: [1, 0.5, 1],
+  scaleOrigin: [0.5, 1, 0.5]
+})
+
+// Functional — scale varies by position
+heerich.addBox({
+  position: [0, 0, 0],
+  size: [4, 4, 4],
+  scale: (x, y, z) => [1, 1 - y * 0.2, 1],
+  scaleOrigin: [0.5, 1, 0.5]
+})</code></pre>
+          <p>
+            The <code>scaleOrigin</code> controls where the scaling anchors
+            within the voxel cell &mdash; <code>[0.5, 1, 0.5]</code> pins to the
+            bottom-center, perfect for stairs. Defaults to
+            <code>[0.5, 0, 0.5]</code> (top-center). Both <code>scale</code> and
+            <code>scaleOrigin</code> accept functions of
+            <code>(x,&nbsp;y,&nbsp;z)</code> for per-voxel control.
           </p>
         </div>
       </div>
@@ -594,7 +652,7 @@ engine.rotate({ axis: 'y', turns: 2 })</code></pre>
               >presentation attribute</a
             >.
           </p>
-          <pre><code class="shj-lang-js">engine.addBox({
+          <pre><code class="shj-lang-js">heerich.addBox({
   position: [0, 0, 0], size: [5, 5, 5],
   style: {
     default: {
@@ -646,7 +704,7 @@ engine.rotate({ axis: 'y', turns: 2 })</code></pre>
             <code>3.5</code>) tends to produce the cleanest shapes on integer
             grids.
           </p>
-          <pre><code class="shj-lang-js">engine.addSphere({ center: [4.5, 4.5, 4.5], radius: 4.5 })</code></pre>
+          <pre><code class="shj-lang-js">heerich.addSphere({ center: [4.5, 4.5, 4.5], radius: 4.5 })</code></pre>
           <p>
             <code>removeSphere()</code> carves a spherical hole — same
             parameters, opposite effect. Combine a box and a sphere subtraction
@@ -703,7 +761,7 @@ engine.rotate({ axis: 'y', turns: 2 })</code></pre>
             <code>'square'</code>
             (cubes along the path).
           </p>
-          <pre><code class="shj-lang-js">engine.addLine({
+          <pre><code class="shj-lang-js">heerich.addLine({
   from: [0, 0, 0], to: [8, 8, 8],
   radius: 1.5, shape: 'rounded'
 })</code></pre>
@@ -745,7 +803,7 @@ engine.rotate({ axis: 'y', turns: 2 })</code></pre>
             gradients, patterns, or any position-dependent coloring without
             manually styling each voxel.
           </p>
-          <pre><code class="shj-lang-js">engine.addBox({
+          <pre><code class="shj-lang-js">heerich.addBox({
   position: [0, 0, 0], size: [8, 8, 8],
   style: {
     default: (x, y, z) => {
@@ -767,6 +825,64 @@ engine.rotate({ axis: 'y', turns: 2 })</code></pre>
         </div>
       </div>
 
+      <!-- ─── Functional scale ────────────────────────── -->
+
+      <div class="section-row" id="functional-scale">
+        <div class="section-demo">
+          <div class="demo" id="demo-functional-scale">
+            <div class="demo-canvas"></div>
+            <div class="demo-controls">
+              <label class="control-label"
+                >Size
+                <input
+                  type="range"
+                  min="2"
+                  max="8"
+                  value="3"
+                  step="1"
+                  data-bind="size"
+                />
+                <span class="control-value">5</span></label
+              >
+              <label class="control-label"
+                >Taper
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  value="0.8"
+                  step="0.05"
+                  data-bind="taper"
+                />
+                <span class="control-value">0.8</span></label
+              >
+            </div>
+          </div>
+        </div>
+        <div class="section-text">
+          <h2>Functional scale</h2>
+          <p>
+            Like styles, <code>scale</code> can be a function of
+            <code>(x,&nbsp;y,&nbsp;z)</code> &mdash; each voxel gets its own
+            scale based on position. This lets you create tapers, organic
+            falloffs, or animation-ready shapes from a single call.
+          </p>
+          <pre><code class="shj-lang-js">heerich.addBox({
+  position: [0, 0, 0], size: [s, s, s],
+  scale: (x, y, z) => {
+    const t = 1 - y / s
+    const f = 1 - t * taper
+    return [f, 1, f]
+  },
+  scaleOrigin: [0.5, 1, 0.5]
+})</code></pre>
+          <p>
+            Return <code>null</code> from the function to leave a voxel at full
+            size.
+          </p>
+        </div>
+      </div>
+
       <!-- ─── 8. Camera (text-only) ─────────────────────── -->
 
       <div class="section-full">
@@ -781,10 +897,10 @@ engine.rotate({ axis: 'y', turns: 2 })</code></pre>
         </p>
 
         <pre><code class="shj-lang-js">// Oblique (parallel)
-engine.setCamera({ type: 'oblique', angle: 315, distance: 25 })
+heerich.setCamera({ type: 'oblique', angle: 315, distance: 25 })
 
 // Perspective (1-point)
-engine.setCamera({ type: 'perspective', position: [5, 5], distance: 12 })</code></pre>
+heerich.setCamera({ type: 'perspective', position: [5, 5], distance: 12 })</code></pre>
 
         <p>
           Try it now — the floating <strong>Camera</strong> panel in the top
@@ -824,8 +940,8 @@ engine.setCamera({ type: 'perspective', position: [5, 5], distance: 12 })</code>
             adjacency.
           </p>
           <pre><code class="shj-lang-js">// Color voxels by how exposed they are
-engine.forEach((voxel, pos) => {
-  const n = engine.getNeighbors(pos)
+heerich.forEach((voxel, pos) => {
+  const n = heerich.getNeighbors(pos)
   const exposed = Object.values(n)
     .filter(v => !v).length
   // exposed = number of open faces (0–6)
@@ -836,12 +952,12 @@ engine.forEach((voxel, pos) => {
             by how many open faces they have — fully buried voxels stay dark,
             exposed ones light up.
           </p>
-          <pre><code class="shj-lang-js">engine.hasVoxel([3, 4, 5])   // boolean
-engine.getVoxel([3, 4, 5])   // voxel data or null
-engine.forEach((voxel, pos) => { ... })
+          <pre><code class="shj-lang-js">heerich.hasVoxel([3, 4, 5])   // boolean
+heerich.getVoxel([3, 4, 5])   // voxel data or null
+heerich.forEach((voxel, pos) => { ... })
 
 // Serialization
-const json = engine.toJSON()
+const json = heerich.toJSON()
 const copy = Heerich.fromJSON(json)</code></pre>
         </div>
       </div>
@@ -862,7 +978,7 @@ const copy = Heerich.fromJSON(json)</code></pre>
             other faces, and wraps it in a <code>&lt;g&gt;</code> with
             <code>transform</code> and CSS custom properties for sizing.
           </p>
-          <pre><code class="shj-lang-js">engine.addBox({
+          <pre><code class="shj-lang-js">heerich.addBox({
   position: [3, 0, 6], size: [1, 1, 1],
   opaque: false,
   content: `&lt;text
@@ -910,8 +1026,8 @@ const copy = Heerich.fromJSON(json)</code></pre>
             see-through guides on top of solid geometry.
           </p>
           <pre><code class="shj-lang-js">// Wireframe cage over a solid core
-engine.addBox({ position: [1, 1, 1], size: [3, 3, 3] })
-engine.addBox({
+heerich.addBox({ position: [1, 1, 1], size: [3, 3, 3] })
+heerich.addBox({
   position: [0, 0, 0], size: [5, 5, 5],
   opaque: false,
   style: { default: { fill: 'none' } }
@@ -972,16 +1088,16 @@ engine.addBox({
 ]
 
 function frame(now) {
-  engine.clear()
-  engine.addBox(...)
+  heerich.clear()
+  heerich.addBox(...)
   holes.forEach((h, i) => {
     const t = ease(elapsed / duration)
-    engine.removeBox({
+    heerich.removeBox({
       position: [h.x, h.y, 0],
       size: [3, 3, Math.round(t * h.targetDepth)]
     })
   })
-  container.innerHTML = engine.toSVG()
+  container.innerHTML = heerich.toSVG()
   if (!done) requestAnimationFrame(frame)
 }</code></pre>
           <p>

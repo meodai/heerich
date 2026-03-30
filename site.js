@@ -474,6 +474,54 @@ setupDemo("demo-style", (v) => {
   return e.toSVG(svgOpts);
 });
 
+// ─── Voxel scaling ──────────────────
+setupDemo("demo-scale", (v) => {
+  const h = v.height;
+  const e = new Heerich({
+    tile: [30, 30],
+    camera: getCamera(),
+    style: baseStyle,
+  });
+
+  // Spiral staircase around a 2x2 hole
+  // Hole at (1,1)-(2,2), path goes clockwise
+  const path = [
+    [0, 0],
+    [1, 0],
+    [2, 0],
+    [3, 0],
+    [3, 1],
+    [3, 2],
+    [3, 3],
+    [2, 3],
+    [1, 3],
+    [0, 3],
+    [0, 2],
+    [0, 1],
+  ];
+  const total = path.length;
+
+  for (let i = 0; i < total; i++) {
+    const [px, pz] = path[i];
+    // Standing on floor
+    e.addBox({
+      position: [px, 1, pz],
+      size: [1, 1, 1],
+      scale: [1, ((i + 1) / total) * h, 1],
+      scaleOrigin: [0.5, 1, 0.5],
+    });
+    // Hanging from ceiling, below the floor stairs (reversed height)
+    e.addBox({
+      position: [px, 2, pz],
+      size: [1, 1, 1],
+      scale: [1, ((total - i) / total) * h, 1],
+      scaleOrigin: [0.5, 0, 0.5],
+    });
+  }
+
+  return e.toSVG(svgOpts);
+});
+
 // ─── 5. SVG styles ───────────────────
 setupDemo("demo-svg-styles", (v) => {
   const e = new Heerich({
@@ -561,6 +609,33 @@ setupDemo("demo-functional", (v) => {
         };
       },
     },
+  });
+  return e.toSVG(svgOpts);
+});
+
+// ─── Functional scale ───────────────
+setupDemo("demo-functional-scale", (v) => {
+  const s = v.size;
+  const taper = v.taper;
+  const e = new Heerich({
+    tile: [28, 28],
+    camera: getCamera(),
+    style: baseStyle,
+  });
+  e.addBox({
+    position: [0, 0, 0],
+    size: [s, s, s],
+    scale: (x, y, z) => {
+      const t = 1 - y / s;
+      const f = 1 - t * taper;
+      // Voxels further from center are shorter
+      const cx = (x + 0.5) / s - 0.5;
+      const cz = (z + 0.5) / s - 0.5;
+      const dist = Math.sqrt(cx * cx + cz * cz) * 2;
+      const yf = Math.max(0.05, 1 - dist * taper);
+      return [f, yf, f];
+    },
+    scaleOrigin: (x, y, z) => [0.5, y % 2 === 0 ? 0 : 1, 0.5],
   });
   return e.toSVG(svgOpts);
 });
