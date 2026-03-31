@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>heerich.js — CSS 3D Renderer</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: #f5f0e8;
+        font-family: sans-serif;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+      .controls {
+        padding: 1rem;
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .controls label {
+        font-size: 0.8rem;
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+      }
+      #scene {
+        flex: 1;
+        cursor: grab;
+      }
+      #scene:active {
+        cursor: grabbing;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="controls">
+      <label
+        >Rotate X
+        <input type="range" id="rx" min="-90" max="90" value="-25" /><span
+          id="rx-val"
+          >-25</span
+        ></label
+      >
+      <label
+        >Rotate Y
+        <input type="range" id="ry" min="-180" max="180" value="45" /><span
+          id="ry-val"
+          >45</span
+        ></label
+      >
+      <label
+        >Perspective
+        <input type="range" id="persp" min="200" max="2000" value="800" /><span
+          id="persp-val"
+          >800</span
+        ></label
+      >
+      <label
+        >Tile <input type="range" id="tile" min="10" max="80" value="40" /><span
+          id="tile-val"
+          >40</span
+        ></label
+      >
+    </div>
+    <div id="scene"></div>
+
+    <script type="module">
+      import { Heerich } from "./src/heerich.js";
+      import { CSS3DRenderer } from "./src/renderers/css3d.js";
+
+      const h = new Heerich();
+
+      // Build a scene
+      h.applyGeometry({ type: "box", position: [0, 0, 0], size: [6, 4, 6] });
+      h.applyGeometry({
+        type: "sphere",
+        center: [3, 2, 3],
+        radius: 2.5,
+        mode: "subtract",
+      });
+      h.applyGeometry({
+        type: "box",
+        position: [7, 0, 0],
+        size: [3, 3, 3],
+        style: {
+          default: { fill: "#e8927c", stroke: "#c47060" },
+          top: { fill: "#7cc8a0", stroke: "#5ea87e" },
+        },
+      });
+      h.applyGeometry({
+        type: "box",
+        position: [7, 0, 4],
+        size: 2,
+        style: {
+          default: { fill: "#6c5ce7", stroke: "#4834a8" },
+        },
+      });
+
+      const renderer = new CSS3DRenderer(document.getElementById("scene"));
+
+      function update() {
+        renderer.render(h, {
+          tileSize: +tile.value,
+          perspective: +persp.value,
+          rotateX: +rx.value,
+          rotateY: +ry.value,
+        });
+      }
+
+      const rx = document.getElementById("rx");
+      const ry = document.getElementById("ry");
+      const persp = document.getElementById("persp");
+      const tile = document.getElementById("tile");
+
+      [rx, ry, persp, tile].forEach((el) => {
+        el.addEventListener("input", () => {
+          document.getElementById(el.id + "-val").textContent = el.value;
+          update();
+        });
+      });
+
+      // Drag to rotate
+      let dragging = false,
+        lastX,
+        lastY;
+      const scene = document.getElementById("scene");
+      scene.addEventListener("pointerdown", (e) => {
+        dragging = true;
+        lastX = e.clientX;
+        lastY = e.clientY;
+        scene.setPointerCapture(e.pointerId);
+      });
+      scene.addEventListener("pointermove", (e) => {
+        if (!dragging) return;
+        ry.value = +ry.value + (e.clientX - lastX) * 0.5;
+        rx.value = Math.max(
+          -90,
+          Math.min(90, +rx.value + (e.clientY - lastY) * 0.5),
+        );
+        lastX = e.clientX;
+        lastY = e.clientY;
+        document.getElementById("rx-val").textContent = Math.round(rx.value);
+        document.getElementById("ry-val").textContent = Math.round(ry.value);
+        update();
+      });
+      scene.addEventListener("pointerup", () => {
+        dragging = false;
+      });
+
+      update();
+    </script>
+  </body>
+</html>
