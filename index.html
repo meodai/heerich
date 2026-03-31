@@ -201,14 +201,14 @@
             of
             <a href="https://de.wikipedia.org/wiki/Erwin_Heerich"
               >Erwin Heerich</a
-            >
+            ><sup>†</sup>
             (1922–2004) — exploring stacked topologies, deliberate subtractions,
             and the quiet tension that exists between solid mass and absolute
             void.
           </p>
 
           <p>
-            This exhibition serves as both a technical manual and an interactive
+            This page serves as both a technical manual and an interactive
             gallery. Engage with the examples below to comprehend the mechanics
             of the engine one primitive at a time.
           </p>
@@ -253,7 +253,7 @@
           style applied universally across the active sequence.
         </p>
 
-        <pre><code >import { Heerich } from './src/heerich.js'
+        <pre><code>import { Heerich } from './src/heerich.js'
 
 const heerich = new Heerich({
   tile: [30, 30],           // pixel size per tile
@@ -262,7 +262,7 @@ const heerich = new Heerich({
 })</code></pre>
 
         <p>
-          All options are optional — <code>new Heerich()</code> works with
+          All parameters are optional — <code>new Heerich()</code> works with
           sensible defaults. Call <code>heerich.toSVG()</code> to get an SVG
           string you can drop into the DOM.
         </p>
