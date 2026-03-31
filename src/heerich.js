@@ -838,6 +838,20 @@ export class Heerich {
       }
 
       const { x, y, z, styles } = voxel;
+
+      // Skip fully occluded voxels — all 6 neighbors are opaque
+      if (
+        !voxel.scale &&
+        hasVoxel(x - 1, y, z) &&
+        hasVoxel(x + 1, y, z) &&
+        hasVoxel(x, y - 1, z) &&
+        hasVoxel(x, y + 1, z) &&
+        hasVoxel(x, y, z - 1) &&
+        hasVoxel(x, y, z + 1)
+      ) {
+        continue;
+      }
+
       const faceStart = faces3D.length;
 
       // Content voxels: emit a content entry instead of polygon faces
