@@ -1,4 +1,5 @@
 import { SVGRenderer, computeBounds } from "./svg-renderer.js";
+import { renderHTML } from "./renderers/html.js";
 import { Points } from "./points.js";
 import { boxCoords, sphereCoords, lineCoords, fillCoords } from "./shapes.js";
 export { boxCoords, sphereCoords, lineCoords, fillCoords };
@@ -1462,5 +1463,19 @@ export class Heerich {
       ...options,
       tileW: this.renderOptions.tileW,
     });
+  }
+
+  /**
+   * Render the scene to an HTML string using CSS 3D transforms.
+   * Each voxel face becomes a positioned div. The browser handles depth via Z-buffer.
+   * @param {Object} [options]
+   * @param {number} [options.tileSize=40] - Voxel size in pixels
+   * @param {number} [options.perspective=800] - CSS perspective distance in pixels
+   * @param {number} [options.rotateX=-25] - Scene X rotation in degrees
+   * @param {number} [options.rotateY=45] - Scene Y rotation in degrees
+   * @returns {string} HTML markup
+   */
+  toHTML(options = {}) {
+    return renderHTML(this, options);
   }
 }
