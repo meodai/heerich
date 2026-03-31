@@ -193,7 +193,11 @@ export class Heerich {
    * @returns {number}
    */
   _k(x, y, z) {
-    return ((x + 512) << 20) | ((y + 512) << 10) | (z + 512);
+    return (
+      (((x + 512) & 0x3ff) << 20) |
+      (((y + 512) & 0x3ff) << 10) |
+      ((z + 512) & 0x3ff)
+    );
   }
 
   /** Mark the scene as modified. */
@@ -489,9 +493,11 @@ export class Heerich {
 
     for (const [face, val] of Object.entries(evaluatedParam)) {
       const evaluatedFace = typeof val === "function" ? val(x, y, z) : val;
-      baseStyles[face] = baseStyles[face]
-        ? { ...baseStyles[face], ...evaluatedFace }
-        : { ...evaluatedFace };
+      if (baseStyles[face]) {
+        Object.assign(baseStyles[face], evaluatedFace);
+      } else {
+        baseStyles[face] = { ...evaluatedFace };
+      }
     }
 
     return baseStyles;
@@ -1286,6 +1292,7 @@ export class Heerich {
    */
   _projectAndSort(faces3D) {
     const projectedFaces = [];
+    const truncate = (v) => Math.round(v * 1e4) / 1e4;
     const {
       projection,
       tileW,
@@ -1305,15 +1312,15 @@ export class Heerich {
         const [cx, cy, cz] = face._pos;
         let px, py, scale, depth;
         if (projection === "oblique") {
-          px = (cx + 0.5) * tileW + (cz + 0.5) * depthOffsetX;
-          py = (cy + 0.5) * tileH + (cz + 0.5) * depthOffsetY;
+          px = truncate((cx + 0.5) * tileW + (cz + 0.5) * depthOffsetX);
+          py = truncate((cy + 0.5) * tileH + (cz + 0.5) * depthOffsetY);
           scale = 1;
           depth = cz + 0.5 - (cx + 0.5) * dx_norm - (cy + 0.5) * dy_norm;
         } else {
           const t = cameraDistance / (cz + 0.5 + cameraDistance);
-          px = (cameraX + (cx + 0.5 - cameraX) * t) * tileW;
-          py = (cameraY + (cy + 0.5 - cameraY) * t) * tileH;
-          scale = t;
+          px = truncate((cameraX + (cx + 0.5 - cameraX) * t) * tileW);
+          py = truncate((cameraY + (cy + 0.5 - cameraY) * t) * tileH);
+          scale = truncate(t);
           const dx = cx + 0.5 - cameraX,
             dy = cy + 0.5 - cameraY,
             dz = cz + 0.5 + cameraDistance;
@@ -1329,8 +1336,8 @@ export class Heerich {
           const flat = [];
           for (const [vx, vy, vz] of corners) {
             flat.push(
-              vx * tileW + vz * depthOffsetX,
-              vy * tileH + vz * depthOffsetY,
+              truncate(vx * tileW + vz * depthOffsetX),
+              truncate(vy * tileH + vz * depthOffsetY),
             );
           }
           face.points = new Points(flat);
@@ -1339,16 +1346,16 @@ export class Heerich {
           for (const [vx, vy, vz] of corners) {
             const ct = cameraDistance / (vz + cameraDistance);
             flat.push(
-              (cameraX + (vx - cameraX) * ct) * tileW,
-              (cameraY + (vy - cameraY) * ct) * tileH,
+              truncate((cameraX + (vx - cameraX) * ct) * tileW),
+              truncate((cameraY + (vy - cameraY) * ct) * tileH),
             );
           }
           face.points = new Points(flat);
         }
         face.depth = depth;
-        face._px = Math.round(px * 1e4) / 1e4;
-        face._py = Math.round(py * 1e4) / 1e4;
-        face._scale = Math.round(scale * 1e4) / 1e4;
+        face._px = px;
+        face._py = py;
+        face._scale = scale;
         projectedFaces.push(face);
         continue;
       }
@@ -1357,8 +1364,8 @@ export class Heerich {
         const flat = [];
         for (const v of face.vertices) {
           flat.push(
-            v[0] * tileW + v[2] * depthOffsetX,
-            v[1] * tileH + v[2] * depthOffsetY,
+            truncate(v[0] * tileW + v[2] * depthOffsetX),
+            truncate(v[1] * tileH + v[2] * depthOffsetY),
           );
         }
         face.points = new Points(flat);
@@ -1382,8 +1389,8 @@ export class Heerich {
         for (const v of face.vertices) {
           const t = cameraDistance / (v[2] + cameraDistance);
           flat.push(
-            (Cx + (v[0] - Cx) * t) * tileW,
-            (Cy + (v[1] - Cy) * t) * tileH,
+            truncate((Cx + (v[0] - Cx) * t) * tileW),
+            truncate((Cy + (v[1] - Cy) * t) * tileH),
           );
         }
         face.points = new Points(flat);
@@ -1397,7 +1404,13 @@ export class Heerich {
       projectedFaces.push(face);
     }
 
-    projectedFaces.sort((a, b) => b.depth - a.depth);
+    projectedFaces.sort(
+      (a, b) =>
+        b.depth - a.depth ||
+        a.voxel.x - b.voxel.x ||
+        a.voxel.y - b.voxel.y ||
+        a.voxel.z - b.voxel.z,
+    );
     return projectedFaces;
   }
 
