@@ -627,7 +627,10 @@ export class Heerich {
    */
   _resolveGeometry(opts) {
     const type = opts.type;
-    if (type === "box") return boxCoords(opts.position, opts.size);
+    if (type === "box") {
+      const s = opts.size;
+      return boxCoords(opts.position, typeof s === "number" ? [s, s, s] : s);
+    }
     if (type === "sphere") return sphereCoords(opts.center, opts.radius);
     if (type === "line")
       return lineCoords(

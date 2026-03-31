@@ -560,7 +560,7 @@ const center = big.map((b, i) => (b - small[i]) / 2)</code></pre>
             <li><strong>intersect</strong> — keep only the overlap</li>
             <li><strong>exclude</strong> — XOR, toggle each voxel</li>
           </ul>
-          <pre><code >heerich.applyGeometry({ type: 'box', position: [0, 0, 0], size: [6, 6, 6] })
+          <pre><code >heerich.applyGeometry({ type: 'box', position: [0, 0, 0], size: 6 })
 
 // Carve a sphere out of the box
 heerich.applyGeometry({
@@ -668,7 +668,7 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
             effectively rendering the internal grid geometry invisible.
           </p>
           <pre><code >heerich.applyGeometry({
-  type: 'box', position: [0, 0, 0], size: [4, 4, 4],
+  type: 'box', position: [0, 0, 0], size: 4,
   style: { default: { fill: '#0e0e0e', stroke: '#0e0e0e' } }
 })</code></pre>
           <p>
@@ -709,7 +709,7 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
             regions later using <code>styleBox()</code>.
           </p>
           <pre><code >heerich.applyGeometry({
-  type: 'box', position: [0, 0, 0], size: [4, 4, 4],
+  type: 'box', position: [0, 0, 0], size: 4,
   style: {
     default: { fill: '#eee', stroke: '#333' },
     top:   { fill: '#ff6666' },
@@ -774,7 +774,7 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
             >.
           </p>
           <pre><code >heerich.applyGeometry({
-  type: 'box', position: [0, 0, 0], size: [5, 5, 5],
+  type: 'box', position: [0, 0, 0], size: 5,
   style: {
     default: {
       fill: 'var(--fill)',
@@ -832,7 +832,7 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
             through individual voxels manually.
           </p>
           <pre><code >heerich.applyGeometry({
-  type: 'box', position: [0, 0, 0], size: [8, 8, 8],
+  type: 'box', position: [0, 0, 0], size: 8,
   style: {
     default: (x, y, z) => {
       const L = 0.4 + (y / 8) * 0.5
@@ -888,7 +888,7 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
           <pre><code >// Static — same scale for every voxel
 heerich.applyGeometry({
   type: 'box', position: [0, 0, 0],
-  size: [1, 1, 1],
+  size: 1,
   scale: [1, 0.5, 1],
   scaleOrigin: [0.5, 1, 0.5]
 })
@@ -896,7 +896,7 @@ heerich.applyGeometry({
 // Functional — scale varies by position
 heerich.applyGeometry({
   type: 'box', position: [0, 0, 0],
-  size: [4, 4, 4],
+  size: 4,
   scale: (x, y, z) => [1, 1 - y * 0.2, 1],
   scaleOrigin: [0.5, 1, 0.5]
 })</code></pre>
@@ -1024,7 +1024,7 @@ heerich.setCamera({ type: 'perspective', position: [5, 5], distance: 12 })</code
             cleanly inside an integrated <code>&lt;g&gt;</code> element.
           </p>
           <pre><code >heerich.applyGeometry({
-  type: 'box', position: [3, 0, 6], size: [1, 1, 1],
+  type: 'box', position: [3, 0, 6], size: 1,
   opaque: false,
   content: `&lt;text
     font-family="Aboreto"
@@ -1073,9 +1073,9 @@ heerich.setCamera({ type: 'perspective', position: [5, 5], distance: 12 })</code
             anchored cleanly over solid geometry.
           </p>
           <pre><code >// Wireframe cage over a solid core
-heerich.applyGeometry({ type: 'box', position: [1, 1, 1], size: [3, 3, 3] })
+heerich.applyGeometry({ type: 'box', position: [1, 1, 1], size: 3 })
 heerich.applyGeometry({
-  type: 'box', position: [0, 0, 0], size: [5, 5, 5],
+  type: 'box', position: [0, 0, 0], size: 5,
   opaque: false,
   style: { default: { fill: 'none' } }
 })</code></pre>

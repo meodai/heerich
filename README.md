@@ -76,10 +76,10 @@ All shape methods accept a common set of options:
 
 ```js
 h.applyGeometry({ type: 'box', position: [0, 0, 0], size: [3, 2, 4] })
-h.removeGeometry({ type: 'box', position: [1, 0, 1], size: [1, 1, 1] })
+h.removeGeometry({ type: 'box', position: [1, 0, 1], size: 1 })
 
 // Style the carved walls (optional)
-h.removeGeometry({ type: 'box', position: [0, 0, 0], size: [1, 1, 1], style: { default: { fill: '#222' } } })
+h.removeGeometry({ type: 'box', position: [0, 0, 0], size: 1, style: { default: { fill: '#222' } } })
 ```
 
 ### Sphere
@@ -149,16 +149,16 @@ All shape methods support a `mode` option for CSG-like operations:
 
 ```js
 // Union (default) — add voxels
-h.applyGeometry({ type: 'box', position: [0, 0, 0], size: [5, 5, 5] })
+h.applyGeometry({ type: 'box', position: [0, 0, 0], size: 5 })
 
 // Subtract — carve out voxels
 h.applyGeometry({ type: 'sphere', center: [2, 2, 2], radius: 2, mode: 'subtract' })
 
 // Intersect — keep only the overlap
-h.applyGeometry({ type: 'box', position: [1, 1, 1], size: [3, 3, 3], mode: 'intersect' })
+h.applyGeometry({ type: 'box', position: [1, 1, 1], size: 3, mode: 'intersect' })
 
 // Exclude — XOR: add where empty, remove where occupied
-h.applyGeometry({ type: 'box', position: [0, 0, 0], size: [5, 5, 5], mode: 'exclude' })
+h.applyGeometry({ type: 'box', position: [0, 0, 0], size: 5, mode: 'exclude' })
 ```
 
 ### Styling carved faces
@@ -166,7 +166,7 @@ h.applyGeometry({ type: 'box', position: [0, 0, 0], size: [5, 5, 5], mode: 'excl
 When removing voxels, you can pass a `style` to color the newly exposed faces of neighboring voxels — the "walls" of the carved hole:
 
 ```js
-h.applyGeometry({ type: 'box', position: [0, 0, 0], size: [10, 10, 10] })
+h.applyGeometry({ type: 'box', position: [0, 0, 0], size: 10 })
 
 // Carve a hole with dark walls
 h.removeGeometry({
@@ -188,7 +188,7 @@ Each face style is an object with SVG presentation attributes (`fill`, `stroke`,
 h.applyGeometry({
   type: 'box',
   position: [0, 0, 0],
-  size: [3, 3, 3],
+  size: 3,
   style: {
     default: { fill: '#6699cc', stroke: '#234' },
     top:     { fill: '#88bbee' },
@@ -205,7 +205,7 @@ Style values can be functions of `(x, y, z)`:
 h.applyGeometry({
   type: 'box',
   position: [0, 0, 0],
-  size: [8, 8, 8],
+  size: 8,
   style: {
     default: (x, y, z) => ({
       fill: `hsl(${x * 40}, 60%, ${50 + z * 5}%)`,
@@ -220,7 +220,7 @@ h.applyGeometry({
 Restyle existing voxels without adding or removing them:
 
 ```js
-h.applyStyle({ type: 'box', position: [0, 0, 0], size: [3, 3, 3], style: { top: { fill: 'red' } } })
+h.applyStyle({ type: 'box', position: [0, 0, 0], size: 3, style: { top: { fill: 'red' } } })
 h.applyStyle({ type: 'sphere', center: [5, 5, 5], radius: 2, style: { default: { fill: 'gold' } } })
 h.applyStyle({ type: 'line', from: [0, 0, 0], to: [10, 0, 0], radius: 1, style: { default: { fill: 'blue' } } })
 ```
@@ -234,7 +234,7 @@ Shrink individual voxels along any axis. Scaled voxels automatically become non-
 h.applyGeometry({
   type: 'box',
   position: [0, 0, 0],
-  size: [1, 1, 1],
+  size: 1,
   scale: [1, 0.5, 1],
   scaleOrigin: [0.5, 1, 0.5]
 })
@@ -243,7 +243,7 @@ h.applyGeometry({
 h.applyGeometry({
   type: 'box',
   position: [0, 0, 0],
-  size: [4, 4, 4],
+  size: 4,
   scale: (x, y, z) => [1, 1 - y * 0.2, 1],
   scaleOrigin: [0.5, 1, 0.5]
 })
@@ -381,7 +381,7 @@ Embed arbitrary SVG at a voxel position (depth-sorted with the rest of the scene
 h.applyGeometry({
   type: 'box',
   position: [3, 0, 3],
-  size: [1, 1, 1],
+  size: 1,
   content: '<text font-size="12" text-anchor="middle">Hi</text>',
   opaque: false,
 })
