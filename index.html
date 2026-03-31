@@ -351,11 +351,11 @@ const { x, y, w, h } = heerich.getBounds()</code></pre>
         <div class="section-text">
           <h2>Spheres</h2>
           <p>
-            <code>addSphere()</code> plots a rounded volume using an internal
-            distance check. Using fractional offsets like <code>.5</code> for
-            both radius and center (e.g., center: <code>3.5</code>, radius:
-            <code>3.5</code>) tends to produce the cleanest symmetrical forms on
-            integer grids.
+            <code>applyGeometry({ type: 'sphere' })</code> plots a rounded
+            volume using an internal distance check. Using fractional offsets
+            like <code>.5</code> for both radius and center (e.g., center:
+            <code>3.5</code>, radius: <code>3.5</code>) tends to produce the
+            cleanest symmetrical forms on integer grids.
           </p>
           <pre><code >heerich.applyGeometry({
   type: 'sphere',
@@ -363,9 +363,10 @@ const { x, y, w, h } = heerich.getBounds()</code></pre>
   radius: 4.5
 })</code></pre>
           <p>
-            Conversely, <code>removeSphere()</code> carves a hollow void using
-            the exact same parameters. Layer a sphere subtraction into a solid
-            box to effortlessly create arched doorways or dome cutouts.
+            Conversely, <code>removeGeometry({ type: 'sphere' })</code> carves a
+            hollow void using the exact same parameters. Layer a sphere
+            subtraction into a solid box to effortlessly create arched doorways
+            or dome cutouts.
           </p>
         </div>
       </div>
@@ -412,9 +413,9 @@ const { x, y, w, h } = heerich.getBounds()</code></pre>
         <div class="section-text">
           <h2>Lines</h2>
           <p>
-            <code>addLine()</code> plots a continuous voxelized path between two
-            spatial coordinates. You can thicken the stroke via
-            <code>radius</code>, and alter its joint geometry via
+            <code>applyGeometry({ type: 'line' })</code> plots a continuous
+            voxelized path between two spatial coordinates. You can thicken the
+            stroke via <code>radius</code>, and alter its joint geometry via
             <code>shape</code> — choosing either <code>'rounded'</code> (a
             sequence of overlapping spheres) or
             <code>'square'</code> (overlapping cubes).
@@ -451,9 +452,10 @@ const { x, y, w, h } = heerich.getBounds()</code></pre>
         <div class="section-text">
           <h2>Custom shapes</h2>
           <p>
-            <code>addWhere()</code> is the engine's architectural bedrock
-            &mdash; allowing you to define arbitrary geometry as an evaluation
-            function over <code>(x,&nbsp;y,&nbsp;z)</code>
+            <code>applyGeometry({ type: 'fill' })</code> is the engine's
+            architectural bedrock &mdash; allowing you to define arbitrary
+            geometry as an evaluation function over
+            <code>(x,&nbsp;y,&nbsp;z)</code>
             coordinates. Under the hood, boxes, spheres, and lines are merely
             convenient wrappers around this core method.
           </p>
@@ -720,7 +722,7 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
             <code>right</code>, <code>bottom</code>, and <code>back</code>,
             alongside a <code>default</code> fallback. You can inject these
             styles during shape creation, or explicitly overwrite existing
-            regions later using <code>styleBox()</code>.
+            regions later using <code>applyStyle()</code>.
           </p>
           <pre><code >heerich.applyGeometry({
   type: 'box', position: [0, 0, 0], size: 4,
@@ -732,7 +734,7 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
   }
 })</code></pre>
           <p>
-            Crucially, <code>styleBox()</code> applies localized 'paint' to
+            Crucially, <code>applyStyle()</code> applies localized 'paint' to
             <em>existing</em>
             geometry without fabricating new voxels — ideal for shading specific
             cross-sections after the overall volume is finalized.

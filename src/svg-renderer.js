@@ -3,7 +3,7 @@ const _styleCache = new WeakMap();
 
 /**
  * SVG renderer for Heerich voxel scenes.
- * Consumes the output of `getFaces()` / `getFacesFrom()` and produces an SVG string.
+ * Consumes the output of `getFaces()` / `renderTest()` and produces an SVG string.
  */
 export class SVGRenderer {
   /**

@@ -670,9 +670,8 @@ export class Heerich {
    * Fill params: bounds, test
    */
   applyGeometry(opts) {
-    const coords = opts.rotate
-      ? this._rotateCoords(this._resolveGeometry(opts), opts.rotate)
-      : this._resolveGeometry(opts);
+    let coords = this._resolveGeometry(opts);
+    if (opts.rotate) coords = this._rotateCoords(coords, opts.rotate);
     this._applyOp(
       coords,
       opts.mode || "union",
@@ -705,6 +704,7 @@ export class Heerich {
    * Fill params: bounds, test
    */
   applyStyle(opts) {
+    if (!opts.style) throw new Error("applyStyle requires a style parameter");
     if (!opts.type) {
       // Style all existing voxels
       for (const [key, voxel] of this.voxels.entries()) {
