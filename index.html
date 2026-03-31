@@ -201,14 +201,14 @@
             of
             <a href="https://de.wikipedia.org/wiki/Erwin_Heerich"
               >Erwin Heerich</a
-            >
+            ><sup>†</sup>
             (1922–2004) — exploring stacked topologies, deliberate subtractions,
             and the quiet tension that exists between solid mass and absolute
             void.
           </p>
 
           <p>
-            This exhibition serves as both a technical manual and an interactive
+            This page serves as both a technical manual and an interactive
             gallery. Engage with the examples below to comprehend the mechanics
             of the engine one primitive at a time.
           </p>
@@ -218,10 +218,10 @@
           <ol>
             <li><a href="#setup">Creating an engine</a></li>
             <li><a href="#boxes">Boxes</a></li>
-            <li><a href="#alignment">Coordinates &amp; alignment</a></li>
             <li><a href="#spheres">Spheres</a></li>
             <li><a href="#lines">Lines</a></li>
             <li><a href="#custom-shapes">Custom shapes</a></li>
+            <li><a href="#alignment">Alignment</a></li>
             <li><a href="#carving">Boolean operations</a></li>
             <li><a href="#rotation">Rotation</a></li>
             <li><a href="#grouping">Smooth solids</a></li>
@@ -231,8 +231,8 @@
             <li><a href="#scale">Voxel scaling</a></li>
             <li><a href="#functional-scale">Functional scale</a></li>
             <li><a href="#camera">Camera &amp; projection</a></li>
-            <li><a href="#content-voxels">Content voxels</a></li>
             <li><a href="#opaque">Transparent voxels</a></li>
+            <li><a href="#content-voxels">Content voxels</a></li>
             <li><a href="#queries">Querying voxels</a></li>
             <li><a href="#animation">Animation</a></li>
             <li><a href="#combined">Putting it all together</a></li>
@@ -253,16 +253,15 @@
           style applied universally across the active sequence.
         </p>
 
-        <pre><code >import { Heerich } from './src/heerich.js'
+        <pre><code>import { Heerich } from './src/heerich.js'
 
 const heerich = new Heerich({
-  tile: [30, 30],           // pixel size per tile
   camera: { type: 'oblique', angle: 315, distance: 25 },
-  style: { fill: '#ddd', stroke: 'var(--stroke-c)', strokeWidth: 0.5 }
+  style: { fill: '#ddd', stroke: '#333', strokeWidth: 0.5 }
 })</code></pre>
 
         <p>
-          All options are optional — <code>new Heerich()</code> works with
+          All parameters are optional — <code>new Heerich()</code> works with
           sensible defaults. Call <code>heerich.toSVG()</code> to get an SVG
           string you can drop into the DOM.
         </p>
@@ -278,7 +277,7 @@ const heerich = new Heerich({
 document.body.innerHTML = heerich.toSVG({ padding: 30 })
 
 // Access raw bounds if you need them
-const { x, y, w, h } = heerich.getViewBoxBounds()</code></pre>
+const { x, y, w, h } = heerich.getBounds()</code></pre>
       </div>
 
       <!-- ─── 2. Boxes ──────────────────────────────────── -->
@@ -313,54 +312,16 @@ const { x, y, w, h } = heerich.getViewBoxBounds()</code></pre>
             anchored by a corner position and dimensions. Every voxel inside it
             inherits the default style.
           </p>
-          <pre><code >heerich.addBox({ position: [0, 0, 0], size: [6, 4, 3] })</code></pre>
+          <pre><code >heerich.applyGeometry({
+  type: 'box',
+  position: [0, 0, 0],
+  size: [6, 4, 3]
+})</code></pre>
           <p>
             Drag the sliders below — the engine clears and rebuilds the scene on
             every frame. Because <code>getFaces()</code> utilizes a dirty-flag
             cache, calculating rapid structural changes remains highly
             efficient.
-          </p>
-        </div>
-      </div>
-
-      <!-- ─── Coordinates & alignment ─────────────────── -->
-
-      <div class="section-row" id="alignment">
-        <div class="section-demo">
-          <div class="demo" id="demo-align">
-            <div class="demo-canvas"></div>
-            <div class="demo-controls">
-              <label class="control-label"
-                >Align
-                <select class="control-select" data-bind="align">
-                  <option value="center">center</option>
-                  <option value="min">min corner</option>
-                  <option value="max">max corner</option>
-                </select>
-              </label>
-            </div>
-          </div>
-        </div>
-        <div class="section-text">
-          <h2>Coordinates &amp; alignment</h2>
-          <p>
-            The system intentionally avoids a generic 'ground plane'. Instead,
-            <code>position</code> always anchors to the minimum corner of the
-            shape's bounds. To align objects of different dimensions on a shared
-            surface, you handle the offsets manually.
-          </p>
-          <pre><code >const big = [6, 6, 6], small = [2, 2, 2]
-
-// Align max corners (tops flush)
-const max = big.map((b, i) => b - small[i])
-
-// Center (works perfectly when difference is even)
-const center = big.map((b, i) => (b - small[i]) / 2)</code></pre>
-          <p>
-            This requires just one simple subtraction per axis, keeping the
-            engine minimal and leaving you in complete control. For
-            pixel-perfect centering on an integer grid, aim for even-numbered
-            coordinate differences.
           </p>
         </div>
       </div>
@@ -390,17 +351,22 @@ const center = big.map((b, i) => (b - small[i]) / 2)</code></pre>
         <div class="section-text">
           <h2>Spheres</h2>
           <p>
-            <code>addSphere()</code> plots a rounded volume using an internal
-            distance check. Using fractional offsets like <code>.5</code> for
-            both radius and center (e.g., center: <code>3.5</code>, radius:
-            <code>3.5</code>) tends to produce the cleanest symmetrical forms on
-            integer grids.
+            <code>applyGeometry({ type: 'sphere' })</code> plots a rounded
+            volume using an internal distance check. Using fractional offsets
+            like <code>.5</code> for both radius and center (e.g., center:
+            <code>3.5</code>, radius: <code>3.5</code>) tends to produce the
+            cleanest symmetrical forms on integer grids.
           </p>
-          <pre><code >heerich.addSphere({ center: [4.5, 4.5, 4.5], radius: 4.5 })</code></pre>
+          <pre><code >heerich.applyGeometry({
+  type: 'sphere',
+  center: [4.5, 4.5, 4.5],
+  radius: 4.5
+})</code></pre>
           <p>
-            Conversely, <code>removeSphere()</code> carves a hollow void using
-            the exact same parameters. Layer a sphere subtraction into a solid
-            box to effortlessly create arched doorways or dome cutouts.
+            Conversely, <code>removeGeometry({ type: 'sphere' })</code> carves a
+            hollow void using the exact same parameters. Layer a sphere
+            subtraction into a solid box to effortlessly create arched doorways
+            or dome cutouts.
           </p>
         </div>
       </div>
@@ -447,15 +413,15 @@ const center = big.map((b, i) => (b - small[i]) / 2)</code></pre>
         <div class="section-text">
           <h2>Lines</h2>
           <p>
-            <code>addLine()</code> plots a continuous voxelized path between two
-            spatial coordinates. You can thicken the stroke via
-            <code>radius</code>, and alter its joint geometry via
+            <code>applyGeometry({ type: 'line' })</code> plots a continuous
+            voxelized path between two spatial coordinates. You can thicken the
+            stroke via <code>radius</code>, and alter its joint geometry via
             <code>shape</code> — choosing either <code>'rounded'</code> (a
             sequence of overlapping spheres) or
             <code>'square'</code> (overlapping cubes).
           </p>
-          <pre><code >heerich.addLine({
-  from: [0, 0, 0], to: [8, 8, 8],
+          <pre><code >heerich.applyGeometry({
+  type: 'line', from: [0, 0, 0], to: [8, 8, 8],
   radius: 1.5, shape: 'rounded'
 })</code></pre>
         </div>
@@ -486,14 +452,15 @@ const center = big.map((b, i) => (b - small[i]) / 2)</code></pre>
         <div class="section-text">
           <h2>Custom shapes</h2>
           <p>
-            <code>addWhere()</code> is the engine's architectural bedrock
-            &mdash; allowing you to define arbitrary geometry as an evaluation
-            function over <code>(x,&nbsp;y,&nbsp;z)</code>
+            <code>applyGeometry({ type: 'fill' })</code> is the engine's
+            architectural bedrock &mdash; allowing you to define arbitrary
+            geometry as an evaluation function over
+            <code>(x,&nbsp;y,&nbsp;z)</code>
             coordinates. Under the hood, boxes, spheres, and lines are merely
             convenient wrappers around this core method.
           </p>
-          <pre><code >heerich.addWhere({
-  bounds: [[0, 0, 0], [s, s, s]],
+          <pre><code >heerich.applyGeometry({
+  type: 'fill', bounds: [[0, 0, 0], [s, s, s]],
   test: (x, y, z) => {
     const c = Math.ceil(s / 4)
     const nearEdge = [x, y, z].filter(
@@ -508,6 +475,46 @@ const center = big.map((b, i) => (b - small[i]) / 2)</code></pre>
             <code>true</code> spawns a voxel. All standard properties (like
             <code>style</code>, <code>scale</code>, or <code>mode</code>)
             continue to apply.
+          </p>
+        </div>
+      </div>
+
+      <!-- ─── Alignment ─────────────────────────────────── -->
+
+      <div class="section-row" id="alignment">
+        <div class="section-demo">
+          <div class="demo" id="demo-align">
+            <div class="demo-canvas"></div>
+            <div class="demo-controls">
+              <label class="control-label"
+                >Align
+                <select class="control-select" data-bind="align">
+                  <option value="center">center</option>
+                  <option value="min">min corner</option>
+                  <option value="max">max corner</option>
+                </select>
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="section-text">
+          <h2>Alignment</h2>
+          <p>
+            <code>position</code> always anchors to the minimum corner of the
+            shape's bounding box. To align objects of different sizes on a
+            shared surface, offset the smaller one manually.
+          </p>
+          <pre><code >const big = [6, 6, 6], small = [2, 2, 2]
+
+// Align max corners (tops flush)
+const max = big.map((b, i) => b - small[i])
+
+// Center (works perfectly when difference is even)
+const center = big.map((b, i) => (b - small[i]) / 2)</code></pre>
+          <p>
+            One subtraction per axis — the engine stays minimal and you stay in
+            control. For pixel-perfect centering on an integer grid, use
+            even-numbered size differences.
           </p>
         </div>
       </div>
@@ -560,22 +567,26 @@ const center = big.map((b, i) => (b - small[i]) / 2)</code></pre>
             <li><strong>intersect</strong> — keep only the overlap</li>
             <li><strong>exclude</strong> — XOR, toggle each voxel</li>
           </ul>
-          <pre><code >heerich.addBox({ position: [0, 0, 0], size: [6, 6, 6] })
+          <pre><code >heerich.applyGeometry({
+  type: 'box',
+  position: [0, 0, 0],
+  size: 6
+})
 
 // Carve a sphere out of the box
-heerich.addSphere({
-  center: [3, 3, 3], radius: 3,
+heerich.applyGeometry({
+  type: 'sphere', center: [3, 3, 3], radius: 3,
   mode: 'subtract'
 })
 
 // Keep only where box and sphere overlap
-heerich.addSphere({
-  center: [3, 3, 3], radius: 3,
+heerich.applyGeometry({
+  type: 'sphere', center: [3, 3, 3], radius: 3,
   mode: 'intersect'
 })</code></pre>
           <p>
-            <code>removeBox()</code> and <code>removeSphere()</code> still work
-            — they're shortcuts for <code>mode: 'subtract'</code>.
+            <code>removeGeometry()</code> is a shortcut for
+            <code>mode: 'subtract'</code>.
           </p>
         </div>
       </div>
@@ -620,9 +631,13 @@ heerich.addSphere({
             custom origins are seamlessly supported.
           </p>
           <pre><code >// Build one arm, rotate a copy to make an L
-heerich.addBox({ position: [0, 0, 0], size: [2, 8, 2] })
-heerich.addBox({
-  position: [0, 0, 0], size: [2, 8, 2],
+heerich.applyGeometry({
+  type: 'box',
+  position: [0, 0, 0],
+  size: [2, 8, 2]
+})
+heerich.applyGeometry({
+  type: 'box', position: [0, 0, 0], size: [2, 8, 2],
   rotate: { axis: 'z', turns: 1 }
 })
 
@@ -668,8 +683,8 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
             <code>stroke</code> the exact same color as the <code>fill</code>,
             effectively rendering the internal grid geometry invisible.
           </p>
-          <pre><code >heerich.addBox({
-  position: [0, 0, 0], size: [4, 4, 4],
+          <pre><code >heerich.applyGeometry({
+  type: 'box', position: [0, 0, 0], size: 4,
   style: { default: { fill: '#0e0e0e', stroke: '#0e0e0e' } }
 })</code></pre>
           <p>
@@ -707,10 +722,10 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
             <code>right</code>, <code>bottom</code>, and <code>back</code>,
             alongside a <code>default</code> fallback. You can inject these
             styles during shape creation, or explicitly overwrite existing
-            regions later using <code>styleBox()</code>.
+            regions later using <code>applyStyle()</code>.
           </p>
-          <pre><code >heerich.addBox({
-  position: [0, 0, 0], size: [4, 4, 4],
+          <pre><code >heerich.applyGeometry({
+  type: 'box', position: [0, 0, 0], size: 4,
   style: {
     default: { fill: '#eee', stroke: '#333' },
     top:   { fill: '#ff6666' },
@@ -719,7 +734,7 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
   }
 })</code></pre>
           <p>
-            Crucially, <code>styleBox()</code> applies localized 'paint' to
+            Crucially, <code>applyStyle()</code> applies localized 'paint' to
             <em>existing</em>
             geometry without fabricating new voxels — ideal for shading specific
             cross-sections after the overall volume is finalized.
@@ -774,8 +789,8 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
               >presentation attribute</a
             >.
           </p>
-          <pre><code >heerich.addBox({
-  position: [0, 0, 0], size: [5, 5, 5],
+          <pre><code >heerich.applyGeometry({
+  type: 'box', position: [0, 0, 0], size: 5,
   style: {
     default: {
       fill: 'var(--fill)',
@@ -832,8 +847,8 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
             geometry-dependent shading rules — bypassing the need to iterate
             through individual voxels manually.
           </p>
-          <pre><code >heerich.addBox({
-  position: [0, 0, 0], size: [8, 8, 8],
+          <pre><code >heerich.applyGeometry({
+  type: 'box', position: [0, 0, 0], size: 8,
   style: {
     default: (x, y, z) => {
       const L = 0.4 + (y / 8) * 0.5
@@ -887,17 +902,17 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
             occluded geometry layered behind it.
           </p>
           <pre><code >// Static — same scale for every voxel
-heerich.addBox({
-  position: [0, 0, 0],
-  size: [1, 1, 1],
+heerich.applyGeometry({
+  type: 'box', position: [0, 0, 0],
+  size: 1,
   scale: [1, 0.5, 1],
   scaleOrigin: [0.5, 1, 0.5]
 })
 
 // Functional — scale varies by position
-heerich.addBox({
-  position: [0, 0, 0],
-  size: [4, 4, 4],
+heerich.applyGeometry({
+  type: 'box', position: [0, 0, 0],
+  size: 4,
   scale: (x, y, z) => [1, 1 - y * 0.2, 1],
   scaleOrigin: [0.5, 1, 0.5]
 })</code></pre>
@@ -956,8 +971,8 @@ heerich.addBox({
             staggered architectural elements without stepping outside a single
             generative routine.
           </p>
-          <pre><code >heerich.addBox({
-  position: [0, 0, 0], size: [s, s, s],
+          <pre><code >heerich.applyGeometry({
+  type: 'box', position: [0, 0, 0], size: [s, s, s],
   scale: (x, y, z) => {
     const t = 1 - y / s
     const f = 1 - t * taper
@@ -1006,6 +1021,37 @@ heerich.setCamera({ type: 'perspective', position: [5, 5], distance: 12 })</code
         </p>
       </div>
 
+      <!-- ─── Transparent voxels ─────────────────────────── -->
+
+      <div class="section-row" id="opaque">
+        <div class="section-demo">
+          <div class="demo" id="demo-opaque">
+            <div class="demo-canvas"></div>
+          </div>
+        </div>
+        <div class="section-text">
+          <h2>Transparent voxels</h2>
+          <p>
+            Set <code>opaque: false</code> and the voxel itself remains visible,
+            but adjacent voxels treat it as empty space — forcing their inner
+            faces to be drawn. Combine this with a transparent fill to construct
+            wireframe cages, bounding volumes, or see-through sculptural guides
+            anchored cleanly over solid geometry.
+          </p>
+          <pre><code >// Wireframe cage over a solid core
+heerich.applyGeometry({
+  type: 'box',
+  position: [1, 1, 1],
+  size: 3
+})
+heerich.applyGeometry({
+  type: 'box', position: [0, 0, 0], size: 5,
+  opaque: false,
+  style: { default: { fill: 'none' } }
+})</code></pre>
+        </div>
+      </div>
+
       <!-- ─── Content voxels ─────────────────────────────── -->
 
       <div class="section-row" id="content-voxels">
@@ -1024,8 +1070,8 @@ heerich.setCamera({ type: 'perspective', position: [5, 5], distance: 12 })</code
             faces, enforces a strict Z-level depth sort, and encases everything
             cleanly inside an integrated <code>&lt;g&gt;</code> element.
           </p>
-          <pre><code >heerich.addBox({
-  position: [3, 0, 6], size: [1, 1, 1],
+          <pre><code >heerich.applyGeometry({
+  type: 'box', position: [3, 0, 6], size: 1,
   opaque: false,
   content: `&lt;text
     font-family="Aboreto"
@@ -1056,33 +1102,6 @@ heerich.setCamera({ type: 'perspective', position: [5, 5], distance: 12 })</code
         </div>
       </div>
 
-      <!-- ─── Transparent voxels ─────────────────────────── -->
-
-      <div class="section-row" id="opaque">
-        <div class="section-demo">
-          <div class="demo" id="demo-opaque">
-            <div class="demo-canvas"></div>
-          </div>
-        </div>
-        <div class="section-text">
-          <h2>Transparent voxels</h2>
-          <p>
-            Set <code>opaque: false</code> and the voxel itself remains visible,
-            but adjacent voxels treat it as empty space — forcing their inner
-            faces to be drawn. Combine this with a transparent fill to construct
-            wireframe cages, bounding volumes, or see-through sculptural guides
-            anchored cleanly over solid geometry.
-          </p>
-          <pre><code >// Wireframe cage over a solid core
-heerich.addBox({ position: [1, 1, 1], size: [3, 3, 3] })
-heerich.addBox({
-  position: [0, 0, 0], size: [5, 5, 5],
-  opaque: false,
-  style: { default: { fill: 'none' } }
-})</code></pre>
-        </div>
-      </div>
-
       <!-- ─── Queries ─────────────────────────────────── -->
 
       <div class="section-row" id="queries">
@@ -1109,12 +1128,12 @@ heerich.addBox({
             handling adjacency logic, or driving edge-aware shading passes.
           </p>
           <pre><code >// Color voxels by how exposed they are
-heerich.forEach((voxel, pos) => {
-  const n = heerich.getNeighbors(pos)
+for (const voxel of heerich) {
+  const n = heerich.getNeighbors([voxel.x, voxel.y, voxel.z])
   const exposed = Object.values(n)
     .filter(v => !v).length
   // exposed = number of open faces (0–6)
-})</code></pre>
+}</code></pre>
           <p>
             The <code>getNeighbors()</code> query explicitly retrieves adjacent
             solid geometry across the six cardinal planes. In the interactive
@@ -1124,7 +1143,7 @@ heerich.forEach((voxel, pos) => {
           </p>
           <pre><code >heerich.hasVoxel([3, 4, 5])   // boolean
 heerich.getVoxel([3, 4, 5])   // voxel data or null
-heerich.forEach((voxel, pos) => { ... })
+for (const voxel of heerich) { ... }
 
 // Serialization
 const json = heerich.toJSON()
@@ -1187,11 +1206,11 @@ const copy = Heerich.fromJSON(json)</code></pre>
 
 function frame(now) {
   heerich.clear()
-  heerich.addBox(...)
+  heerich.applyGeometry({ type: 'box', ...})
   holes.forEach((h, i) => {
     const t = ease(elapsed / duration)
-    heerich.removeBox({
-      position: [h.x, h.y, 0],
+    heerich.removeGeometry({
+      type: 'box', position: [h.x, h.y, 0],
       size: [3, 3, Math.round(t * h.targetDepth)]
     })
   })

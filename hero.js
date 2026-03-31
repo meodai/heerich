@@ -42,7 +42,7 @@ export function initHero(
     const cam = getCamera();
 
     const e = new Heerich({
-      tile: [gridSize, gridSize],
+      tile: gridSize,
       camera: cam,
       style: {
         fill: "var(--fill)",
@@ -51,7 +51,8 @@ export function initHero(
       },
     });
 
-    e.addWhere({
+    e.applyGeometry({
+      type: "fill",
       bounds: [
         [0, 0, 0],
         [cols, rows, maxDepth],
@@ -101,7 +102,11 @@ export function initHero(
     scene.holes.forEach((h, i) => {
       const d = Math.round(depths[i]);
       if (d > 0) {
-        e.removeBox({ position: [h.x, h.y, 0], size: [h.w, h.h, d] });
+        e.removeGeometry({
+          type: "box",
+          position: [h.x, h.y, 0],
+          size: [h.w, h.h, d],
+        });
       }
     });
 
@@ -112,7 +117,8 @@ export function initHero(
         const d = Math.round(depths[i]);
         if (d <= 0) return;
         const color = scene.color;
-        e.styleBox({
+        e.applyStyle({
+          type: "box",
           position: [h.x, h.y, 0],
           size: [h.w, h.h, d],
           style: {
@@ -171,7 +177,8 @@ export function initHero(
         // Clamp so towers don't poke above the surface
         const clampedHeight = Math.min(currentHeight, holeDepth);
         const towerStartZ = holeDepth - clampedHeight;
-        e.addBox({
+        e.applyGeometry({
+          type: "box",
           position: [tower.x, tower.y, towerStartZ],
           size: [tower.w, tower.h, clampedHeight],
         });

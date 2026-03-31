@@ -389,18 +389,18 @@ function setupDemo(id, buildFn) {
 // ─── 2. Boxes ────────────────────────
 setupDemo("demo-box", (v) => {
   const e = new Heerich({
-    tile: [30, 30],
+    tile: 30,
     camera: getCamera(),
     style: baseStyle,
   });
-  e.addBox({ position: [0, 0, 0], size: [v.w, v.h, v.d] });
+  e.applyGeometry({ type: "box", position: [0, 0, 0], size: [v.w, v.h, v.d] });
   return e.toSVG(getSvgOpts());
 });
 
 // ─── Alignment ───────────────────────
 setupDemo("demo-align", (v) => {
   const e = new Heerich({
-    tile: [26, 26],
+    tile: 26,
     camera: getCamera(),
     style: baseStyle,
   });
@@ -408,7 +408,7 @@ setupDemo("demo-align", (v) => {
   const small = [2, 2, 2];
   const ox = big[0];
 
-  e.addBox({ position: [0, 0, 0], size: big });
+  e.applyGeometry({ type: "box", position: [0, 0, 0], size: big });
 
   // Y = front/back, Z = up/down — these are the two visible alignment axes
   // X is always flush beside with 1 voxel gap
@@ -423,7 +423,8 @@ setupDemo("demo-align", (v) => {
   }
   const pos = [ox, y, z];
 
-  e.addBox({
+  e.applyGeometry({
+    type: "box",
     position: pos,
     size: small,
     style: { default: { fill: "#18191b", stroke: "var(--fill)" } },
@@ -436,18 +437,18 @@ setupDemo("demo-align", (v) => {
 setupDemo("demo-sphere", (v) => {
   const r = v.r;
   const e = new Heerich({
-    tile: [28, 28],
+    tile: 28,
     camera: getCamera(),
     style: baseStyle,
   });
-  e.addSphere({ center: [r, r, r], radius: r });
+  e.applyGeometry({ type: "sphere", center: [r, r, r], radius: r });
   return e.toSVG(getSvgOpts());
 });
 
 // ─── 5. Lines ────────────────────────
 setupDemo("demo-line", (v) => {
   const e = new Heerich({
-    tile: [26, 26],
+    tile: 26,
     camera: getCamera(),
     style: {
       fill: "var(--fill)",
@@ -455,7 +456,8 @@ setupDemo("demo-line", (v) => {
       strokeWidth: "var(--stroke-w)",
     },
   });
-  e.addLine({
+  e.applyGeometry({
+    type: "line",
     from: [0, 0, 0],
     to: [v.ex, 6, v.ez],
     radius: v.r,
@@ -468,11 +470,12 @@ setupDemo("demo-line", (v) => {
 setupDemo("demo-custom-shape", (v) => {
   const s = v.size;
   const e = new Heerich({
-    tile: [28, 28],
+    tile: 28,
     camera: getCamera(),
     style: baseStyle,
   });
-  e.addWhere({
+  e.applyGeometry({
+    type: "fill",
     bounds: [
       [0, 0, 0],
       [s, s, s],
@@ -489,12 +492,13 @@ setupDemo("demo-custom-shape", (v) => {
 // ─── 6. Boolean operations ──────────────
 setupDemo("demo-boolean", (v) => {
   const e = new Heerich({
-    tile: [26, 26],
+    tile: 26,
     camera: getCamera(),
     style: baseStyle,
   });
-  e.addBox({ position: [0, 0, 0], size: [6, 6, 6] });
-  e.addSphere({
+  e.applyGeometry({ type: "box", position: [0, 0, 0], size: [6, 6, 6] });
+  e.applyGeometry({
+    type: "sphere",
     center: [v.offset, 3, 3],
     radius: 3.5,
     mode: v.mode,
@@ -506,12 +510,12 @@ setupDemo("demo-boolean", (v) => {
 // ─── 7. Rotation ────────────────────────
 setupDemo("demo-rotation", (v) => {
   const e = new Heerich({
-    tile: [26, 26],
+    tile: 26,
     camera: getCamera(),
     style: baseStyle,
   });
-  e.addBox({ position: [0, 0, 0], size: [2, 6, 2] });
-  e.addBox({ position: [0, 0, 0], size: [6, 2, 2] });
+  e.applyGeometry({ type: "box", position: [0, 0, 0], size: [2, 6, 2] });
+  e.applyGeometry({ type: "box", position: [0, 0, 0], size: [6, 2, 2] });
   if (v.turns > 0) {
     e.rotate({ axis: v.axis, turns: v.turns });
   }
@@ -521,14 +525,15 @@ setupDemo("demo-rotation", (v) => {
 // ─── 8. Grouped voxels ──────────────────
 setupDemo("demo-group", (v) => {
   const e = new Heerich({
-    tile: [26, 26],
+    tile: 26,
     camera: getCamera(),
     style: baseStyle,
   });
   const gs = v.gs;
 
   // Smooth solid — strokeWidth: 0 removes internal grid lines
-  e.addBox({
+  e.applyGeometry({
+    type: "box",
     position: [0, 0, 0],
     size: [gs, gs, gs],
     style: {
@@ -538,10 +543,10 @@ setupDemo("demo-group", (v) => {
 
   // 1x1x1 voxels bordering all four sides, offset 1 back
   for (let i = 0; i < gs + 2; i++) {
-    e.addBox({ position: [i - 1, -1, 1], size: [1, 1, 1] }); // top edge
-    e.addBox({ position: [i - 1, gs, 1], size: [1, 1, 1] }); // bottom edge
-    e.addBox({ position: [-1, i - 1, 1], size: [1, 1, 1] }); // left edge
-    e.addBox({ position: [gs, i - 1, 1], size: [1, 1, 1] }); // right edge
+    e.applyGeometry({ type: "box", position: [i - 1, -1, 1], size: [1, 1, 1] }); // top edge
+    e.applyGeometry({ type: "box", position: [i - 1, gs, 1], size: [1, 1, 1] }); // bottom edge
+    e.applyGeometry({ type: "box", position: [-1, i - 1, 1], size: [1, 1, 1] }); // left edge
+    e.applyGeometry({ type: "box", position: [gs, i - 1, 1], size: [1, 1, 1] }); // right edge
   }
 
   return e.toSVG(getSvgOpts());
@@ -550,7 +555,7 @@ setupDemo("demo-group", (v) => {
 // ─── 9. Styles ───────────────────────
 setupDemo("demo-style", (v) => {
   const e = new Heerich({
-    tile: [30, 30],
+    tile: 30,
     camera: getCamera(),
     style: {
       fill: "var(--fill)",
@@ -558,7 +563,8 @@ setupDemo("demo-style", (v) => {
       strokeWidth: "var(--stroke-w)",
     },
   });
-  e.addBox({
+  e.applyGeometry({
+    type: "box",
     position: [0, 0, 0],
     size: [5, 5, 5],
     style: {
@@ -573,11 +579,12 @@ setupDemo("demo-style", (v) => {
 // ─── 10. SVG styles ───────────────────
 setupDemo("demo-svg-styles", (v) => {
   const e = new Heerich({
-    tile: [28, 28],
+    tile: 28,
     camera: getCamera(),
     style: baseStyle,
   });
-  e.addBox({
+  e.applyGeometry({
+    type: "box",
     position: [0, 0, 0],
     size: [4, 4, 4],
     style: {
@@ -590,7 +597,8 @@ setupDemo("demo-svg-styles", (v) => {
       },
     },
   });
-  e.addBox({
+  e.applyGeometry({
+    type: "box",
     position: [5, 0, 0],
     size: [4, 4, 4],
     style: { default: { opacity: 1 } },
@@ -604,7 +612,7 @@ setupDemo("demo-functional", (v) => {
   const s = v.s;
   const hueRange = v.hue;
   const e = new Heerich({
-    tile: [28, 28],
+    tile: 28,
     camera: getCamera(),
     style: {
       fill: "var(--fill)",
@@ -612,7 +620,8 @@ setupDemo("demo-functional", (v) => {
       strokeWidth: "var(--stroke-w)",
     },
   });
-  e.addBox({
+  e.applyGeometry({
+    type: "box",
     position: [0, 0, 0],
     size: [s, s, s],
     style: {
@@ -633,7 +642,7 @@ setupDemo("demo-functional", (v) => {
 setupDemo("demo-scale", (v) => {
   const h = v.height;
   const e = new Heerich({
-    tile: [30, 30],
+    tile: 30,
     camera: getCamera(),
     style: baseStyle,
   });
@@ -659,14 +668,16 @@ setupDemo("demo-scale", (v) => {
   for (let i = 0; i < total; i++) {
     const [px, pz] = path[i];
     // Standing on floor
-    e.addBox({
+    e.applyGeometry({
+      type: "box",
       position: [px, 1, pz],
       size: [1, 1, 1],
       scale: [1, ((i + 1) / total) * h, 1],
       scaleOrigin: [0.5, 1, 0.5],
     });
     // Hanging from ceiling, below the floor stairs (reversed height)
-    e.addBox({
+    e.applyGeometry({
+      type: "box",
       position: [px, 2, pz],
       size: [1, 1, 1],
       scale: [1, ((total - i) / total) * h, 1],
@@ -682,11 +693,12 @@ setupDemo("demo-functional-scale", (v) => {
   const s = v.size;
   const taper = v.taper;
   const e = new Heerich({
-    tile: [28, 28],
+    tile: 28,
     camera: getCamera(),
     style: baseStyle,
   });
-  e.addBox({
+  e.applyGeometry({
+    type: "box",
     position: [0, 0, 0],
     size: [s, s, s],
     scale: (x, y, z) => {
@@ -714,7 +726,7 @@ setupDemo("demo-functional-scale", (v) => {
 
   function render() {
     const e = new Heerich({
-      tile: [22, 22],
+      tile: 22,
       camera: getCamera(),
       style: {
         fill: "var(--fill)",
@@ -729,7 +741,8 @@ setupDemo("demo-functional-scale", (v) => {
         for (let x = 0; x < s; x++) {
           const letter = word[i % word.length];
 
-          e.addBox({
+          e.applyGeometry({
+            type: "box",
             position: [x, y, z],
             size: [1, 1, 1],
             opaque: false,
@@ -754,13 +767,14 @@ setupDemo("demo-functional-scale", (v) => {
     .querySelector(".demo-canvas");
   function render() {
     const e = new Heerich({
-      tile: [24, 24],
+      tile: 24,
       camera: getCamera(),
       style: baseStyle,
     });
 
     // Wireframe cage — fill none, opaque false
-    e.addBox({
+    e.applyGeometry({
+      type: "box",
       position: [0, 0, 0],
       size: [5, 5, 5],
       opaque: false,
@@ -774,7 +788,7 @@ setupDemo("demo-functional-scale", (v) => {
     });
 
     // Solid core — added after so it overwrites the cage cells in the overlap
-    e.addBox({ position: [1, 1, 1], size: [3, 3, 3] });
+    e.applyGeometry({ type: "box", position: [1, 1, 1], size: [3, 3, 3] });
 
     canvas.innerHTML = e.toSVG(getSvgOpts());
   }
@@ -785,15 +799,16 @@ setupDemo("demo-functional-scale", (v) => {
 // ─── 17. Queries ──────────────────────
 setupDemo("demo-queries", (v) => {
   const e = new Heerich({
-    tile: [24, 24],
+    tile: 24,
     camera: getCamera(),
     style: baseStyle,
   });
-  e.addBox({ position: [0, 0, 0], size: [6, 6, 6] });
-  e.removeSphere({ center: [3, 3, 6], radius: 2.5 });
-  e.removeBox({ position: [0, 0, 0], size: [2, 6, 3] });
+  e.applyGeometry({ type: "box", position: [0, 0, 0], size: [6, 6, 6] });
+  e.removeGeometry({ type: "sphere", center: [3, 3, 6], radius: 2.5 });
+  e.removeGeometry({ type: "box", position: [0, 0, 0], size: [2, 6, 3] });
 
-  e.forEach((voxel, pos) => {
+  for (const voxel of e) {
+    const pos = [voxel.x, voxel.y, voxel.z];
     const n = e.getNeighbors(pos);
     const open = Object.values(n).filter((v) => !v).length;
 
@@ -805,7 +820,8 @@ setupDemo("demo-queries", (v) => {
     if (show) {
       const t = open / 6;
       const L = Math.round(t * 100);
-      e.styleBox({
+      e.applyStyle({
+        type: "box",
         position: pos,
         size: [1, 1, 1],
         style: {
@@ -815,7 +831,7 @@ setupDemo("demo-queries", (v) => {
         },
       });
     }
-  });
+  }
 
   return e.toSVG(getSvgOpts());
 });
@@ -876,14 +892,19 @@ function animateHoles({
 
   function buildScene(depths) {
     const e = new Heerich({
-      tile: [26, 26],
+      tile: 26,
       camera: getCamera(),
       style: baseStyle,
     });
-    e.addBox({ position: [0, 0, 0], size: [10, 8, 6] });
+    e.applyGeometry({ type: "box", position: [0, 0, 0], size: [10, 8, 6] });
     holes.forEach((h, i) => {
       const d = Math.round(depths[i]);
-      if (d > 0) e.removeBox({ position: [h.x, h.y, 0], size: [h.w, h.h, d] });
+      if (d > 0)
+        e.removeGeometry({
+          type: "box",
+          position: [h.x, h.y, 0],
+          size: [h.w, h.h, d],
+        });
     });
     return e.toSVG(getSvgOpts());
   }
@@ -1011,7 +1032,7 @@ function animateHoles({
     const maxDepth = Math.max(...holes.map((h) => h.targetDepth), 1);
 
     const e = new Heerich({
-      tile: [gridSize, gridSize],
+      tile: gridSize,
       camera: getCamera(),
       style: {
         fill: "var(--fill)",
@@ -1020,7 +1041,11 @@ function animateHoles({
       },
     });
 
-    e.addBox({ position: [0, 0, 0], size: [cols, rows, maxDepth] });
+    e.applyGeometry({
+      type: "box",
+      position: [0, 0, 0],
+      size: [cols, rows, maxDepth],
+    });
 
     // Carve holes — style paints the newly exposed neighbor faces
     const wallFill = { fill: "var(--stroke-c)", stroke: "var(--fill)" };
@@ -1030,14 +1055,16 @@ function animateHoles({
       const full = Math.ceil(d);
       const frac = d - Math.floor(d);
       // Remove full + partial layer
-      e.removeBox({
+      e.removeGeometry({
+        type: "box",
         position: [h.x, h.y, 0],
         size: [h.w, h.h, full],
         style: { default: wallFill },
       });
       // Add back a shrinking floor slab for the fractional part
       if (frac > 0.01) {
-        e.addBox({
+        e.applyGeometry({
+          type: "box",
           position: [h.x, h.y, full - 1],
           size: [h.w, h.h, 1],
           scale: [1, 1, 1 - frac],
@@ -1060,7 +1087,8 @@ function animateHoles({
           : Math.max(0, holeDepth - fullH);
         const totalH = tower.overflow ? fullH : holeDepth - startZ;
         if (totalH > 0)
-          e.addBox({
+          e.applyGeometry({
+            type: "box",
             position: [tower.x, tower.y, startZ],
             size: [tower.w, tower.h, totalH],
             style: { default: wallFill },
@@ -1068,7 +1096,8 @@ function animateHoles({
         // Fractional layer growing on top (toward lower z)
         if (frac > 0.01) {
           const fracZ = startZ - 1;
-          e.addBox({
+          e.applyGeometry({
+            type: "box",
             position: [tower.x, tower.y, fracZ],
             size: [tower.w, tower.h, 1],
             scale: [1, 1, frac],
@@ -1084,7 +1113,11 @@ function animateHoles({
       carves.forEach((c, i) => {
         const r = carveRadii[i];
         if (r > 0.3) {
-          e.removeSphere({ center: [c.cx, c.cy, c.cz], radius: r });
+          e.removeGeometry({
+            type: "sphere",
+            center: [c.cx, c.cy, c.cz],
+            radius: r,
+          });
         }
       });
     }
@@ -1190,7 +1223,7 @@ function galleryDemo(id, buildFn) {
 // 1. Kreuzplastik (Brass Cross) — interlocking cross with square holes
 galleryDemo("demo-heerich-cross", () => {
   const e = new Heerich({
-    tile: [22, 22],
+    tile: 22,
     camera: getCamera(),
     style: {
       fill: "var(--fill)",
@@ -1205,20 +1238,23 @@ galleryDemo("demo-heerich-cross", () => {
   const c = [(len - 1) / 2, (len - 1) / 2, (d - 1) / 2];
 
   // Build one arm with hole
-  e.addBox({ position: [o, 0, 0], size: [arm, len, d] });
-  e.addBox({
+  e.applyGeometry({ type: "box", position: [o, 0, 0], size: [arm, len, d] });
+  e.applyGeometry({
+    type: "box",
     position: [o + 1, 1, 0],
     size: [1, len - 2, d],
     mode: "subtract",
   });
 
   // Second arm — rotated 90° around Z
-  e.addBox({
+  e.applyGeometry({
+    type: "box",
     position: [o, 0, 0],
     size: [arm, len, d],
     rotate: { axis: "z", turns: 1, center: c },
   });
-  e.addBox({
+  e.applyGeometry({
+    type: "box",
     position: [o + 1, 1, 0],
     size: [1, len - 2, d],
     mode: "subtract",
@@ -1226,12 +1262,14 @@ galleryDemo("demo-heerich-cross", () => {
   });
 
   // Third arm — rotated 90° around Y
-  e.addBox({
+  e.applyGeometry({
+    type: "box",
     position: [o, 0, 0],
     size: [arm, len, d],
     rotate: { axis: "x", turns: 1, center: c },
   });
-  e.addBox({
+  e.applyGeometry({
+    type: "box",
     position: [o + 1, 1, 0],
     size: [1, len - 2, d],
     mode: "subtract",
@@ -1281,7 +1319,7 @@ scheduleFaviconUpdate();
 // 2. Schachbrett (Checkerboard) — 3x3 grid, alternating cubes removed
 galleryDemo("demo-heerich-checker", () => {
   const e = new Heerich({
-    tile: [26, 26],
+    tile: 26,
     camera: getCamera(),
     style: {
       fill: "var(--fill)",
@@ -1294,7 +1332,11 @@ galleryDemo("demo-heerich-checker", () => {
     for (let x = 0; x < 3; x++) {
       for (let z = 0; z < 3; z++) {
         if ((x + y + z) % 2 === 0) {
-          e.addBox({ position: [x * s, y * s, z * s], size: [s, s, s] });
+          e.applyGeometry({
+            type: "box",
+            position: [x * s, y * s, z * s],
+            size: [s, s, s],
+          });
         }
       }
     }
@@ -1305,7 +1347,7 @@ galleryDemo("demo-heerich-checker", () => {
 // 3. Stepped Block
 galleryDemo("demo-heerich-stepped", () => {
   const e = new Heerich({
-    tile: [32, 32],
+    tile: 32,
     camera: getCamera(),
     style: {
       fill: "var(--fill)",
@@ -1314,11 +1356,11 @@ galleryDemo("demo-heerich-stepped", () => {
     },
   });
 
-  e.addBox({ position: [-4, -4, -4], size: [8, 8, 8] });
+  e.applyGeometry({ type: "box", position: [-4, -4, -4], size: [8, 8, 8] });
   // Carve steps into the Top-Right-Front corner (+X, -Y, -Z)
-  e.removeBox({ position: [2, -4, -2], size: [2, 2, 2] });
-  e.removeBox({ position: [0, -4, -4], size: [2, 2, 2] });
-  e.removeBox({ position: [2, -4, -4], size: [2, 4, 2] });
+  e.removeGeometry({ type: "box", position: [2, -4, -2], size: [2, 2, 2] });
+  e.removeGeometry({ type: "box", position: [0, -4, -4], size: [2, 2, 2] });
+  e.removeGeometry({ type: "box", position: [2, -4, -4], size: [2, 4, 2] });
 
   return e.toSVG(getSvgOpts());
 });
@@ -1329,7 +1371,7 @@ galleryDemo("demo-heerich-stepped", () => {
 
   function renderHeart() {
     const e = new Heerich({
-      tile: [52, 52],
+      tile: 52,
       camera: getCamera(),
       style: {
         fill: "var(--fill)",
@@ -1339,7 +1381,8 @@ galleryDemo("demo-heerich-stepped", () => {
     });
 
     const s = 4;
-    e.addWhere({
+    e.applyGeometry({
+      type: "fill",
       bounds: [
         [-s, -s, -s],
         [s + 1, s + 1, s + 1],

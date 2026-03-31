@@ -99,7 +99,7 @@ export function* lineCoords(from, to, radius, shape) {
  * @param {function(number,number,number): boolean} test
  * @returns {Generator<number[], void, unknown>}
  */
-export function* whereCoords(bounds, test) {
+export function* fillCoords(bounds, test) {
   const [[minX, minY, minZ], [maxX, maxY, maxZ]] = bounds;
   for (let z = minZ; z < maxZ; z++)
     for (let y = minY; y < maxY; y++)
