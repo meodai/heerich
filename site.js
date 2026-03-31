@@ -83,6 +83,7 @@ const camStrokeColor = document.getElementById("cam-stroke-color");
 const camFill = document.getElementById("cam-fill");
 const camOutline = document.getElementById("cam-outline");
 const camOutlineColor = document.getElementById("cam-outline-color");
+const rendererType = document.getElementById("renderer-type");
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -198,6 +199,8 @@ const hero = initHero(
   getCamera,
   getReservedZone,
   getSvgOpts,
+  renderScene,
+  resolveStyleVars,
 );
 
 // Repaint hero on resize to recalculate reserved zone
@@ -314,6 +317,68 @@ function getSvgOpts() {
   };
 }
 
+function getHtmlOpts() {
+  const proj = camProj.value;
+  const angle = parseFloat(camAngle.value);
+  const dist = parseFloat(camDist.value);
+
+  if (proj === "oblique") {
+    // Map oblique depth offset direction to CSS 3D orbit rotations
+    const rad = (angle * Math.PI) / 180;
+    const dx = Math.cos(rad);
+    const dy = Math.sin(rad);
+    const ry = (Math.atan2(dx, 1) * 180) / Math.PI;
+    const rx = (Math.atan2(-dy, 1) * 180) / Math.PI;
+    return {
+      tileSize: 30,
+      perspective: 400 + dist * 60,
+      rotateX: rx,
+      rotateY: ry,
+    };
+  }
+
+  // Perspective mode
+  const camX = 5 + ((angle - 180) / 180) * 12;
+  const camYVal = parseFloat(camY.value);
+  return {
+    tileSize: 30,
+    perspective: Math.max(200, dist * 50),
+    rotateX: (Math.atan2(-camYVal, 5) * 180) / Math.PI,
+    rotateY: (Math.atan2(camX - 5, 5) * 180) / Math.PI,
+  };
+}
+
+function resolveStyleVars(e) {
+  const fillVal =
+    camFill.dataset.transparent === "1" ? "transparent" : camFill.value;
+  const strokeVal = camStrokeColor.value;
+  const strokeW = parseFloat(camStroke.value);
+  const resolve = (s) => {
+    if (!s) return s;
+    const out = { ...s };
+    if (out.fill === "var(--fill)") out.fill = fillVal;
+    if (out.stroke === "var(--stroke-c)") out.stroke = strokeVal;
+    if (out.strokeWidth === "var(--stroke-w)") out.strokeWidth = strokeW;
+    return out;
+  };
+  if (e.defaultStyle) e.defaultStyle = resolve(e.defaultStyle);
+  for (const voxel of e) {
+    if (voxel.styles) {
+      for (const face of Object.keys(voxel.styles)) {
+        voxel.styles[face] = resolve(voxel.styles[face]);
+      }
+    }
+  }
+}
+
+function renderScene(e) {
+  if (rendererType.value === "html") {
+    resolveStyleVars(e);
+    return e.toHTML(getHtmlOpts());
+  }
+  return e.toSVG(getSvgOpts());
+}
+
 // Style via CSS variables — no re-render needed
 function syncStyleVars() {
   document.documentElement.style.setProperty("--stroke-w", camStroke.value);
@@ -347,6 +412,7 @@ camOutline.addEventListener("input", () => {
   debouncedRerenderAll();
 });
 camOutlineColor.addEventListener("input", () => debouncedRerenderAll());
+rendererType.addEventListener("change", () => rerenderAll());
 syncStyleVars();
 
 function setupDemo(id, buildFn) {
@@ -394,7 +460,7 @@ setupDemo("demo-box", (v) => {
     style: baseStyle,
   });
   e.applyGeometry({ type: "box", position: [0, 0, 0], size: [v.w, v.h, v.d] });
-  return e.toSVG(getSvgOpts());
+  return renderScene(e);
 });
 
 // ─── Alignment ───────────────────────
@@ -430,7 +496,7 @@ setupDemo("demo-align", (v) => {
     style: { default: { fill: "#18191b", stroke: "var(--fill)" } },
   });
 
-  return e.toSVG(getSvgOpts());
+  return renderScene(e);
 });
 
 // ─── 4. Spheres ──────────────────────
@@ -442,7 +508,7 @@ setupDemo("demo-sphere", (v) => {
     style: baseStyle,
   });
   e.applyGeometry({ type: "sphere", center: [r, r, r], radius: r });
-  return e.toSVG(getSvgOpts());
+  return renderScene(e);
 });
 
 // ─── 5. Lines ────────────────────────
@@ -463,7 +529,7 @@ setupDemo("demo-line", (v) => {
     radius: v.r,
     shape: v.shape,
   });
-  return e.toSVG(getSvgOpts());
+  return renderScene(e);
 });
 
 // ─── Custom shapes ──────────────────
@@ -486,7 +552,7 @@ setupDemo("demo-custom-shape", (v) => {
       return nearEdge < 3;
     },
   });
-  return e.toSVG(getSvgOpts());
+  return renderScene(e);
 });
 
 // ─── 6. Boolean operations ──────────────
@@ -504,7 +570,7 @@ setupDemo("demo-boolean", (v) => {
     mode: v.mode,
     style: { default: { fill: "#18191b", stroke: "var(--fill)" } },
   });
-  return e.toSVG(getSvgOpts());
+  return renderScene(e);
 });
 
 // ─── 7. Rotation ────────────────────────
@@ -519,7 +585,7 @@ setupDemo("demo-rotation", (v) => {
   if (v.turns > 0) {
     e.rotate({ axis: v.axis, turns: v.turns });
   }
-  return e.toSVG(getSvgOpts());
+  return renderScene(e);
 });
 
 // ─── 8. Grouped voxels ──────────────────
@@ -549,7 +615,7 @@ setupDemo("demo-group", (v) => {
     e.applyGeometry({ type: "box", position: [gs, i - 1, 1], size: [1, 1, 1] }); // right edge
   }
 
-  return e.toSVG(getSvgOpts());
+  return renderScene(e);
 });
 
 // ─── 9. Styles ───────────────────────
@@ -573,7 +639,7 @@ setupDemo("demo-style", (v) => {
       right: { fill: v.right },
     },
   });
-  return e.toSVG(getSvgOpts());
+  return renderScene(e);
 });
 
 // ─── 10. SVG styles ───────────────────
@@ -603,7 +669,7 @@ setupDemo("demo-svg-styles", (v) => {
     size: [4, 4, 4],
     style: { default: { opacity: 1 } },
   });
-  return e.toSVG(getSvgOpts());
+  return renderScene(e);
 });
 
 // ─── 11. Functional ───────────────────
@@ -635,7 +701,7 @@ setupDemo("demo-functional", (v) => {
       },
     },
   });
-  return e.toSVG(getSvgOpts());
+  return renderScene(e);
 });
 
 // ─── 12. Voxel scaling ──────────────────
@@ -685,7 +751,7 @@ setupDemo("demo-scale", (v) => {
     });
   }
 
-  return e.toSVG(getSvgOpts());
+  return renderScene(e);
 });
 
 // ─── 13. Functional scale ───────────────
@@ -713,7 +779,7 @@ setupDemo("demo-functional-scale", (v) => {
     },
     scaleOrigin: (x, y, z) => [0.5, y % 2 === 0 ? 0 : 1, 0.5],
   });
-  return e.toSVG(getSvgOpts());
+  return renderScene(e);
 });
 
 // ─── Content voxels ──────────────────
@@ -753,7 +819,7 @@ setupDemo("demo-functional-scale", (v) => {
       }
     }
 
-    canvas.innerHTML = e.toSVG(getSvgOpts());
+    canvas.innerHTML = renderScene(e);
   }
 
   render();
@@ -790,7 +856,7 @@ setupDemo("demo-functional-scale", (v) => {
     // Solid core — added after so it overwrites the cage cells in the overlap
     e.applyGeometry({ type: "box", position: [1, 1, 1], size: [3, 3, 3] });
 
-    canvas.innerHTML = e.toSVG(getSvgOpts());
+    canvas.innerHTML = renderScene(e);
   }
   render();
   demos.push(render);
@@ -833,7 +899,7 @@ setupDemo("demo-queries", (v) => {
     }
   }
 
-  return e.toSVG(getSvgOpts());
+  return renderScene(e);
 });
 
 // ─── Shared animation utilities ──────
@@ -906,7 +972,7 @@ function animateHoles({
           size: [h.w, h.h, d],
         });
     });
-    return e.toSVG(getSvgOpts());
+    return renderScene(e);
   }
 
   function drawStatic() {
@@ -1122,7 +1188,7 @@ function animateHoles({
       });
     }
 
-    return e.toSVG(getSvgOpts());
+    return renderScene(e);
   }
 
   function animateIn() {
@@ -1276,7 +1342,7 @@ galleryDemo("demo-heerich-cross", () => {
     rotate: { axis: "x", turns: 1, center: c },
   });
 
-  return e.toSVG(getSvgOpts());
+  return renderScene(e);
 });
 
 // ─── Favicon from cross demo ─────────────
@@ -1341,7 +1407,7 @@ galleryDemo("demo-heerich-checker", () => {
       }
     }
   }
-  return e.toSVG(getSvgOpts());
+  return renderScene(e);
 });
 
 // 3. Stepped Block
@@ -1362,7 +1428,7 @@ galleryDemo("demo-heerich-stepped", () => {
   e.removeGeometry({ type: "box", position: [0, -4, -4], size: [2, 2, 2] });
   e.removeGeometry({ type: "box", position: [2, -4, -4], size: [2, 4, 2] });
 
-  return e.toSVG(getSvgOpts());
+  return renderScene(e);
 });
 
 // ─── Footer heart ────────────────────
@@ -1397,7 +1463,7 @@ galleryDemo("demo-heerich-stepped", () => {
       },
     });
 
-    heartContainer.innerHTML = e.toSVG(getSvgOpts());
+    heartContainer.innerHTML = renderScene(e);
   }
 
   renderHeart();

@@ -5,6 +5,8 @@ export function initHero(
   getCamera,
   getReservedZone = null,
   getSvgOpts = null,
+  renderScene = null,
+  resolveStyleVars = null,
 ) {
   let animationId = 0;
   let scene = null;
@@ -185,6 +187,10 @@ export function initHero(
       });
     }
 
+    if (renderScene) {
+      if (resolveStyleVars) resolveStyleVars(e);
+      return renderScene(e);
+    }
     return e.toSVG(
       getSvgOpts
         ? getSvgOpts()

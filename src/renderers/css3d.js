@@ -1,3 +1,12 @@
+const FACE_TRANSFORMS = {
+  front: (half) => `translateZ(${half}px)`,
+  back: (half) => `rotateY(180deg) translateZ(${half}px)`,
+  right: (half) => `rotateY(90deg) translateZ(${half}px)`,
+  left: (half) => `rotateY(-90deg) translateZ(${half}px)`,
+  top: (half) => `rotateX(90deg) translateZ(${half}px)`,
+  bottom: (half) => `rotateX(-90deg) translateZ(${half}px)`,
+};
+
 /**
  * CSS 3D renderer for Heerich voxel scenes.
  * Renders each exposed voxel face as a positioned <div> using CSS 3D transforms.
@@ -206,54 +215,38 @@ export class CSS3DRenderer {
     let fw = s,
       fh = s;
 
-    // Cube center in CSS coordinates (Z negated: heerich +Z = CSS -Z)
-    const cubeX = (x + 0.5) * s - cx;
-    const cubeY = (y + 0.5) * s - cy;
-    const cubeZ = -((z + 0.5) * s - cz);
     const half = s / 2;
-
-    // Strategy: translate div center to cube center, rotate to orient face,
-    // then push outward along local Z. transform-origin is center (default).
-    const pos = `translate3d(${cubeX - half}px,${cubeY - half}px,${cubeZ}px)`;
-    let faceTransform;
-    switch (type) {
-      case "front":
-        faceTransform = `translateZ(${half}px)`;
-        break;
-      case "back":
-        faceTransform = `rotateY(180deg) translateZ(${half}px)`;
-        break;
-      case "right":
-        faceTransform = `rotateY(90deg) translateZ(${half}px)`;
-        break;
-      case "left":
-        faceTransform = `rotateY(-90deg) translateZ(${half}px)`;
-        break;
-      case "top":
-        faceTransform = `rotateX(90deg) translateZ(${half}px)`;
-        break;
-      case "bottom":
-        faceTransform = `rotateX(-90deg) translateZ(${half}px)`;
-        break;
-    }
-    const transform = `${pos} ${faceTransform}`;
+    let cubeX = (x + 0.5) * s - cx;
+    let cubeY = (y + 0.5) * s - cy;
+    let cubeZ = -((z + 0.5) * s - cz);
+    let faceHalf = half;
 
     if (scale) {
-      const sx = scale[0],
-        sy = scale[1],
-        sz = scale[2];
-      // Adjust face size based on which axes the face spans
+      const ox = scaleOrigin[0] * s;
+      const oy = scaleOrigin[1] * s;
+      const oz = scaleOrigin[2] * s;
+      cubeX = x * s + ox + (0.5 * s - ox) * scale[0] - cx;
+      cubeY = y * s + oy + (0.5 * s - oy) * scale[1] - cy;
+      cubeZ = -(z * s + oz + (0.5 * s - oz) * scale[2] - cz);
+
       if (type === "top" || type === "bottom") {
-        fw *= sx;
-        fh *= sz;
+        fw *= scale[0];
+        fh *= scale[2];
+        faceHalf = half * scale[1];
       } else if (type === "left" || type === "right") {
-        fw *= sz;
-        fh *= sy;
+        fw *= scale[2];
+        fh *= scale[1];
+        faceHalf = half * scale[0];
       } else {
-        fw *= sx;
-        fh *= sy;
+        fw *= scale[0];
+        fh *= scale[1];
+        faceHalf = half * scale[2];
       }
     }
+
+    const pos = `translate3d(${cubeX - fw / 2}px,${cubeY - fh / 2}px,${cubeZ}px)`;
+    const faceTransform = FACE_TRANSFORMS[type](faceHalf);
+    const transform = `${pos} ${faceTransform}`;
 
     div.style.cssText = `
       position:absolute;

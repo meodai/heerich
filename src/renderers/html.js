@@ -78,30 +78,48 @@ export function renderHTML(heerich, options = {}) {
       ? { ...defaultStyle, ...styles.default }
       : defaultStyle;
 
-    const cubeX = (x + 0.5) * s - cx;
-    const cubeY = (y + 0.5) * s - cy;
-    const cubeZ = -((z + 0.5) * s - cz);
-    const pos = `translate3d(${cubeX - half}px,${cubeY - half}px,${cubeZ}px)`;
+    // Scale origin in world units (relative to voxel corner)
+    const so = voxel.scaleOrigin || [0.5, 0, 0.5];
 
     for (const type of faces) {
       const style = styles[type] ? { ...base, ...styles[type] } : base;
       let fw = s,
         fh = s;
 
+      // Cube center, potentially shifted by scale origin
+      let cubeX = (x + 0.5) * s - cx;
+      let cubeY = (y + 0.5) * s - cy;
+      let cubeZ = -((z + 0.5) * s - cz);
+      let faceHalf = half;
+
       if (sc) {
+        // Scale origin in pixel space relative to voxel corner
+        const ox = so[0] * s;
+        const oy = so[1] * s;
+        const oz = so[2] * s;
+
+        // Shift cube center: new center = origin + (oldCenter - origin) * scale
+        cubeX = x * s + ox + (0.5 * s - ox) * sc[0] - cx;
+        cubeY = y * s + oy + (0.5 * s - oy) * sc[1] - cy;
+        cubeZ = -(z * s + oz + (0.5 * s - oz) * sc[2] - cz);
+
         if (type === "top" || type === "bottom") {
           fw *= sc[0];
           fh *= sc[2];
+          faceHalf = half * sc[1];
         } else if (type === "left" || type === "right") {
           fw *= sc[2];
           fh *= sc[1];
+          faceHalf = half * sc[0];
         } else {
           fw *= sc[0];
           fh *= sc[1];
+          faceHalf = half * sc[2];
         }
       }
 
-      const transform = `${pos} ${FACE_TRANSFORMS[type](half)}`;
+      const pos = `translate3d(${cubeX - fw / 2}px,${cubeY - fh / 2}px,${cubeZ}px)`;
+      const transform = `${pos} ${FACE_TRANSFORMS[type](faceHalf)}`;
       let css = `position:absolute;width:${fw}px;height:${fh}px;transform-origin:center;transform:${transform};backface-visibility:hidden;background:${style.fill || "#aaa"};box-sizing:border-box`;
 
       if (style.stroke && style.stroke !== "none") {
