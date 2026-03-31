@@ -278,7 +278,7 @@ const heerich = new Heerich({
 document.body.innerHTML = heerich.toSVG({ padding: 30 })
 
 // Access raw bounds if you need them
-const { x, y, w, h } = heerich.getViewBoxBounds()</code></pre>
+const { x, y, w, h } = heerich.getBounds()</code></pre>
       </div>
 
       <!-- ─── 2. Boxes ──────────────────────────────────── -->
@@ -1108,12 +1108,12 @@ heerich.applyGeometry({
             handling adjacency logic, or driving edge-aware shading passes.
           </p>
           <pre><code >// Color voxels by how exposed they are
-heerich.forEach((voxel, pos) => {
-  const n = heerich.getNeighbors(pos)
+for (const voxel of heerich) {
+  const n = heerich.getNeighbors([voxel.x, voxel.y, voxel.z])
   const exposed = Object.values(n)
     .filter(v => !v).length
   // exposed = number of open faces (0–6)
-})</code></pre>
+}</code></pre>
           <p>
             The <code>getNeighbors()</code> query explicitly retrieves adjacent
             solid geometry across the six cardinal planes. In the interactive
@@ -1123,7 +1123,7 @@ heerich.forEach((voxel, pos) => {
           </p>
           <pre><code >heerich.hasVoxel([3, 4, 5])   // boolean
 heerich.getVoxel([3, 4, 5])   // voxel data or null
-heerich.forEach((voxel, pos) => { ... })
+for (const voxel of heerich) { ... }
 
 // Serialization
 const json = heerich.toJSON()

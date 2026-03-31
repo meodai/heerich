@@ -505,8 +505,7 @@ export class Heerich {
    * @returns {Object|null}
    */
   getVoxel(pos) {
-    const key = this._k(pos[0], pos[1], pos[2]);
-    return this.voxels.get(key) || null;
+    return this.voxels.get(this._k(pos[0], pos[1], pos[2])) || null;
   }
 
   /**
@@ -536,12 +535,12 @@ export class Heerich {
   }
 
   /**
-   * Iterate over all voxels.
-   * @param {function(Object, [number,number,number]): void} callback - Called with (voxel, [x,y,z])
+   * Iterate over all voxels. Supports `for (const voxel of heerich)`.
+   * @returns {Iterator<Object>}
    */
-  forEach(callback) {
-    for (const [key, voxel] of this.voxels.entries()) {
-      callback(voxel, [voxel.x, voxel.y, voxel.z]);
+  *[Symbol.iterator]() {
+    for (const voxel of this.voxels.values()) {
+      yield voxel;
     }
   }
 
@@ -1038,7 +1037,7 @@ export class Heerich {
    * @param {StyleParam|function(number,number,number,string): StyleObject} [opts.style] - Style per voxel or per face
    * @returns {Face[]}
    */
-  getFacesFrom(opts) {
+  renderTest(opts) {
     const regions = opts.regions || [opts.bounds];
     const test = opts.test;
     const styleFn = typeof opts.style === "function" ? opts.style : null;
@@ -1278,7 +1277,7 @@ export class Heerich {
   }
 
   /**
-   * Project 3D faces to 2D and sort by depth (shared by getFaces and getFacesFrom).
+   * Project 3D faces to 2D and sort by depth (shared by getFaces and renderTest).
    * @param {Object[]} faces3D - Face objects with `vertices` (3D) or `points` (already 2D)
    * @returns {Face[]} Projected, depth-sorted face array
    */
@@ -1416,49 +1415,21 @@ export class Heerich {
   }
 
   /**
-   * Calculate exact 2D bounding box of all rendered faces.
+   * Get the 2D bounding box of rendered faces, with optional padding.
+   * @param {number} [padding=0] - Padding to add around the bounds
+   * @param {Face[]} [faces] - Pre-computed faces. Uses stored voxels if omitted.
    * @returns {{x: number, y: number, w: number, h: number, faces: Face[]}}
    */
-  getViewBoxBounds() {
-    const faces = this.getFaces();
+  getBounds(padding = 0, faces) {
+    if (!faces) faces = this.getFaces();
     const b = computeBounds(faces);
-    return { ...b, faces };
-  }
-
-  /**
-   * Returns a ready-to-use `viewBox` array with padding.
-   * @param {number} [padding=20]
-   * @param {Face[]} [faces] - Pre-computed faces (e.g. from `getFacesFrom`). Uses stored voxels if omitted.
-   * @returns {[number,number,number,number]} [x, y, width, height]
-   */
-  getOptimalViewBox(padding = 20, faces) {
-    const b = faces ? this._boundsFromFaces(faces) : this.getViewBoxBounds();
-    return [b.x - padding, b.y - padding, b.w + padding * 2, b.h + padding * 2];
-  }
-
-  /**
-   * Compute 2D bounding box from projected face points.
-   * @param {Face[]} faces
-   * @returns {{x: number, y: number, w: number, h: number, faces: Face[]}}
-   */
-  _boundsFromFaces(faces) {
-    let minX = Infinity,
-      minY = Infinity;
-    let maxX = -Infinity,
-      maxY = -Infinity;
-    if (faces.length === 0) return { x: 0, y: 0, w: 100, h: 100, faces };
-    for (const face of faces) {
-      const d = face.points.data;
-      for (let i = 0; i < d.length; i += 2) {
-        const px = d[i],
-          py = d[i + 1];
-        if (px < minX) minX = px;
-        if (py < minY) minY = py;
-        if (px > maxX) maxX = px;
-        if (py > maxY) maxY = py;
-      }
-    }
-    return { x: minX, y: minY, w: maxX - minX, h: maxY - minY, faces };
+    return {
+      x: b.x - padding,
+      y: b.y - padding,
+      w: b.w + padding * 2,
+      h: b.h + padding * 2,
+      faces,
+    };
   }
 
   /**

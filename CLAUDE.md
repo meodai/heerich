@@ -38,7 +38,7 @@ The entire library is a single file: `src/heerich.js`, exporting the `Heerich` c
 3. `toSVG()` — converts projected faces to SVG polygon elements with data attributes
 
 ### Stateless rendering
-- `getFacesFrom()` — renders from a test function without storing voxels (zero Map allocations). Useful for procedural/infinite scenes.
+- `renderTest()` — renders from a test function without storing voxels (zero Map allocations). Useful for procedural/infinite scenes.
 
 ### Two build targets
 - **Library build** (`vite.config.js`): builds `src/heerich.js` as UMD+ESM to `dist/`

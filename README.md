@@ -317,7 +317,7 @@ Every polygon gets data attributes for interactivity:
 
 Voxels with a `meta` object get additional `data-*` attributes.
 
-### `getFaces()` / `getFacesFrom(opts)`
+### `getFaces()` / `renderTest(opts)`
 
 Get the projected 2D face array directly (for custom renderers or Canvas output):
 
@@ -326,7 +326,7 @@ Get the projected 2D face array directly (for custom renderers or Canvas output)
 const faces = h.getFaces()
 
 // Stateless — from a test function, no voxels stored
-const faces = h.getFacesFrom({
+const faces = h.renderTest({
   bounds: [[-10, -10, -10], [10, 10, 10]],
   test: (x, y, z) => x*x + y*y + z*z <= 100,
   style: (x, y, z, faceName) => ({ fill: faceName === 'top' ? '#fff' : '#ccc' })
@@ -364,13 +364,13 @@ for (const face of faces) {
 }
 ```
 
-### `getViewBoxBounds()` / `getOptimalViewBox(padding?, faces?)`
+### `getBounds(padding?, faces?)`
 
-Compute the bounding box of the rendered geometry:
+Compute the 2D bounding box of the rendered geometry:
 
 ```js
-const { x, y, w, h } = h.getViewBoxBounds()
-const [vbX, vbY, vbW, vbH] = h.getOptimalViewBox(30)
+const { x, y, w, h } = h.getBounds()
+const padded = h.getBounds(30)
 ```
 
 ## Content Voxels
@@ -395,7 +395,7 @@ Content voxels receive CSS custom properties `--x`, `--y`, `--z`, `--scale`, `--
 h.getVoxel([2, 3, 1])       // voxel data or null
 h.hasVoxel([2, 3, 1])       // boolean
 h.getNeighbors([2, 3, 1])   // { top, bottom, left, right, front, back }
-h.forEach((voxel, pos) => { /* ... */ })
+for (const voxel of h) { /* voxel.x, voxel.y, voxel.z, voxel.styles, ... */ }
 ```
 
 ## Serialization

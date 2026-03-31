@@ -807,7 +807,8 @@ setupDemo("demo-queries", (v) => {
   e.removeGeometry({ type: 'sphere', center: [3, 3, 6], radius: 2.5 });
   e.removeGeometry({ type: 'box', position: [0, 0, 0], size: [2, 6, 3] });
 
-  e.forEach((voxel, pos) => {
+  for (const voxel of e) {
+    const pos = [voxel.x, voxel.y, voxel.z];
     const n = e.getNeighbors(pos);
     const open = Object.values(n).filter((v) => !v).length;
 
@@ -830,7 +831,7 @@ setupDemo("demo-queries", (v) => {
         },
       });
     }
-  });
+  }
 
   return e.toSVG(getSvgOpts());
 });
