@@ -935,7 +935,17 @@ export class Heerich {
           );
       } else {
         // Perspective Mode uses robust 3D math and backface culling
-        const addPerspFace = (type, vertices, n, c) =>
+        const addPerspFace = (type, vertices, n, c) => {
+          if (sc) {
+            const ox = x + so[0],
+              oy = y + so[1],
+              oz = z + so[2];
+            c = [
+              ox + (c[0] - ox) * sc[0],
+              oy + (c[1] - oy) * sc[1],
+              oz + (c[2] - oz) * sc[2],
+            ];
+          }
           faces3D.push({
             type,
             voxel,
@@ -946,6 +956,7 @@ export class Heerich {
             c,
             style: getStyles(type),
           });
+        };
 
         if (sc || !hasVoxel(x, y - 1, z))
           addPerspFace(
