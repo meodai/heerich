@@ -5,10 +5,6 @@
 export class Points {
   /** @param {number[]} data — flat [x0, y0, x1, y1, ...] */
   constructor(data) {
-    // Truncate to 4 decimal places — reduces SVG string size with no visual impact
-    for (let i = 0; i < data.length; i++) {
-      data[i] = Math.round(data[i] * 1e4) / 1e4;
-    }
     this.data = data;
   }
 
