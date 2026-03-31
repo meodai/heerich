@@ -393,7 +393,7 @@ setupDemo("demo-box", (v) => {
     camera: getCamera(),
     style: baseStyle,
   });
-  e.applyGeometry({ type: 'box', position: [0, 0, 0], size: [v.w, v.h, v.d] });
+  e.applyGeometry({ type: "box", position: [0, 0, 0], size: [v.w, v.h, v.d] });
   return e.toSVG(getSvgOpts());
 });
 
@@ -408,7 +408,7 @@ setupDemo("demo-align", (v) => {
   const small = [2, 2, 2];
   const ox = big[0];
 
-  e.applyGeometry({ type: 'box', position: [0, 0, 0], size: big });
+  e.applyGeometry({ type: "box", position: [0, 0, 0], size: big });
 
   // Y = front/back, Z = up/down — these are the two visible alignment axes
   // X is always flush beside with 1 voxel gap
@@ -424,7 +424,7 @@ setupDemo("demo-align", (v) => {
   const pos = [ox, y, z];
 
   e.applyGeometry({
-    type: 'box',
+    type: "box",
     position: pos,
     size: small,
     style: { default: { fill: "#18191b", stroke: "var(--fill)" } },
@@ -441,7 +441,7 @@ setupDemo("demo-sphere", (v) => {
     camera: getCamera(),
     style: baseStyle,
   });
-  e.applyGeometry({ type: 'sphere', center: [r, r, r], radius: r });
+  e.applyGeometry({ type: "sphere", center: [r, r, r], radius: r });
   return e.toSVG(getSvgOpts());
 });
 
@@ -457,7 +457,7 @@ setupDemo("demo-line", (v) => {
     },
   });
   e.applyGeometry({
-    type: 'line',
+    type: "line",
     from: [0, 0, 0],
     to: [v.ex, 6, v.ez],
     radius: v.r,
@@ -475,7 +475,7 @@ setupDemo("demo-custom-shape", (v) => {
     style: baseStyle,
   });
   e.applyGeometry({
-    type: 'fill',
+    type: "fill",
     bounds: [
       [0, 0, 0],
       [s, s, s],
@@ -496,9 +496,9 @@ setupDemo("demo-boolean", (v) => {
     camera: getCamera(),
     style: baseStyle,
   });
-  e.applyGeometry({ type: 'box', position: [0, 0, 0], size: [6, 6, 6] });
+  e.applyGeometry({ type: "box", position: [0, 0, 0], size: [6, 6, 6] });
   e.applyGeometry({
-    type: 'sphere',
+    type: "sphere",
     center: [v.offset, 3, 3],
     radius: 3.5,
     mode: v.mode,
@@ -514,8 +514,8 @@ setupDemo("demo-rotation", (v) => {
     camera: getCamera(),
     style: baseStyle,
   });
-  e.applyGeometry({ type: 'box', position: [0, 0, 0], size: [2, 6, 2] });
-  e.applyGeometry({ type: 'box', position: [0, 0, 0], size: [6, 2, 2] });
+  e.applyGeometry({ type: "box", position: [0, 0, 0], size: [2, 6, 2] });
+  e.applyGeometry({ type: "box", position: [0, 0, 0], size: [6, 2, 2] });
   if (v.turns > 0) {
     e.rotate({ axis: v.axis, turns: v.turns });
   }
@@ -533,7 +533,7 @@ setupDemo("demo-group", (v) => {
 
   // Smooth solid — strokeWidth: 0 removes internal grid lines
   e.applyGeometry({
-    type: 'box',
+    type: "box",
     position: [0, 0, 0],
     size: [gs, gs, gs],
     style: {
@@ -543,10 +543,10 @@ setupDemo("demo-group", (v) => {
 
   // 1x1x1 voxels bordering all four sides, offset 1 back
   for (let i = 0; i < gs + 2; i++) {
-    e.applyGeometry({ type: 'box', position: [i - 1, -1, 1], size: [1, 1, 1] }); // top edge
-    e.applyGeometry({ type: 'box', position: [i - 1, gs, 1], size: [1, 1, 1] }); // bottom edge
-    e.applyGeometry({ type: 'box', position: [-1, i - 1, 1], size: [1, 1, 1] }); // left edge
-    e.applyGeometry({ type: 'box', position: [gs, i - 1, 1], size: [1, 1, 1] }); // right edge
+    e.applyGeometry({ type: "box", position: [i - 1, -1, 1], size: [1, 1, 1] }); // top edge
+    e.applyGeometry({ type: "box", position: [i - 1, gs, 1], size: [1, 1, 1] }); // bottom edge
+    e.applyGeometry({ type: "box", position: [-1, i - 1, 1], size: [1, 1, 1] }); // left edge
+    e.applyGeometry({ type: "box", position: [gs, i - 1, 1], size: [1, 1, 1] }); // right edge
   }
 
   return e.toSVG(getSvgOpts());
@@ -564,7 +564,7 @@ setupDemo("demo-style", (v) => {
     },
   });
   e.applyGeometry({
-    type: 'box',
+    type: "box",
     position: [0, 0, 0],
     size: [5, 5, 5],
     style: {
@@ -584,7 +584,7 @@ setupDemo("demo-svg-styles", (v) => {
     style: baseStyle,
   });
   e.applyGeometry({
-    type: 'box',
+    type: "box",
     position: [0, 0, 0],
     size: [4, 4, 4],
     style: {
@@ -598,7 +598,7 @@ setupDemo("demo-svg-styles", (v) => {
     },
   });
   e.applyGeometry({
-    type: 'box',
+    type: "box",
     position: [5, 0, 0],
     size: [4, 4, 4],
     style: { default: { opacity: 1 } },
@@ -621,7 +621,7 @@ setupDemo("demo-functional", (v) => {
     },
   });
   e.applyGeometry({
-    type: 'box',
+    type: "box",
     position: [0, 0, 0],
     size: [s, s, s],
     style: {
@@ -669,7 +669,7 @@ setupDemo("demo-scale", (v) => {
     const [px, pz] = path[i];
     // Standing on floor
     e.applyGeometry({
-      type: 'box',
+      type: "box",
       position: [px, 1, pz],
       size: [1, 1, 1],
       scale: [1, ((i + 1) / total) * h, 1],
@@ -677,7 +677,7 @@ setupDemo("demo-scale", (v) => {
     });
     // Hanging from ceiling, below the floor stairs (reversed height)
     e.applyGeometry({
-      type: 'box',
+      type: "box",
       position: [px, 2, pz],
       size: [1, 1, 1],
       scale: [1, ((total - i) / total) * h, 1],
@@ -698,7 +698,7 @@ setupDemo("demo-functional-scale", (v) => {
     style: baseStyle,
   });
   e.applyGeometry({
-    type: 'box',
+    type: "box",
     position: [0, 0, 0],
     size: [s, s, s],
     scale: (x, y, z) => {
@@ -742,7 +742,7 @@ setupDemo("demo-functional-scale", (v) => {
           const letter = word[i % word.length];
 
           e.applyGeometry({
-            type: 'box',
+            type: "box",
             position: [x, y, z],
             size: [1, 1, 1],
             opaque: false,
@@ -774,7 +774,7 @@ setupDemo("demo-functional-scale", (v) => {
 
     // Wireframe cage — fill none, opaque false
     e.applyGeometry({
-      type: 'box',
+      type: "box",
       position: [0, 0, 0],
       size: [5, 5, 5],
       opaque: false,
@@ -788,7 +788,7 @@ setupDemo("demo-functional-scale", (v) => {
     });
 
     // Solid core — added after so it overwrites the cage cells in the overlap
-    e.applyGeometry({ type: 'box', position: [1, 1, 1], size: [3, 3, 3] });
+    e.applyGeometry({ type: "box", position: [1, 1, 1], size: [3, 3, 3] });
 
     canvas.innerHTML = e.toSVG(getSvgOpts());
   }
@@ -803,9 +803,9 @@ setupDemo("demo-queries", (v) => {
     camera: getCamera(),
     style: baseStyle,
   });
-  e.applyGeometry({ type: 'box', position: [0, 0, 0], size: [6, 6, 6] });
-  e.removeGeometry({ type: 'sphere', center: [3, 3, 6], radius: 2.5 });
-  e.removeGeometry({ type: 'box', position: [0, 0, 0], size: [2, 6, 3] });
+  e.applyGeometry({ type: "box", position: [0, 0, 0], size: [6, 6, 6] });
+  e.removeGeometry({ type: "sphere", center: [3, 3, 6], radius: 2.5 });
+  e.removeGeometry({ type: "box", position: [0, 0, 0], size: [2, 6, 3] });
 
   for (const voxel of e) {
     const pos = [voxel.x, voxel.y, voxel.z];
@@ -821,7 +821,7 @@ setupDemo("demo-queries", (v) => {
       const t = open / 6;
       const L = Math.round(t * 100);
       e.applyStyle({
-        type: 'box',
+        type: "box",
         position: pos,
         size: [1, 1, 1],
         style: {
@@ -896,10 +896,15 @@ function animateHoles({
       camera: getCamera(),
       style: baseStyle,
     });
-    e.applyGeometry({ type: 'box', position: [0, 0, 0], size: [10, 8, 6] });
+    e.applyGeometry({ type: "box", position: [0, 0, 0], size: [10, 8, 6] });
     holes.forEach((h, i) => {
       const d = Math.round(depths[i]);
-      if (d > 0) e.removeGeometry({ type: 'box', position: [h.x, h.y, 0], size: [h.w, h.h, d] });
+      if (d > 0)
+        e.removeGeometry({
+          type: "box",
+          position: [h.x, h.y, 0],
+          size: [h.w, h.h, d],
+        });
     });
     return e.toSVG(getSvgOpts());
   }
@@ -1036,7 +1041,11 @@ function animateHoles({
       },
     });
 
-    e.applyGeometry({ type: 'box', position: [0, 0, 0], size: [cols, rows, maxDepth] });
+    e.applyGeometry({
+      type: "box",
+      position: [0, 0, 0],
+      size: [cols, rows, maxDepth],
+    });
 
     // Carve holes — style paints the newly exposed neighbor faces
     const wallFill = { fill: "var(--stroke-c)", stroke: "var(--fill)" };
@@ -1047,7 +1056,7 @@ function animateHoles({
       const frac = d - Math.floor(d);
       // Remove full + partial layer
       e.removeGeometry({
-        type: 'box',
+        type: "box",
         position: [h.x, h.y, 0],
         size: [h.w, h.h, full],
         style: { default: wallFill },
@@ -1055,7 +1064,7 @@ function animateHoles({
       // Add back a shrinking floor slab for the fractional part
       if (frac > 0.01) {
         e.applyGeometry({
-          type: 'box',
+          type: "box",
           position: [h.x, h.y, full - 1],
           size: [h.w, h.h, 1],
           scale: [1, 1, 1 - frac],
@@ -1079,7 +1088,7 @@ function animateHoles({
         const totalH = tower.overflow ? fullH : holeDepth - startZ;
         if (totalH > 0)
           e.applyGeometry({
-            type: 'box',
+            type: "box",
             position: [tower.x, tower.y, startZ],
             size: [tower.w, tower.h, totalH],
             style: { default: wallFill },
@@ -1088,7 +1097,7 @@ function animateHoles({
         if (frac > 0.01) {
           const fracZ = startZ - 1;
           e.applyGeometry({
-            type: 'box',
+            type: "box",
             position: [tower.x, tower.y, fracZ],
             size: [tower.w, tower.h, 1],
             scale: [1, 1, frac],
@@ -1104,7 +1113,11 @@ function animateHoles({
       carves.forEach((c, i) => {
         const r = carveRadii[i];
         if (r > 0.3) {
-          e.removeGeometry({ type: 'sphere', center: [c.cx, c.cy, c.cz], radius: r });
+          e.removeGeometry({
+            type: "sphere",
+            center: [c.cx, c.cy, c.cz],
+            radius: r,
+          });
         }
       });
     }
@@ -1225,9 +1238,9 @@ galleryDemo("demo-heerich-cross", () => {
   const c = [(len - 1) / 2, (len - 1) / 2, (d - 1) / 2];
 
   // Build one arm with hole
-  e.applyGeometry({ type: 'box', position: [o, 0, 0], size: [arm, len, d] });
+  e.applyGeometry({ type: "box", position: [o, 0, 0], size: [arm, len, d] });
   e.applyGeometry({
-    type: 'box',
+    type: "box",
     position: [o + 1, 1, 0],
     size: [1, len - 2, d],
     mode: "subtract",
@@ -1235,13 +1248,13 @@ galleryDemo("demo-heerich-cross", () => {
 
   // Second arm — rotated 90° around Z
   e.applyGeometry({
-    type: 'box',
+    type: "box",
     position: [o, 0, 0],
     size: [arm, len, d],
     rotate: { axis: "z", turns: 1, center: c },
   });
   e.applyGeometry({
-    type: 'box',
+    type: "box",
     position: [o + 1, 1, 0],
     size: [1, len - 2, d],
     mode: "subtract",
@@ -1250,13 +1263,13 @@ galleryDemo("demo-heerich-cross", () => {
 
   // Third arm — rotated 90° around Y
   e.applyGeometry({
-    type: 'box',
+    type: "box",
     position: [o, 0, 0],
     size: [arm, len, d],
     rotate: { axis: "x", turns: 1, center: c },
   });
   e.applyGeometry({
-    type: 'box',
+    type: "box",
     position: [o + 1, 1, 0],
     size: [1, len - 2, d],
     mode: "subtract",
@@ -1319,7 +1332,11 @@ galleryDemo("demo-heerich-checker", () => {
     for (let x = 0; x < 3; x++) {
       for (let z = 0; z < 3; z++) {
         if ((x + y + z) % 2 === 0) {
-          e.applyGeometry({ type: 'box', position: [x * s, y * s, z * s], size: [s, s, s] });
+          e.applyGeometry({
+            type: "box",
+            position: [x * s, y * s, z * s],
+            size: [s, s, s],
+          });
         }
       }
     }
@@ -1339,11 +1356,11 @@ galleryDemo("demo-heerich-stepped", () => {
     },
   });
 
-  e.applyGeometry({ type: 'box', position: [-4, -4, -4], size: [8, 8, 8] });
+  e.applyGeometry({ type: "box", position: [-4, -4, -4], size: [8, 8, 8] });
   // Carve steps into the Top-Right-Front corner (+X, -Y, -Z)
-  e.removeGeometry({ type: 'box', position: [2, -4, -2], size: [2, 2, 2] });
-  e.removeGeometry({ type: 'box', position: [0, -4, -4], size: [2, 2, 2] });
-  e.removeGeometry({ type: 'box', position: [2, -4, -4], size: [2, 4, 2] });
+  e.removeGeometry({ type: "box", position: [2, -4, -2], size: [2, 2, 2] });
+  e.removeGeometry({ type: "box", position: [0, -4, -4], size: [2, 2, 2] });
+  e.removeGeometry({ type: "box", position: [2, -4, -4], size: [2, 4, 2] });
 
   return e.toSVG(getSvgOpts());
 });
@@ -1365,7 +1382,7 @@ galleryDemo("demo-heerich-stepped", () => {
 
     const s = 4;
     e.applyGeometry({
-      type: 'fill',
+      type: "fill",
       bounds: [
         [-s, -s, -s],
         [s + 1, s + 1, s + 1],

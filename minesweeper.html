@@ -475,7 +475,7 @@
               if (partialCarve) {
                 // During animation: full stack but subtract a growing slab from front
                 h.applyGeometry({
-                  type: 'box',
+                  type: "box",
                   position: [c, r, 0],
                   size: [1, 1, LAYERS],
                   style: unrevealedStyle,
@@ -483,7 +483,7 @@
                 });
                 // Carve away front portion (z=0) using subtract
                 h.removeGeometry({
-                  type: 'box',
+                  type: "box",
                   position: [c, r, 0],
                   size: [1, 1, Math.max(1, Math.round(t))],
                 });
@@ -491,7 +491,7 @@
                 // Fully revealed
                 if (LAYERS - 1 > 0) {
                   h.applyGeometry({
-                    type: 'box',
+                    type: "box",
                     position: [c, r, 1],
                     size: [1, 1, LAYERS - 1],
                     style: revealedStyle,
@@ -503,7 +503,7 @@
               if (t >= 0.5 || carveDepth >= 1) {
                 if (cell.mine) {
                   h.applyGeometry({
-                    type: 'box',
+                    type: "box",
                     position: [c, r, 0],
                     size: 1,
                     opaque: false,
@@ -517,7 +517,7 @@
                   });
                 } else if (cell.count > 0) {
                   h.applyGeometry({
-                    type: 'box',
+                    type: "box",
                     position: [c, r, 0],
                     size: 1,
                     opaque: false,
@@ -535,7 +535,7 @@
             } else {
               // Unrevealed: full stack z=0 to z=LAYERS-1
               h.applyGeometry({
-                type: 'box',
+                type: "box",
                 position: [c, r, 0],
                 size: [1, 1, LAYERS],
                 style: cell.flagged
@@ -554,7 +554,7 @@
               // Flag content in front of the cell (z=-1)
               if (cell.flagged) {
                 h.applyGeometry({
-                  type: 'box',
+                  type: "box",
                   position: [c, r, -1],
                   size: 1,
                   opaque: false,
@@ -576,12 +576,12 @@
           const currentR = hole.r; // animated radius set by animation loop
           if (currentR > 0.1) {
             h.removeGeometry({
-              type: 'sphere',
+              type: "sphere",
               center: [hole.cx, hole.cy, hole.cz],
               radius: currentR,
             });
             h.applyStyle({
-              type: 'sphere',
+              type: "sphere",
               center: [hole.cx, hole.cy, hole.cz],
               radius: currentR + 1.2,
               style: explodedWallStyle,

@@ -106,7 +106,12 @@ export class Heerich {
    */
   constructor(options = {}) {
     const t = options.tile || 10;
-    const tile = typeof t === "number" ? [t, t, t] : t.length === 2 ? [t[0], t[1], t[0]] : t;
+    const tile =
+      typeof t === "number"
+        ? [t, t, t]
+        : t.length === 2
+          ? [t[0], t[1], t[0]]
+          : t;
 
     /** @type {StyleObject} */
     this.defaultStyle = options.style || {
@@ -572,7 +577,11 @@ export class Heerich {
     }
 
     return {
-      tile: [this.renderOptions.tileW, this.renderOptions.tileH, this.renderOptions.tileZ],
+      tile: [
+        this.renderOptions.tileW,
+        this.renderOptions.tileH,
+        this.renderOptions.tileZ,
+      ],
       camera:
         this.renderOptions.projection === "oblique"
           ? {
@@ -715,13 +724,7 @@ export class Heerich {
       const key = this._k(x, y, z);
       const voxel = this.voxels.get(key);
       if (voxel) {
-        voxel.styles = this._resolveStyles(
-          opts.style,
-          x,
-          y,
-          z,
-          voxel.styles,
-        );
+        voxel.styles = this._resolveStyles(opts.style, x, y, z, voxel.styles);
       }
     }
     this._invalidate();

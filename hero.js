@@ -52,7 +52,7 @@ export function initHero(
     });
 
     e.applyGeometry({
-      type: 'fill',
+      type: "fill",
       bounds: [
         [0, 0, 0],
         [cols, rows, maxDepth],
@@ -102,7 +102,11 @@ export function initHero(
     scene.holes.forEach((h, i) => {
       const d = Math.round(depths[i]);
       if (d > 0) {
-        e.removeGeometry({ type: 'box', position: [h.x, h.y, 0], size: [h.w, h.h, d] });
+        e.removeGeometry({
+          type: "box",
+          position: [h.x, h.y, 0],
+          size: [h.w, h.h, d],
+        });
       }
     });
 
@@ -114,7 +118,7 @@ export function initHero(
         if (d <= 0) return;
         const color = scene.color;
         e.applyStyle({
-          type: 'box',
+          type: "box",
           position: [h.x, h.y, 0],
           size: [h.w, h.h, d],
           style: {
@@ -174,7 +178,7 @@ export function initHero(
         const clampedHeight = Math.min(currentHeight, holeDepth);
         const towerStartZ = holeDepth - clampedHeight;
         e.applyGeometry({
-          type: 'box',
+          type: "box",
           position: [tower.x, tower.y, towerStartZ],
           size: [tower.w, tower.h, clampedHeight],
         });

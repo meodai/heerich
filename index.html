@@ -218,10 +218,10 @@
           <ol>
             <li><a href="#setup">Creating an engine</a></li>
             <li><a href="#boxes">Boxes</a></li>
-            <li><a href="#alignment">Coordinates &amp; alignment</a></li>
             <li><a href="#spheres">Spheres</a></li>
             <li><a href="#lines">Lines</a></li>
             <li><a href="#custom-shapes">Custom shapes</a></li>
+            <li><a href="#alignment">Alignment</a></li>
             <li><a href="#carving">Boolean operations</a></li>
             <li><a href="#rotation">Rotation</a></li>
             <li><a href="#grouping">Smooth solids</a></li>
@@ -231,8 +231,8 @@
             <li><a href="#scale">Voxel scaling</a></li>
             <li><a href="#functional-scale">Functional scale</a></li>
             <li><a href="#camera">Camera &amp; projection</a></li>
-            <li><a href="#content-voxels">Content voxels</a></li>
             <li><a href="#opaque">Transparent voxels</a></li>
+            <li><a href="#content-voxels">Content voxels</a></li>
             <li><a href="#queries">Querying voxels</a></li>
             <li><a href="#animation">Animation</a></li>
             <li><a href="#combined">Putting it all together</a></li>
@@ -319,48 +319,6 @@ const { x, y, w, h } = heerich.getBounds()</code></pre>
             every frame. Because <code>getFaces()</code> utilizes a dirty-flag
             cache, calculating rapid structural changes remains highly
             efficient.
-          </p>
-        </div>
-      </div>
-
-      <!-- ─── Coordinates & alignment ─────────────────── -->
-
-      <div class="section-row" id="alignment">
-        <div class="section-demo">
-          <div class="demo" id="demo-align">
-            <div class="demo-canvas"></div>
-            <div class="demo-controls">
-              <label class="control-label"
-                >Align
-                <select class="control-select" data-bind="align">
-                  <option value="center">center</option>
-                  <option value="min">min corner</option>
-                  <option value="max">max corner</option>
-                </select>
-              </label>
-            </div>
-          </div>
-        </div>
-        <div class="section-text">
-          <h2>Coordinates &amp; alignment</h2>
-          <p>
-            The system intentionally avoids a generic 'ground plane'. Instead,
-            <code>position</code> always anchors to the minimum corner of the
-            shape's bounds. To align objects of different dimensions on a shared
-            surface, you handle the offsets manually.
-          </p>
-          <pre><code >const big = [6, 6, 6], small = [2, 2, 2]
-
-// Align max corners (tops flush)
-const max = big.map((b, i) => b - small[i])
-
-// Center (works perfectly when difference is even)
-const center = big.map((b, i) => (b - small[i]) / 2)</code></pre>
-          <p>
-            This requires just one simple subtraction per axis, keeping the
-            engine minimal and leaving you in complete control. For
-            pixel-perfect centering on an integer grid, aim for even-numbered
-            coordinate differences.
           </p>
         </div>
       </div>
@@ -512,6 +470,46 @@ const center = big.map((b, i) => (b - small[i]) / 2)</code></pre>
         </div>
       </div>
 
+      <!-- ─── Alignment ─────────────────────────────────── -->
+
+      <div class="section-row" id="alignment">
+        <div class="section-demo">
+          <div class="demo" id="demo-align">
+            <div class="demo-canvas"></div>
+            <div class="demo-controls">
+              <label class="control-label"
+                >Align
+                <select class="control-select" data-bind="align">
+                  <option value="center">center</option>
+                  <option value="min">min corner</option>
+                  <option value="max">max corner</option>
+                </select>
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="section-text">
+          <h2>Alignment</h2>
+          <p>
+            <code>position</code> always anchors to the minimum corner of the
+            shape's bounding box. To align objects of different sizes on a
+            shared surface, offset the smaller one manually.
+          </p>
+          <pre><code >const big = [6, 6, 6], small = [2, 2, 2]
+
+// Align max corners (tops flush)
+const max = big.map((b, i) => b - small[i])
+
+// Center (works perfectly when difference is even)
+const center = big.map((b, i) => (b - small[i]) / 2)</code></pre>
+          <p>
+            One subtraction per axis — the engine stays minimal and you stay in
+            control. For pixel-perfect centering on an integer grid, use
+            even-numbered size differences.
+          </p>
+        </div>
+      </div>
+
       <!-- ─── 6. Boolean operations ─────────────────────────── -->
 
       <div class="section-row" id="carving">
@@ -574,7 +572,8 @@ heerich.applyGeometry({
   mode: 'intersect'
 })</code></pre>
           <p>
-            <code>removeGeometry()</code> is a shortcut for <code>mode: 'subtract'</code>.
+            <code>removeGeometry()</code> is a shortcut for
+            <code>mode: 'subtract'</code>.
           </p>
         </div>
       </div>
@@ -1005,6 +1004,33 @@ heerich.setCamera({ type: 'perspective', position: [5, 5], distance: 12 })</code
         </p>
       </div>
 
+      <!-- ─── Transparent voxels ─────────────────────────── -->
+
+      <div class="section-row" id="opaque">
+        <div class="section-demo">
+          <div class="demo" id="demo-opaque">
+            <div class="demo-canvas"></div>
+          </div>
+        </div>
+        <div class="section-text">
+          <h2>Transparent voxels</h2>
+          <p>
+            Set <code>opaque: false</code> and the voxel itself remains visible,
+            but adjacent voxels treat it as empty space — forcing their inner
+            faces to be drawn. Combine this with a transparent fill to construct
+            wireframe cages, bounding volumes, or see-through sculptural guides
+            anchored cleanly over solid geometry.
+          </p>
+          <pre><code >// Wireframe cage over a solid core
+heerich.applyGeometry({ type: 'box', position: [1, 1, 1], size: 3 })
+heerich.applyGeometry({
+  type: 'box', position: [0, 0, 0], size: 5,
+  opaque: false,
+  style: { default: { fill: 'none' } }
+})</code></pre>
+        </div>
+      </div>
+
       <!-- ─── Content voxels ─────────────────────────────── -->
 
       <div class="section-row" id="content-voxels">
@@ -1052,33 +1078,6 @@ heerich.setCamera({ type: 'perspective', position: [5, 5], distance: 12 })</code
             </li>
             <li><code>--tile</code> — tile size in pixels</li>
           </ul>
-        </div>
-      </div>
-
-      <!-- ─── Transparent voxels ─────────────────────────── -->
-
-      <div class="section-row" id="opaque">
-        <div class="section-demo">
-          <div class="demo" id="demo-opaque">
-            <div class="demo-canvas"></div>
-          </div>
-        </div>
-        <div class="section-text">
-          <h2>Transparent voxels</h2>
-          <p>
-            Set <code>opaque: false</code> and the voxel itself remains visible,
-            but adjacent voxels treat it as empty space — forcing their inner
-            faces to be drawn. Combine this with a transparent fill to construct
-            wireframe cages, bounding volumes, or see-through sculptural guides
-            anchored cleanly over solid geometry.
-          </p>
-          <pre><code >// Wireframe cage over a solid core
-heerich.applyGeometry({ type: 'box', position: [1, 1, 1], size: 3 })
-heerich.applyGeometry({
-  type: 'box', position: [0, 0, 0], size: 5,
-  opaque: false,
-  style: { default: { fill: 'none' } }
-})</code></pre>
         </div>
       </div>
 
