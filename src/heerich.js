@@ -1,5 +1,4 @@
-import { SVGRenderer } from "./renderers/svg.js";
-import { computeBounds } from "./renderers/svg.js";
+import { SVGRenderer, computeBounds } from "./svg-renderer.js";
 import { Points } from "./points.js";
 import { boxCoords, sphereCoords, lineCoords, whereCoords } from "./shapes.js";
 export { boxCoords, sphereCoords, lineCoords, whereCoords };
