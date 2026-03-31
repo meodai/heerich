@@ -143,6 +143,7 @@ article {
 
   .section-row .section-demo {
     position: static;
+    order: 1;
   }
 
   .section-full {
