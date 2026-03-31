@@ -1298,23 +1298,7 @@ export class Heerich {
     const dx_norm = projection === "oblique" ? depthOffsetX / tileW : 0;
     const dy_norm = projection === "oblique" ? depthOffsetY / tileH : 0;
 
-    // Auto-clamp perspective camera distance so no geometry clips behind camera
-    let cameraDistance = this.renderOptions.cameraDistance;
-    if (projection === "perspective" && faces3D.length > 0) {
-      let maxZ = -Infinity;
-      for (const f of faces3D) {
-        if (f.vertices) {
-          for (const v of f.vertices) {
-            if (v[2] > maxZ) maxZ = v[2];
-          }
-        } else if (f._pos && f._pos[2] > maxZ) {
-          maxZ = f._pos[2];
-        }
-      }
-      if (maxZ + cameraDistance < 1) {
-        cameraDistance = maxZ + 1;
-      }
-    }
+    const { cameraDistance } = this.renderOptions;
 
     for (const face of faces3D) {
       if (face.type === "content") {
