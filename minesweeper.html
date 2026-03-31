@@ -403,7 +403,7 @@
       function render() {
         const { cols: COLS, rows: ROWS, tile: TILE } = MODES[mode];
         const h = new Heerich({
-          tile: [TILE, TILE],
+          tile: TILE,
           camera: {
             type: "perspective",
             position: [COLS / 2, ROWS / 2],
@@ -474,21 +474,24 @@
 
               if (partialCarve) {
                 // During animation: full stack but subtract a growing slab from front
-                h.addBox({
+                h.applyGeometry({
+                  type: 'box',
                   position: [c, r, 0],
                   size: [1, 1, LAYERS],
                   style: unrevealedStyle,
                   meta: { col: c, row: r },
                 });
                 // Carve away front portion (z=0) using subtract
-                h.removeBox({
+                h.removeGeometry({
+                  type: 'box',
                   position: [c, r, 0],
                   size: [1, 1, Math.max(1, Math.round(t))],
                 });
               } else {
                 // Fully revealed
                 if (LAYERS - 1 > 0) {
-                  h.addBox({
+                  h.applyGeometry({
+                    type: 'box',
                     position: [c, r, 1],
                     size: [1, 1, LAYERS - 1],
                     style: revealedStyle,
@@ -499,7 +502,8 @@
               // Show content once animation is past halfway or complete
               if (t >= 0.5 || carveDepth >= 1) {
                 if (cell.mine) {
-                  h.addBox({
+                  h.applyGeometry({
+                    type: 'box',
                     position: [c, r, 0],
                     size: [1, 1, 1],
                     opaque: false,
@@ -512,7 +516,8 @@
                     >●</text>`,
                   });
                 } else if (cell.count > 0) {
-                  h.addBox({
+                  h.applyGeometry({
+                    type: 'box',
                     position: [c, r, 0],
                     size: [1, 1, 1],
                     opaque: false,
@@ -529,7 +534,8 @@
               }
             } else {
               // Unrevealed: full stack z=0 to z=LAYERS-1
-              h.addBox({
+              h.applyGeometry({
+                type: 'box',
                 position: [c, r, 0],
                 size: [1, 1, LAYERS],
                 style: cell.flagged
@@ -547,9 +553,10 @@
 
               // Flag content in front of the cell (z=-1)
               if (cell.flagged) {
-                h.addBox({
+                h.applyGeometry({
+                  type: 'box',
                   position: [c, r, -1],
-                  size: [1, 1, 1],
+                  size: 1,
                   opaque: false,
                   content: `<text
                     font-family="Aboreto, cursive"
@@ -568,11 +575,13 @@
         for (const hole of blastHoles) {
           const currentR = hole.r; // animated radius set by animation loop
           if (currentR > 0.1) {
-            h.removeSphere({
+            h.removeGeometry({
+              type: 'sphere',
               center: [hole.cx, hole.cy, hole.cz],
               radius: currentR,
             });
-            h.styleSphere({
+            h.applyStyle({
+              type: 'sphere',
               center: [hole.cx, hole.cy, hole.cz],
               radius: currentR + 1.2,
               style: explodedWallStyle,

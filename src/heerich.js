@@ -1,7 +1,7 @@
 import { SVGRenderer, computeBounds } from "./svg-renderer.js";
 import { Points } from "./points.js";
-import { boxCoords, sphereCoords, lineCoords, whereCoords } from "./shapes.js";
-export { boxCoords, sphereCoords, lineCoords, whereCoords };
+import { boxCoords, sphereCoords, lineCoords, fillCoords } from "./shapes.js";
+export { boxCoords, sphereCoords, lineCoords, fillCoords };
 
 /**
  * @typedef {Object} StyleObject
@@ -100,12 +100,13 @@ const ADJ = [
 export class Heerich {
   /**
    * @param {Object} [options]
-   * @param {[number,number]} [options.tile=[40,40]] - Tile size in pixels [width, height]
+   * @param {number|[number,number]|[number,number,number]} [options.tile=10] - Tile size in pixels. Single number for uniform, [x,y] or [x,y,z] for independent axes.
    * @param {StyleObject} [options.style] - Default face style
    * @param {CameraOptions} [options.camera] - Camera configuration
    */
   constructor(options = {}) {
-    const tile = options.tile || [40, 40];
+    const t = options.tile || 10;
+    const tile = typeof t === "number" ? [t, t, t] : t.length === 2 ? [t[0], t[1], t[0]] : t;
 
     /** @type {StyleObject} */
     this.defaultStyle = options.style || {
@@ -115,11 +116,12 @@ export class Heerich {
     };
 
     const cam = options.camera || { type: "oblique", angle: 45, distance: 15 };
-    /** @type {{projection: string, tileW: number, tileH: number, depthOffsetX: number, depthOffsetY: number, cameraX: number, cameraY: number, cameraDistance: number}} */
+    /** @type {{projection: string, tileW: number, tileH: number, tileZ: number, depthOffsetX: number, depthOffsetY: number, cameraX: number, cameraY: number, cameraDistance: number}} */
     this.renderOptions = {
       projection: cam.type || "oblique",
       tileW: tile[0],
       tileH: tile[1],
+      tileZ: tile[2],
       depthOffsetX: 15,
       depthOffsetY: -15,
       cameraX: 5,
@@ -162,8 +164,9 @@ export class Heerich {
       const angle = opts.angle !== undefined ? opts.angle : 45;
       const distance = opts.distance !== undefined ? opts.distance : 15;
       const rad = angle * (Math.PI / 180);
-      this.renderOptions.depthOffsetX = Math.cos(rad) * distance;
-      this.renderOptions.depthOffsetY = Math.sin(rad) * distance;
+      const zScale = this.renderOptions.tileZ / this.renderOptions.tileW;
+      this.renderOptions.depthOffsetX = Math.cos(rad) * distance * zScale;
+      this.renderOptions.depthOffsetY = Math.sin(rad) * distance * zScale;
     } else {
       const pos = opts.position || [5, 5];
       this.renderOptions.cameraX = pos[0];
@@ -570,7 +573,7 @@ export class Heerich {
     }
 
     return {
-      tile: [this.renderOptions.tileW, this.renderOptions.tileH],
+      tile: [this.renderOptions.tileW, this.renderOptions.tileH, this.renderOptions.tileZ],
       camera:
         this.renderOptions.projection === "oblique"
           ? {
@@ -618,24 +621,47 @@ export class Heerich {
   }
 
   /**
-   * Add (or boolean-op) a box of voxels.
+   * Resolve geometry type to a coordinate iterator.
    * @param {Object} opts
-   * @param {[number,number,number]} opts.position - Corner position [x, y, z]
-   * @param {[number,number,number]} opts.size - Dimensions [width, height, depth]
+   * @returns {Iterable<number[]>}
+   */
+  _resolveGeometry(opts) {
+    const type = opts.type;
+    if (type === "box") return boxCoords(opts.position, opts.size);
+    if (type === "sphere") return sphereCoords(opts.center, opts.radius);
+    if (type === "line")
+      return lineCoords(
+        opts.from,
+        opts.to,
+        opts.radius || 0,
+        opts.shape || "rounded",
+      );
+    if (type === "fill") return fillCoords(opts.bounds, opts.test);
+    throw new Error(`Unknown geometry type: "${type}"`);
+  }
+
+  /**
+   * Apply a geometry operation (union, subtract, intersect, exclude).
+   * @param {Object} opts
+   * @param {'box'|'sphere'|'line'|'fill'} opts.type - Geometry type
    * @param {BooleanMode} [opts.mode='union'] - Boolean operation
    * @param {StyleParam} [opts.style] - Per-face styles
    * @param {string} [opts.content] - SVG content to render instead of polygon faces
-   * @param {boolean} [opts.opaque=true] - Whether this voxel occludes neighbors
-   * @param {Object} [opts.meta] - Arbitrary key/value pairs emitted as data-* attributes
+   * @param {boolean} [opts.opaque=true] - Whether voxels occlude neighbors
+   * @param {Object} [opts.meta] - Key/value pairs emitted as data-* attributes
    * @param {RotateOptions} [opts.rotate] - Rotate coordinates before placement
-   * @param {[number,number,number]|function(number,number,number):[number,number,number]} [opts.scale] - Per-axis scale 0-1, or function returning it (auto-sets opaque: false)
-   * @param {[number,number,number]|function(number,number,number):[number,number,number]} [opts.scaleOrigin=[0.5,0,0.5]] - Scale origin within voxel, or function returning it
+   * @param {[number,number,number]|function} [opts.scale] - Per-axis scale 0-1
+   * @param {[number,number,number]|function} [opts.scaleOrigin=[0.5,0,0.5]] - Scale origin
+   *
+   * Box params: position, size
+   * Sphere params: center, radius
+   * Line params: from, to, radius, shape
+   * Fill params: bounds, test
    */
-  addBox(opts) {
-    const coords = this._rotateCoords(
-      boxCoords(opts.position, opts.size),
-      opts.rotate,
-    );
+  applyGeometry(opts) {
+    const coords = opts.rotate
+      ? this._rotateCoords(this._resolveGeometry(opts), opts.rotate)
+      : this._resolveGeometry(opts);
     this._applyOp(
       coords,
       opts.mode || "union",
@@ -649,195 +675,54 @@ export class Heerich {
   }
 
   /**
-   * Remove a box of voxels (shorthand for `addBox` with `mode: 'subtract'`).
+   * Remove geometry (shortcut for applyGeometry with mode: 'subtract').
+   * @param {Object} opts - Same as applyGeometry (mode is forced to 'subtract')
+   */
+  removeGeometry(opts) {
+    this.applyGeometry({ ...opts, mode: "subtract" });
+  }
+
+  /**
+   * Restyle existing voxels matching a geometry selection, or all voxels if no type given.
    * @param {Object} opts
-   * @param {[number,number,number]} opts.position
-   * @param {[number,number,number]} opts.size
-   * @param {StyleParam} [opts.style] - Style to apply to newly exposed neighbor faces
+   * @param {'box'|'sphere'|'line'|'fill'} [opts.type] - Geometry type (omit to style all voxels)
+   * @param {StyleParam} opts.style - Style to apply
+   *
+   * Box params: position, size
+   * Sphere params: center, radius
+   * Line params: from, to, radius, shape
+   * Fill params: bounds, test
    */
-  removeBox(opts) {
-    this._applyOp(boxCoords(opts.position, opts.size), "subtract", opts.style);
-  }
-
-  /**
-   * Add (or boolean-op) a sphere of voxels.
-   * @param {Object} opts
-   * @param {[number,number,number]} opts.center - Sphere center [x, y, z]
-   * @param {number} opts.radius
-   * @param {BooleanMode} [opts.mode='union']
-   * @param {StyleParam} [opts.style]
-   * @param {string} [opts.content]
-   * @param {boolean} [opts.opaque=true]
-   * @param {Object} [opts.meta]
-   * @param {RotateOptions} [opts.rotate]
-   * @param {[number,number,number]|function(number,number,number):[number,number,number]} [opts.scale] - Per-axis scale 0-1, or function returning it (auto-sets opaque: false)
-   * @param {[number,number,number]|function(number,number,number):[number,number,number]} [opts.scaleOrigin=[0.5,0,0.5]] - Scale origin within voxel, or function returning it
-   */
-  addSphere(opts) {
-    const coords = this._rotateCoords(
-      sphereCoords(opts.center, opts.radius),
-      opts.rotate,
-    );
-    this._applyOp(
-      coords,
-      opts.mode || "union",
-      opts.style,
-      opts.content,
-      opts.opaque,
-      opts.meta,
-      opts.scale,
-      opts.scaleOrigin,
-    );
-  }
-
-  /**
-   * Remove a sphere of voxels.
-   * @param {Object} opts
-   * @param {[number,number,number]} opts.center
-   * @param {number} opts.radius
-   * @param {StyleParam} [opts.style] - Style to apply to newly exposed neighbor faces
-   */
-  removeSphere(opts) {
-    this._applyOp(
-      sphereCoords(opts.center, opts.radius),
-      "subtract",
-      opts.style,
-    );
-  }
-
-  /**
-   * Add (or boolean-op) a line of voxels between two points.
-   * @param {Object} opts
-   * @param {[number,number,number]} opts.from - Start point
-   * @param {[number,number,number]} opts.to - End point
-   * @param {number} [opts.radius=0] - Brush radius (0 = single voxel)
-   * @param {'rounded'|'square'} [opts.shape='rounded'] - Brush shape when radius > 0
-   * @param {BooleanMode} [opts.mode='union']
-   * @param {StyleParam} [opts.style]
-   * @param {string} [opts.content]
-   * @param {boolean} [opts.opaque=true]
-   * @param {Object} [opts.meta]
-   * @param {RotateOptions} [opts.rotate]
-   * @param {[number,number,number]|function(number,number,number):[number,number,number]} [opts.scale] - Per-axis scale 0-1, or function returning it (auto-sets opaque: false)
-   * @param {[number,number,number]|function(number,number,number):[number,number,number]} [opts.scaleOrigin=[0.5,0,0.5]] - Scale origin within voxel, or function returning it
-   */
-  addLine(opts) {
-    const radius = opts.radius || 0;
-    const shape = opts.shape || "rounded";
-    const coords = this._rotateCoords(
-      lineCoords(opts.from, opts.to, radius, shape),
-      opts.rotate,
-    );
-    this._applyOp(
-      coords,
-      opts.mode || "union",
-      opts.style,
-      opts.content,
-      opts.opaque,
-      opts.meta,
-      opts.scale,
-      opts.scaleOrigin,
-    );
-  }
-
-  /**
-   * Remove voxels along a line.
-   * @param {Object} opts - Same as `addLine` (mode is forced to 'subtract')
-   */
-  removeLine(opts) {
-    this.addLine({ ...opts, mode: "subtract" });
-  }
-
-  /**
-   * Add voxels within a bounding box where a test function returns true.
-   * @param {Object} opts
-   * @param {[[number,number,number],[number,number,number]]} opts.bounds - Min and max corners
-   * @param {function(number,number,number): boolean} opts.test - Inclusion test
-   * @param {BooleanMode} [opts.mode='union']
-   * @param {StyleParam} [opts.style]
-   * @param {string} [opts.content]
-   * @param {boolean} [opts.opaque=true]
-   * @param {Object} [opts.meta]
-   * @param {[number,number,number]|function(number,number,number):[number,number,number]} [opts.scale] - Per-axis scale 0-1, or function returning it (auto-sets opaque: false)
-   * @param {[number,number,number]|function(number,number,number):[number,number,number]} [opts.scaleOrigin=[0.5,0,0.5]] - Scale origin within voxel, or function returning it
-   */
-  addWhere(opts) {
-    const coords = whereCoords(opts.bounds, opts.test);
-    this._applyOp(
-      coords,
-      opts.mode || "union",
-      opts.style,
-      opts.content,
-      opts.opaque,
-      opts.meta,
-      opts.scale,
-      opts.scaleOrigin,
-    );
-  }
-
-  /**
-   * Remove voxels within a bounding box where a test function returns true.
-   * @param {Object} opts
-   * @param {[[number,number,number],[number,number,number]]} opts.bounds
-   * @param {function(number,number,number): boolean} opts.test
-   * @param {StyleParam} [opts.style] - Style to apply to newly exposed neighbor faces
-   */
-  removeWhere(opts) {
-    this._applyOp(whereCoords(opts.bounds, opts.test), "subtract", opts.style);
-  }
-
-  /**
-   * Restyle existing voxels at the given coordinates.
-   */
-  _styleCoords(coords, style) {
+  applyStyle(opts) {
+    if (!opts.type) {
+      // Style all existing voxels
+      for (const [key, voxel] of this.voxels.entries()) {
+        voxel.styles = this._resolveStyles(
+          opts.style,
+          voxel.x,
+          voxel.y,
+          voxel.z,
+          voxel.styles,
+        );
+      }
+      this._invalidate();
+      return;
+    }
+    const coords = this._resolveGeometry(opts);
     for (const [x, y, z] of coords) {
       const key = this._k(x, y, z);
       const voxel = this.voxels.get(key);
       if (voxel) {
-        voxel.styles = this._resolveStyles(style, x, y, z, voxel.styles);
+        voxel.styles = this._resolveStyles(
+          opts.style,
+          x,
+          y,
+          z,
+          voxel.styles,
+        );
       }
     }
     this._invalidate();
-  }
-
-  /**
-   * Restyle existing voxels within a box region (does not add or remove voxels).
-   * @param {Object} opts
-   * @param {[number,number,number]} opts.position
-   * @param {[number,number,number]} opts.size
-   * @param {StyleParam} opts.style
-   */
-  styleBox(opts) {
-    this._styleCoords(boxCoords(opts.position, opts.size), opts.style);
-  }
-
-  /**
-   * Restyle existing voxels within a sphere region.
-   * @param {Object} opts
-   * @param {[number,number,number]} opts.center
-   * @param {number} opts.radius
-   * @param {StyleParam} opts.style
-   */
-  styleSphere(opts) {
-    this._styleCoords(sphereCoords(opts.center, opts.radius), opts.style);
-  }
-
-  /**
-   * Restyle existing voxels along a line.
-   * @param {Object} opts
-   * @param {[number,number,number]} opts.from
-   * @param {[number,number,number]} opts.to
-   * @param {number} [opts.radius=0]
-   * @param {'rounded'|'square'} [opts.shape='rounded']
-   * @param {StyleParam} opts.style
-   */
-  styleLine(opts) {
-    const radius = opts.radius || 0;
-    const shape = opts.shape || "rounded";
-    this._styleCoords(
-      lineCoords(opts.from, opts.to, radius, shape),
-      opts.style,
-    );
   }
 
   /**
@@ -1404,10 +1289,27 @@ export class Heerich {
       depthOffsetY,
       cameraX,
       cameraY,
-      cameraDistance,
     } = this.renderOptions;
     const dx_norm = projection === "oblique" ? depthOffsetX / tileW : 0;
     const dy_norm = projection === "oblique" ? depthOffsetY / tileH : 0;
+
+    // Auto-clamp perspective camera distance so no geometry clips behind camera
+    let cameraDistance = this.renderOptions.cameraDistance;
+    if (projection === "perspective" && faces3D.length > 0) {
+      let maxZ = -Infinity;
+      for (const f of faces3D) {
+        if (f.vertices) {
+          for (const v of f.vertices) {
+            if (v[2] > maxZ) maxZ = v[2];
+          }
+        } else if (f._pos && f._pos[2] > maxZ) {
+          maxZ = f._pos[2];
+        }
+      }
+      if (maxZ + cameraDistance < 1) {
+        cameraDistance = maxZ + 1;
+      }
+    }
 
     for (const face of faces3D) {
       if (face.type === "content") {

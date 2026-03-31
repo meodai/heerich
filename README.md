@@ -22,18 +22,18 @@ Or use the UMD build via a `<script>` tag — the global `Heerich` will be avail
 import { Heerich } from 'heerich'
 
 const h = new Heerich({
-  tile: [40, 40],
+  tile: 40,
   camera: { type: 'oblique', angle: 45, distance: 15 },
 })
 
 // A simple house
-h.addBox({ position: [0, 0, 0], size: [5, 4, 5], style: {
+h.applyGeometry({ type: 'box', position: [0, 0, 0], size: [5, 4, 5], style: {
   default: { fill: '#e8d4b8', stroke: '#333' },
   top:     { fill: '#c94c3a' },
 }})
 
 // Carve out a door
-h.removeBox({ position: [2, 1, 0], size: [1, 3, 1] })
+h.removeGeometry({ type: 'box', position: [2, 1, 0], size: [1, 3, 1] })
 
 document.body.innerHTML = h.toSVG()
 ```
@@ -75,21 +75,21 @@ All shape methods accept a common set of options:
 ### Box
 
 ```js
-h.addBox({ position: [0, 0, 0], size: [3, 2, 4] })
-h.removeBox({ position: [1, 0, 1], size: [1, 1, 1] })
+h.applyGeometry({ type: 'box', position: [0, 0, 0], size: [3, 2, 4] })
+h.removeGeometry({ type: 'box', position: [1, 0, 1], size: [1, 1, 1] })
 
 // Style the carved walls (optional)
-h.removeBox({ position: [0, 0, 0], size: [1, 1, 1], style: { default: { fill: '#222' } } })
+h.removeGeometry({ type: 'box', position: [0, 0, 0], size: [1, 1, 1], style: { default: { fill: '#222' } } })
 ```
 
 ### Sphere
 
 ```js
-h.addSphere({ center: [5, 5, 5], radius: 3 })
-h.removeSphere({ center: [5, 5, 5], radius: 1.5 })
+h.applyGeometry({ type: 'sphere', center: [5, 5, 5], radius: 3 })
+h.removeGeometry({ type: 'sphere', center: [5, 5, 5], radius: 1.5 })
 
 // Style the carved walls (optional)
-h.removeSphere({ center: [5, 5, 5], radius: 1, style: { default: { fill: '#222' } } })
+h.removeGeometry({ type: 'sphere', center: [5, 5, 5], radius: 1, style: { default: { fill: '#222' } } })
 ```
 
 ### Line
@@ -97,24 +97,25 @@ h.removeSphere({ center: [5, 5, 5], radius: 1, style: { default: { fill: '#222' 
 Draw a line between two points with an optional brush:
 
 ```js
-h.addLine({ from: [0, 0, 0], to: [10, 5, 0] })
+h.applyGeometry({ type: 'line', from: [0, 0, 0], to: [10, 5, 0] })
 
 // Thick rounded line
-h.addLine({ from: [0, 0, 0], to: [10, 0, 0], radius: 2, shape: 'rounded' })
+h.applyGeometry({ type: 'line', from: [0, 0, 0], to: [10, 0, 0], radius: 2, shape: 'rounded' })
 
 // Thick square line
-h.addLine({ from: [0, 0, 0], to: [0, 10, 0], radius: 1, shape: 'square' })
+h.applyGeometry({ type: 'line', from: [0, 0, 0], to: [0, 10, 0], radius: 1, shape: 'square' })
 
-h.removeLine({ from: [3, 0, 0], to: [7, 0, 0] })
+h.removeGeometry({ type: 'line', from: [3, 0, 0], to: [7, 0, 0] })
 ```
 
 ### Custom Shapes
 
-`addWhere` is the general-purpose shape primitive — define any shape as a function of `(x, y, z)`. Boxes, spheres, and lines are just convenience wrappers around this pattern.
+`applyGeometry` with `type: 'fill'` is the general-purpose shape primitive — define any shape as a function of `(x, y, z)`. Boxes, spheres, and lines are just convenience wrappers around this pattern.
 
 ```js
 // Hollow sphere
-h.addWhere({
+h.applyGeometry({
+  type: 'fill',
   bounds: [[-6, -6, -6], [6, 6, 6]],
   test: (x, y, z) => {
     const d = x*x + y*y + z*z
@@ -123,7 +124,8 @@ h.addWhere({
 })
 
 // Torus
-h.addWhere({
+h.applyGeometry({
+  type: 'fill',
   bounds: [[-8, -3, -8], [8, 3, 8]],
   test: (x, y, z) => {
     const R = 6, r = 2
@@ -132,7 +134,8 @@ h.addWhere({
   }
 })
 
-h.removeWhere({
+h.removeGeometry({
+  type: 'fill',
   bounds: [[0, -6, -6], [6, 6, 6]],
   test: () => true
 })
@@ -146,16 +149,16 @@ All shape methods support a `mode` option for CSG-like operations:
 
 ```js
 // Union (default) — add voxels
-h.addBox({ position: [0, 0, 0], size: [5, 5, 5] })
+h.applyGeometry({ type: 'box', position: [0, 0, 0], size: [5, 5, 5] })
 
 // Subtract — carve out voxels
-h.addSphere({ center: [2, 2, 2], radius: 2, mode: 'subtract' })
+h.applyGeometry({ type: 'sphere', center: [2, 2, 2], radius: 2, mode: 'subtract' })
 
 // Intersect — keep only the overlap
-h.addBox({ position: [1, 1, 1], size: [3, 3, 3], mode: 'intersect' })
+h.applyGeometry({ type: 'box', position: [1, 1, 1], size: [3, 3, 3], mode: 'intersect' })
 
 // Exclude — XOR: add where empty, remove where occupied
-h.addBox({ position: [0, 0, 0], size: [5, 5, 5], mode: 'exclude' })
+h.applyGeometry({ type: 'box', position: [0, 0, 0], size: [5, 5, 5], mode: 'exclude' })
 ```
 
 ### Styling carved faces
@@ -163,17 +166,18 @@ h.addBox({ position: [0, 0, 0], size: [5, 5, 5], mode: 'exclude' })
 When removing voxels, you can pass a `style` to color the newly exposed faces of neighboring voxels — the "walls" of the carved hole:
 
 ```js
-h.addBox({ position: [0, 0, 0], size: [10, 10, 10] })
+h.applyGeometry({ type: 'box', position: [0, 0, 0], size: [10, 10, 10] })
 
 // Carve a hole with dark walls
-h.removeBox({
+h.removeGeometry({
+  type: 'box',
   position: [3, 3, 0],
   size: [4, 4, 5],
   style: { default: { fill: '#222', stroke: '#111' } }
 })
 ```
 
-This works on all remove methods (`removeBox`, `removeSphere`, `removeLine`, `removeWhere`) and on `addBox`/`addSphere` etc. with `mode: 'subtract'`. Without a `style`, subtract behaves as before — just deleting voxels.
+This works on `removeGeometry` (with any type) and on `applyGeometry` with `mode: 'subtract'`. Without a `style`, subtract behaves as before — just deleting voxels.
 
 ## Styling
 
@@ -181,7 +185,8 @@ Styles are set per face name: `default`, `top`, `bottom`, `left`, `right`, `fron
 Each face style is an object with SVG presentation attributes (`fill`, `stroke`, `strokeWidth`, etc.).
 
 ```js
-h.addBox({
+h.applyGeometry({
+  type: 'box',
   position: [0, 0, 0],
   size: [3, 3, 3],
   style: {
@@ -197,7 +202,8 @@ h.addBox({
 Style values can be functions of `(x, y, z)`:
 
 ```js
-h.addBox({
+h.applyGeometry({
+  type: 'box',
   position: [0, 0, 0],
   size: [8, 8, 8],
   style: {
@@ -214,9 +220,9 @@ h.addBox({
 Restyle existing voxels without adding or removing them:
 
 ```js
-h.styleBox({ position: [0, 0, 0], size: [3, 3, 3], style: { top: { fill: 'red' } } })
-h.styleSphere({ center: [5, 5, 5], radius: 2, style: { default: { fill: 'gold' } } })
-h.styleLine({ from: [0, 0, 0], to: [10, 0, 0], radius: 1, style: { default: { fill: 'blue' } } })
+h.applyStyle({ type: 'box', position: [0, 0, 0], size: [3, 3, 3], style: { top: { fill: 'red' } } })
+h.applyStyle({ type: 'sphere', center: [5, 5, 5], radius: 2, style: { default: { fill: 'gold' } } })
+h.applyStyle({ type: 'line', from: [0, 0, 0], to: [10, 0, 0], radius: 1, style: { default: { fill: 'blue' } } })
 ```
 
 ## Voxel Scaling
@@ -225,7 +231,8 @@ Shrink individual voxels along any axis. Scaled voxels automatically become non-
 
 ```js
 // Static — same scale for every voxel
-h.addBox({
+h.applyGeometry({
+  type: 'box',
   position: [0, 0, 0],
   size: [1, 1, 1],
   scale: [1, 0.5, 1],
@@ -233,7 +240,8 @@ h.addBox({
 })
 
 // Functional — scale varies by position
-h.addBox({
+h.applyGeometry({
+  type: 'box',
   position: [0, 0, 0],
   size: [4, 4, 4],
   scale: (x, y, z) => [1, 1 - y * 0.2, 1],
@@ -249,7 +257,8 @@ Rotate coordinates by 90-degree increments before or after placement:
 
 ```js
 // Rotate a shape before placing it
-h.addBox({
+h.applyGeometry({
+  type: 'box',
   position: [0, 0, 0],
   size: [5, 1, 3],
   rotate: { axis: 'z', turns: 1 }
@@ -369,7 +378,8 @@ const [vbX, vbY, vbW, vbH] = h.getOptimalViewBox(30)
 Embed arbitrary SVG at a voxel position (depth-sorted with the rest of the scene):
 
 ```js
-h.addBox({
+h.applyGeometry({
+  type: 'box',
   position: [3, 0, 3],
   size: [1, 1, 1],
   content: '<text font-size="12" text-anchor="middle">Hi</text>',

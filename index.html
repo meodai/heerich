@@ -256,7 +256,7 @@
         <pre><code>import { Heerich } from './src/heerich.js'
 
 const heerich = new Heerich({
-  tile: [30, 30],           // pixel size per tile
+  tile: 30,                 // pixel size per tile
   camera: { type: 'oblique', angle: 315, distance: 25 },
   style: { fill: '#ddd', stroke: 'var(--stroke-c)', strokeWidth: 0.5 }
 })</code></pre>
@@ -313,7 +313,7 @@ const { x, y, w, h } = heerich.getViewBoxBounds()</code></pre>
             anchored by a corner position and dimensions. Every voxel inside it
             inherits the default style.
           </p>
-          <pre><code >heerich.addBox({ position: [0, 0, 0], size: [6, 4, 3] })</code></pre>
+          <pre><code >heerich.applyGeometry({ type: 'box', position: [0, 0, 0], size: [6, 4, 3] })</code></pre>
           <p>
             Drag the sliders below — the engine clears and rebuilds the scene on
             every frame. Because <code>getFaces()</code> utilizes a dirty-flag
@@ -396,7 +396,7 @@ const center = big.map((b, i) => (b - small[i]) / 2)</code></pre>
             <code>3.5</code>) tends to produce the cleanest symmetrical forms on
             integer grids.
           </p>
-          <pre><code >heerich.addSphere({ center: [4.5, 4.5, 4.5], radius: 4.5 })</code></pre>
+          <pre><code >heerich.applyGeometry({ type: 'sphere', center: [4.5, 4.5, 4.5], radius: 4.5 })</code></pre>
           <p>
             Conversely, <code>removeSphere()</code> carves a hollow void using
             the exact same parameters. Layer a sphere subtraction into a solid
@@ -454,8 +454,8 @@ const center = big.map((b, i) => (b - small[i]) / 2)</code></pre>
             sequence of overlapping spheres) or
             <code>'square'</code> (overlapping cubes).
           </p>
-          <pre><code >heerich.addLine({
-  from: [0, 0, 0], to: [8, 8, 8],
+          <pre><code >heerich.applyGeometry({
+  type: 'line', from: [0, 0, 0], to: [8, 8, 8],
   radius: 1.5, shape: 'rounded'
 })</code></pre>
         </div>
@@ -492,8 +492,8 @@ const center = big.map((b, i) => (b - small[i]) / 2)</code></pre>
             coordinates. Under the hood, boxes, spheres, and lines are merely
             convenient wrappers around this core method.
           </p>
-          <pre><code >heerich.addWhere({
-  bounds: [[0, 0, 0], [s, s, s]],
+          <pre><code >heerich.applyGeometry({
+  type: 'fill', bounds: [[0, 0, 0], [s, s, s]],
   test: (x, y, z) => {
     const c = Math.ceil(s / 4)
     const nearEdge = [x, y, z].filter(
@@ -560,22 +560,21 @@ const center = big.map((b, i) => (b - small[i]) / 2)</code></pre>
             <li><strong>intersect</strong> — keep only the overlap</li>
             <li><strong>exclude</strong> — XOR, toggle each voxel</li>
           </ul>
-          <pre><code >heerich.addBox({ position: [0, 0, 0], size: [6, 6, 6] })
+          <pre><code >heerich.applyGeometry({ type: 'box', position: [0, 0, 0], size: [6, 6, 6] })
 
 // Carve a sphere out of the box
-heerich.addSphere({
-  center: [3, 3, 3], radius: 3,
+heerich.applyGeometry({
+  type: 'sphere', center: [3, 3, 3], radius: 3,
   mode: 'subtract'
 })
 
 // Keep only where box and sphere overlap
-heerich.addSphere({
-  center: [3, 3, 3], radius: 3,
+heerich.applyGeometry({
+  type: 'sphere', center: [3, 3, 3], radius: 3,
   mode: 'intersect'
 })</code></pre>
           <p>
-            <code>removeBox()</code> and <code>removeSphere()</code> still work
-            — they're shortcuts for <code>mode: 'subtract'</code>.
+            <code>removeGeometry()</code> is a shortcut for <code>mode: 'subtract'</code>.
           </p>
         </div>
       </div>
@@ -620,9 +619,9 @@ heerich.addSphere({
             custom origins are seamlessly supported.
           </p>
           <pre><code >// Build one arm, rotate a copy to make an L
-heerich.addBox({ position: [0, 0, 0], size: [2, 8, 2] })
-heerich.addBox({
-  position: [0, 0, 0], size: [2, 8, 2],
+heerich.applyGeometry({ type: 'box', position: [0, 0, 0], size: [2, 8, 2] })
+heerich.applyGeometry({
+  type: 'box', position: [0, 0, 0], size: [2, 8, 2],
   rotate: { axis: 'z', turns: 1 }
 })
 
@@ -668,8 +667,8 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
             <code>stroke</code> the exact same color as the <code>fill</code>,
             effectively rendering the internal grid geometry invisible.
           </p>
-          <pre><code >heerich.addBox({
-  position: [0, 0, 0], size: [4, 4, 4],
+          <pre><code >heerich.applyGeometry({
+  type: 'box', position: [0, 0, 0], size: [4, 4, 4],
   style: { default: { fill: '#0e0e0e', stroke: '#0e0e0e' } }
 })</code></pre>
           <p>
@@ -709,8 +708,8 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
             styles during shape creation, or explicitly overwrite existing
             regions later using <code>styleBox()</code>.
           </p>
-          <pre><code >heerich.addBox({
-  position: [0, 0, 0], size: [4, 4, 4],
+          <pre><code >heerich.applyGeometry({
+  type: 'box', position: [0, 0, 0], size: [4, 4, 4],
   style: {
     default: { fill: '#eee', stroke: '#333' },
     top:   { fill: '#ff6666' },
@@ -774,8 +773,8 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
               >presentation attribute</a
             >.
           </p>
-          <pre><code >heerich.addBox({
-  position: [0, 0, 0], size: [5, 5, 5],
+          <pre><code >heerich.applyGeometry({
+  type: 'box', position: [0, 0, 0], size: [5, 5, 5],
   style: {
     default: {
       fill: 'var(--fill)',
@@ -832,8 +831,8 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
             geometry-dependent shading rules — bypassing the need to iterate
             through individual voxels manually.
           </p>
-          <pre><code >heerich.addBox({
-  position: [0, 0, 0], size: [8, 8, 8],
+          <pre><code >heerich.applyGeometry({
+  type: 'box', position: [0, 0, 0], size: [8, 8, 8],
   style: {
     default: (x, y, z) => {
       const L = 0.4 + (y / 8) * 0.5
@@ -887,16 +886,16 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
             occluded geometry layered behind it.
           </p>
           <pre><code >// Static — same scale for every voxel
-heerich.addBox({
-  position: [0, 0, 0],
+heerich.applyGeometry({
+  type: 'box', position: [0, 0, 0],
   size: [1, 1, 1],
   scale: [1, 0.5, 1],
   scaleOrigin: [0.5, 1, 0.5]
 })
 
 // Functional — scale varies by position
-heerich.addBox({
-  position: [0, 0, 0],
+heerich.applyGeometry({
+  type: 'box', position: [0, 0, 0],
   size: [4, 4, 4],
   scale: (x, y, z) => [1, 1 - y * 0.2, 1],
   scaleOrigin: [0.5, 1, 0.5]
@@ -956,8 +955,8 @@ heerich.addBox({
             staggered architectural elements without stepping outside a single
             generative routine.
           </p>
-          <pre><code >heerich.addBox({
-  position: [0, 0, 0], size: [s, s, s],
+          <pre><code >heerich.applyGeometry({
+  type: 'box', position: [0, 0, 0], size: [s, s, s],
   scale: (x, y, z) => {
     const t = 1 - y / s
     const f = 1 - t * taper
@@ -1024,8 +1023,8 @@ heerich.setCamera({ type: 'perspective', position: [5, 5], distance: 12 })</code
             faces, enforces a strict Z-level depth sort, and encases everything
             cleanly inside an integrated <code>&lt;g&gt;</code> element.
           </p>
-          <pre><code >heerich.addBox({
-  position: [3, 0, 6], size: [1, 1, 1],
+          <pre><code >heerich.applyGeometry({
+  type: 'box', position: [3, 0, 6], size: [1, 1, 1],
   opaque: false,
   content: `&lt;text
     font-family="Aboreto"
@@ -1074,9 +1073,9 @@ heerich.setCamera({ type: 'perspective', position: [5, 5], distance: 12 })</code
             anchored cleanly over solid geometry.
           </p>
           <pre><code >// Wireframe cage over a solid core
-heerich.addBox({ position: [1, 1, 1], size: [3, 3, 3] })
-heerich.addBox({
-  position: [0, 0, 0], size: [5, 5, 5],
+heerich.applyGeometry({ type: 'box', position: [1, 1, 1], size: [3, 3, 3] })
+heerich.applyGeometry({
+  type: 'box', position: [0, 0, 0], size: [5, 5, 5],
   opaque: false,
   style: { default: { fill: 'none' } }
 })</code></pre>
@@ -1187,11 +1186,11 @@ const copy = Heerich.fromJSON(json)</code></pre>
 
 function frame(now) {
   heerich.clear()
-  heerich.addBox(...)
+  heerich.applyGeometry({ type: 'box', ...})
   holes.forEach((h, i) => {
     const t = ease(elapsed / duration)
-    heerich.removeBox({
-      position: [h.x, h.y, 0],
+    heerich.removeGeometry({
+      type: 'box', position: [h.x, h.y, 0],
       size: [3, 3, Math.round(t * h.targetDepth)]
     })
   })
