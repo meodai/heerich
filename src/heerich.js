@@ -641,11 +641,37 @@ export class Heerich {
    */
   _resolveGeometry(opts) {
     const type = opts.type;
-    if (type === "box") {
-      const s = opts.size;
-      return boxCoords(opts.position, typeof s === "number" ? [s, s, s] : s);
+    if (type === "box" || type === "sphere" || type === "fill") {
+      const s = opts.bounds
+        ? [
+            opts.bounds[1][0] - opts.bounds[0][0],
+            opts.bounds[1][1] - opts.bounds[0][1],
+            opts.bounds[1][2] - opts.bounds[0][2],
+          ]
+        : opts.size != null
+          ? typeof opts.size === "number"
+            ? [opts.size, opts.size, opts.size]
+            : opts.size
+          : [opts.radius * 2 + 1, opts.radius * 2 + 1, opts.radius * 2 + 1];
+      const pos = opts.position ??
+        (opts.bounds ? opts.bounds[0] : null) ?? [
+          opts.center[0] - Math.floor(s[0] / 2),
+          opts.center[1] - Math.floor(s[1] / 2),
+          opts.center[2] - Math.floor(s[2] / 2),
+        ];
+      const center = opts.center ?? [
+        pos[0] + Math.floor(s[0] / 2),
+        pos[1] + Math.floor(s[1] / 2),
+        pos[2] + Math.floor(s[2] / 2),
+      ];
+      const radius = opts.radius ?? Math.floor(s[0] / 2);
+      if (type === "box") return boxCoords(pos, s);
+      if (type === "sphere") return sphereCoords(center, radius);
+      return fillCoords(
+        [pos, [pos[0] + s[0], pos[1] + s[1], pos[2] + s[2]]],
+        opts.test,
+      );
     }
-    if (type === "sphere") return sphereCoords(opts.center, opts.radius);
     if (type === "line")
       return lineCoords(
         opts.from,
@@ -653,7 +679,6 @@ export class Heerich {
         opts.radius || 0,
         opts.shape || "rounded",
       );
-    if (type === "fill") return fillCoords(opts.bounds, opts.test);
     throw new Error(`Unknown geometry type: "${type}"`);
   }
 
@@ -696,6 +721,14 @@ export class Heerich {
    */
   removeGeometry(opts) {
     this.applyGeometry({ ...opts, mode: "subtract" });
+  }
+
+  /**
+   * Add geometry (shortcut for applyGeometry with mode: 'union').
+   * @param {Object} opts - Same as applyGeometry (mode is forced to 'union')
+   */
+  addGeometry(opts) {
+    this.applyGeometry({ ...opts, mode: "union" });
   }
 
   /**

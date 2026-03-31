@@ -76,6 +76,28 @@ All shape methods accept a common set of options:
 | `scale`   | `[x, y, z]` or `(x, y, z) => [sx, sy, sz]` | Per-axis scale 0–1 (auto-sets `opaque: false`) |
 | `scaleOrigin` | `[x, y, z]` or `(x, y, z) => [ox, oy, oz]` | Scale anchor within the voxel cell (default: `[0.5, 0, 0.5]`) |
 
+#### Convenience methods
+
+- `addGeometry(opts)` — shortcut for `applyGeometry({ ...opts, mode: 'union' })`
+- `removeGeometry(opts)` — shortcut for `applyGeometry({ ...opts, mode: 'subtract' })`
+
+#### Uniform positioning
+
+Box, sphere, and fill all accept both `position` (min-corner) and `center` (geometric center) — the engine converts between them automatically based on the shape's size:
+
+```js
+// These are equivalent for a 5×5×5 box:
+h.applyGeometry({ type: 'box', position: [0, 0, 0], size: 5 })
+h.applyGeometry({ type: 'box', center: [2, 2, 2], size: 5 })
+
+// These are equivalent for a sphere with radius 3:
+h.applyGeometry({ type: 'sphere', center: [3, 3, 3], radius: 3 })
+h.applyGeometry({ type: 'sphere', position: [0, 0, 0], radius: 3 })
+h.applyGeometry({ type: 'sphere', center: [3, 3, 3], size: 7 })
+```
+
+Fill also accepts `position`/`center` + `size` as an alternative to `bounds`.
+
 ### Box
 
 ```js
@@ -124,7 +146,7 @@ h.removeGeometry({
 
 ### Line
 
-Draw a line between two points with an optional brush:
+Lines are the only shape that uses different positioning — `from`/`to` instead of `position`/`center` + `size`:
 
 ```js
 h.applyGeometry({

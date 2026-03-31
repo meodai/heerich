@@ -309,8 +309,9 @@ const { x, y, w, h } = heerich.getBounds()</code></pre>
           <h2>Boxes</h2>
           <p>
             The most fundamental primitive is a box — a rectangular volume
-            anchored by a corner position and dimensions. Every voxel inside it
-            inherits the default style.
+            anchored by a corner <code>position</code> and dimensions. You can
+            also use <code>center</code> instead — the engine offsets by half
+            the size automatically.
           </p>
           <pre><code >heerich.applyGeometry({
   type: 'box',
@@ -352,10 +353,13 @@ const { x, y, w, h } = heerich.getBounds()</code></pre>
           <h2>Spheres</h2>
           <p>
             <code>applyGeometry({ type: 'sphere' })</code> plots a rounded
-            volume using an internal distance check. Using fractional offsets
-            like <code>.5</code> for both radius and center (e.g., center:
-            <code>3.5</code>, radius: <code>3.5</code>) tends to produce the
-            cleanest symmetrical forms on integer grids.
+            volume using an internal distance check. You can use
+            <code>position</code> (bounding-box corner) instead of
+            <code>center</code>, and <code>size</code> instead of
+            <code>radius</code>. Fractional offsets like <code>.5</code> for
+            both radius and center (e.g., center: <code>4</code>, radius:
+            <code>4</code>) tend to produce the cleanest symmetrical forms on
+            integer grids.
           </p>
           <pre><code >heerich.applyGeometry({
   type: 'sphere',
@@ -414,10 +418,12 @@ const { x, y, w, h } = heerich.getBounds()</code></pre>
           <h2>Lines</h2>
           <p>
             <code>applyGeometry({ type: 'line' })</code> plots a continuous
-            voxelized path between two spatial coordinates. You can thicken the
-            stroke via <code>radius</code>, and alter its joint geometry via
-            <code>shape</code> — choosing either <code>'rounded'</code> (a
-            sequence of overlapping spheres) or
+            voxelized path between two spatial coordinates. Lines are the only
+            shape that uses <code>from</code>/<code>to</code> instead of the
+            usual <code>position</code>/<code>center</code> + <code>size</code>.
+            You can thicken the stroke via <code>radius</code>, and alter its
+            joint geometry via <code>shape</code> — choosing either
+            <code>'rounded'</code> (a sequence of overlapping spheres) or
             <code>'square'</code> (overlapping cubes).
           </p>
           <pre><code >heerich.applyGeometry({
@@ -456,8 +462,10 @@ const { x, y, w, h } = heerich.getBounds()</code></pre>
             architectural bedrock &mdash; allowing you to define arbitrary
             geometry as an evaluation function over
             <code>(x,&nbsp;y,&nbsp;z)</code>
-            coordinates. Under the hood, boxes, spheres, and lines are merely
-            convenient wrappers around this core method.
+            coordinates. You can specify the area with <code>bounds</code>, or
+            use <code>position</code>/<code>center</code> +
+            <code>size</code> like other shapes. Under the hood, boxes, spheres,
+            and lines are merely convenient wrappers around this core method.
           </p>
           <pre><code >heerich.applyGeometry({
   type: 'fill', bounds: [[0, 0, 0], [s, s, s]],
@@ -586,7 +594,8 @@ heerich.applyGeometry({
 })</code></pre>
           <p>
             <code>removeGeometry()</code> is a shortcut for
-            <code>mode: 'subtract'</code>.
+            <code>mode: 'subtract'</code>. <code>addGeometry()</code> is a
+            shortcut for <code>mode: 'union'</code>.
           </p>
         </div>
       </div>
