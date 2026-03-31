@@ -33,7 +33,11 @@ h.applyGeometry({ type: 'box', position: [0, 0, 0], size: [5, 4, 5], style: {
 }})
 
 // Carve out a door
-h.removeGeometry({ type: 'box', position: [2, 1, 0], size: [1, 3, 1] })
+h.removeGeometry({
+  type: 'box',
+  position: [2, 1, 0],
+  size: [1, 3, 1]
+})
 
 document.body.innerHTML = h.toSVG()
 ```
@@ -75,21 +79,47 @@ All shape methods accept a common set of options:
 ### Box
 
 ```js
-h.applyGeometry({ type: 'box', position: [0, 0, 0], size: [3, 2, 4] })
-h.removeGeometry({ type: 'box', position: [1, 0, 1], size: 1 })
+h.applyGeometry({
+  type: 'box',
+  position: [0, 0, 0],
+  size: [3, 2, 4]
+})
+h.removeGeometry({
+  type: 'box',
+  position: [1, 0, 1],
+  size: 1
+})
 
 // Style the carved walls (optional)
-h.removeGeometry({ type: 'box', position: [0, 0, 0], size: 1, style: { default: { fill: '#222' } } })
+h.removeGeometry({
+  type: 'box',
+  position: [0, 0, 0],
+  size: 1,
+  style: { default: { fill: '#222' } }
+})
 ```
 
 ### Sphere
 
 ```js
-h.applyGeometry({ type: 'sphere', center: [5, 5, 5], radius: 3 })
-h.removeGeometry({ type: 'sphere', center: [5, 5, 5], radius: 1.5 })
+h.applyGeometry({
+  type: 'sphere',
+  center: [5, 5, 5],
+  radius: 3
+})
+h.removeGeometry({
+  type: 'sphere',
+  center: [5, 5, 5],
+  radius: 1.5
+})
 
 // Style the carved walls (optional)
-h.removeGeometry({ type: 'sphere', center: [5, 5, 5], radius: 1, style: { default: { fill: '#222' } } })
+h.removeGeometry({
+  type: 'sphere',
+  center: [5, 5, 5],
+  radius: 1,
+  style: { default: { fill: '#222' } }
+})
 ```
 
 ### Line
@@ -97,15 +127,35 @@ h.removeGeometry({ type: 'sphere', center: [5, 5, 5], radius: 1, style: { defaul
 Draw a line between two points with an optional brush:
 
 ```js
-h.applyGeometry({ type: 'line', from: [0, 0, 0], to: [10, 5, 0] })
+h.applyGeometry({
+  type: 'line',
+  from: [0, 0, 0],
+  to: [10, 5, 0]
+})
 
 // Thick rounded line
-h.applyGeometry({ type: 'line', from: [0, 0, 0], to: [10, 0, 0], radius: 2, shape: 'rounded' })
+h.applyGeometry({
+  type: 'line',
+  from: [0, 0, 0],
+  to: [10, 0, 0],
+  radius: 2,
+  shape: 'rounded'
+})
 
 // Thick square line
-h.applyGeometry({ type: 'line', from: [0, 0, 0], to: [0, 10, 0], radius: 1, shape: 'square' })
+h.applyGeometry({
+  type: 'line',
+  from: [0, 0, 0],
+  to: [0, 10, 0],
+  radius: 1,
+  shape: 'square'
+})
 
-h.removeGeometry({ type: 'line', from: [3, 0, 0], to: [7, 0, 0] })
+h.removeGeometry({
+  type: 'line',
+  from: [3, 0, 0],
+  to: [7, 0, 0]
+})
 ```
 
 ### Custom Shapes
@@ -149,16 +199,35 @@ All shape methods support a `mode` option for CSG-like operations:
 
 ```js
 // Union (default) — add voxels
-h.applyGeometry({ type: 'box', position: [0, 0, 0], size: 5 })
+h.applyGeometry({
+  type: 'box',
+  position: [0, 0, 0],
+  size: 5
+})
 
 // Subtract — carve out voxels
-h.applyGeometry({ type: 'sphere', center: [2, 2, 2], radius: 2, mode: 'subtract' })
+h.applyGeometry({
+  type: 'sphere',
+  center: [2, 2, 2],
+  radius: 2,
+  mode: 'subtract'
+})
 
 // Intersect — keep only the overlap
-h.applyGeometry({ type: 'box', position: [1, 1, 1], size: 3, mode: 'intersect' })
+h.applyGeometry({
+  type: 'box',
+  position: [1, 1, 1],
+  size: 3,
+  mode: 'intersect'
+})
 
 // Exclude — XOR: add where empty, remove where occupied
-h.applyGeometry({ type: 'box', position: [0, 0, 0], size: 5, mode: 'exclude' })
+h.applyGeometry({
+  type: 'box',
+  position: [0, 0, 0],
+  size: 5,
+  mode: 'exclude'
+})
 ```
 
 ### Styling carved faces
@@ -166,7 +235,11 @@ h.applyGeometry({ type: 'box', position: [0, 0, 0], size: 5, mode: 'exclude' })
 When removing voxels, you can pass a `style` to color the newly exposed faces of neighboring voxels — the "walls" of the carved hole:
 
 ```js
-h.applyGeometry({ type: 'box', position: [0, 0, 0], size: 10 })
+h.applyGeometry({
+  type: 'box',
+  position: [0, 0, 0],
+  size: 10
+})
 
 // Carve a hole with dark walls
 h.removeGeometry({
@@ -220,9 +293,25 @@ h.applyGeometry({
 Restyle existing voxels without adding or removing them:
 
 ```js
-h.applyStyle({ type: 'box', position: [0, 0, 0], size: 3, style: { top: { fill: 'red' } } })
-h.applyStyle({ type: 'sphere', center: [5, 5, 5], radius: 2, style: { default: { fill: 'gold' } } })
-h.applyStyle({ type: 'line', from: [0, 0, 0], to: [10, 0, 0], radius: 1, style: { default: { fill: 'blue' } } })
+h.applyStyle({
+  type: 'box',
+  position: [0, 0, 0],
+  size: 3,
+  style: { top: { fill: 'red' } }
+})
+h.applyStyle({
+  type: 'sphere',
+  center: [5, 5, 5],
+  radius: 2,
+  style: { default: { fill: 'gold' } }
+})
+h.applyStyle({
+  type: 'line',
+  from: [0, 0, 0],
+  to: [10, 0, 0],
+  radius: 1,
+  style: { default: { fill: 'blue' } }
+})
 ```
 
 ## Voxel Scaling

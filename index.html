@@ -312,7 +312,11 @@ const { x, y, w, h } = heerich.getBounds()</code></pre>
             anchored by a corner position and dimensions. Every voxel inside it
             inherits the default style.
           </p>
-          <pre><code >heerich.applyGeometry({ type: 'box', position: [0, 0, 0], size: [6, 4, 3] })</code></pre>
+          <pre><code >heerich.applyGeometry({
+  type: 'box',
+  position: [0, 0, 0],
+  size: [6, 4, 3]
+})</code></pre>
           <p>
             Drag the sliders below — the engine clears and rebuilds the scene on
             every frame. Because <code>getFaces()</code> utilizes a dirty-flag
@@ -353,7 +357,11 @@ const { x, y, w, h } = heerich.getBounds()</code></pre>
             <code>3.5</code>) tends to produce the cleanest symmetrical forms on
             integer grids.
           </p>
-          <pre><code >heerich.applyGeometry({ type: 'sphere', center: [4.5, 4.5, 4.5], radius: 4.5 })</code></pre>
+          <pre><code >heerich.applyGeometry({
+  type: 'sphere',
+  center: [4.5, 4.5, 4.5],
+  radius: 4.5
+})</code></pre>
           <p>
             Conversely, <code>removeSphere()</code> carves a hollow void using
             the exact same parameters. Layer a sphere subtraction into a solid
@@ -557,7 +565,11 @@ const center = big.map((b, i) => (b - small[i]) / 2)</code></pre>
             <li><strong>intersect</strong> — keep only the overlap</li>
             <li><strong>exclude</strong> — XOR, toggle each voxel</li>
           </ul>
-          <pre><code >heerich.applyGeometry({ type: 'box', position: [0, 0, 0], size: 6 })
+          <pre><code >heerich.applyGeometry({
+  type: 'box',
+  position: [0, 0, 0],
+  size: 6
+})
 
 // Carve a sphere out of the box
 heerich.applyGeometry({
@@ -617,7 +629,11 @@ heerich.applyGeometry({
             custom origins are seamlessly supported.
           </p>
           <pre><code >// Build one arm, rotate a copy to make an L
-heerich.applyGeometry({ type: 'box', position: [0, 0, 0], size: [2, 8, 2] })
+heerich.applyGeometry({
+  type: 'box',
+  position: [0, 0, 0],
+  size: [2, 8, 2]
+})
 heerich.applyGeometry({
   type: 'box', position: [0, 0, 0], size: [2, 8, 2],
   rotate: { axis: 'z', turns: 1 }
@@ -1021,7 +1037,11 @@ heerich.setCamera({ type: 'perspective', position: [5, 5], distance: 12 })</code
             anchored cleanly over solid geometry.
           </p>
           <pre><code >// Wireframe cage over a solid core
-heerich.applyGeometry({ type: 'box', position: [1, 1, 1], size: 3 })
+heerich.applyGeometry({
+  type: 'box',
+  position: [1, 1, 1],
+  size: 3
+})
 heerich.applyGeometry({
   type: 'box', position: [0, 0, 0], size: 5,
   opaque: false,
