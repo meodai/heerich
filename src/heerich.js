@@ -954,6 +954,9 @@ export class Heerich {
             z + 0.5,
           );
 
+        // In oblique projection depth increases with z, so the camera
+        // always looks from -z.  "front" (normal -z) always faces the
+        // camera; "back" (normal +z) always faces away → cull it.
         if (sc || !hasVoxel(x, y, z - 1))
           addObliqueFace(
             "front",
@@ -966,19 +969,6 @@ export class Heerich {
             x + 0.5,
             y + 0.5,
             z,
-          );
-        if (sc || !hasVoxel(x, y, z + 1))
-          addObliqueFace(
-            "back",
-            [
-              [x + 1, y, z + 1],
-              [x + 1, y + 1, z + 1],
-              [x, y + 1, z + 1],
-              [x, y, z + 1],
-            ],
-            x + 0.5,
-            y + 0.5,
-            z + 1,
           );
       } else {
         // Perspective Mode uses robust 3D math and backface culling
@@ -1500,14 +1490,263 @@ export class Heerich {
    * @param {string} [options.prepend] - Raw SVG to insert before faces
    * @param {string} [options.append] - Raw SVG to insert after faces
    * @param {function(Face): Object|null} [options.faceAttributes] - Per-face attribute callback
+   * @param {boolean} [options.occlusion=false] - Remove faces fully hidden behind others
    * @returns {string} SVG markup
    */
   toSVG(options = {}) {
     if (!this._svgRenderer) this._svgRenderer = new SVGRenderer();
-    const faces = options.faces || this.getFaces();
+    let faces = options.faces || this.getFaces();
+    if (options.occlusion) {
+      faces = this.filterOccluded(faces);
+    }
     return this._svgRenderer.render(faces, {
       ...options,
       tileW: this.renderOptions.tileW,
     });
+  }
+
+  /**
+   * Filter out faces fully hidden behind closer opaque faces.
+   * Works in 2D projected space: a face is occluded when every sample
+   * point on its projected polygon falls inside some closer opaque
+   * face's projected polygon. No grids, no rays — direct polygon
+   * containment on the coordinates we already have.
+   * @param {Face[]} faces - Depth-sorted faces (back-to-front) from getFaces()
+   * @returns {Face[]}
+   */
+  filterOccluded(faces) {
+    if (faces.length === 0) return faces;
+
+    // Point-in-convex-polygon: true if (px,py) is inside the polygon
+    // defined by flat coordinate array d = [x0,y0, x1,y1, ...] with n vertices.
+    const inPoly = (px, py, d, n) => {
+      let pos = 0,
+        neg = 0;
+      for (let i = 0; i < n; i++) {
+        const j = (i + 1) % n;
+        const i2 = i * 2,
+          j2 = j * 2;
+        const cross =
+          (d[j2] - d[i2]) * (py - d[i2 + 1]) -
+          (d[j2 + 1] - d[i2 + 1]) * (px - d[i2]);
+        if (cross > 0) pos++;
+        else if (cross < 0) neg++;
+        if (pos && neg) return false;
+      }
+      return true;
+    };
+
+    // Spatial grid for fast "which covering faces are near this point?" lookup.
+    // Without this, checking every point against every covering face is O(N^2).
+    const CELL = 40; // grid cell size in SVG units
+    let sMinX = Infinity,
+      sMinY = Infinity,
+      sMaxX = -Infinity,
+      sMaxY = -Infinity;
+    for (let i = 0; i < faces.length; i++) {
+      const d = faces[i].points.data;
+      for (let k = 0; k < d.length; k += 2) {
+        if (d[k] < sMinX) sMinX = d[k];
+        if (d[k] > sMaxX) sMaxX = d[k];
+        if (d[k + 1] < sMinY) sMinY = d[k + 1];
+        if (d[k + 1] > sMaxY) sMaxY = d[k + 1];
+      }
+    }
+    const sgw = Math.ceil((sMaxX - sMinX) / CELL) + 1;
+    const sgh = Math.ceil((sMaxY - sMinY) / CELL) + 1;
+    const spatialGrid = new Array(sgw * sgh);
+    for (let k = 0; k < spatialGrid.length; k++) spatialGrid[k] = [];
+
+    // Insert a covering face into the spatial grid (all cells its bbox touches)
+    const insertCovering = (fi) => {
+      const d = faces[fi].points.data;
+      let fx0 = Infinity,
+        fy0 = Infinity,
+        fx1 = -Infinity,
+        fy1 = -Infinity;
+      for (let k = 0; k < d.length; k += 2) {
+        if (d[k] < fx0) fx0 = d[k];
+        if (d[k] > fx1) fx1 = d[k];
+        if (d[k + 1] < fy0) fy0 = d[k + 1];
+        if (d[k + 1] > fy1) fy1 = d[k + 1];
+      }
+      const gx0 = Math.max(0, Math.floor((fx0 - sMinX) / CELL));
+      const gy0 = Math.max(0, Math.floor((fy0 - sMinY) / CELL));
+      const gx1 = Math.min(sgw - 1, Math.floor((fx1 - sMinX) / CELL));
+      const gy1 = Math.min(sgh - 1, Math.floor((fy1 - sMinY) / CELL));
+      for (let gy = gy0; gy <= gy1; gy++) {
+        for (let gx = gx0; gx <= gx1; gx++) {
+          spatialGrid[gy * sgw + gx].push(fi);
+        }
+      }
+    };
+
+    // Check if a point is inside any covering face near it
+    const pointIsCovered = (px, py) => {
+      const gx = Math.floor((px - sMinX) / CELL);
+      const gy = Math.floor((py - sMinY) / CELL);
+      if (gx < 0 || gy < 0 || gx >= sgw || gy >= sgh) return false;
+      const bucket = spatialGrid[gy * sgw + gx];
+      for (let bi = 0; bi < bucket.length; bi++) {
+        const cf = faces[bucket[bi]];
+        const cd = cf.points.data;
+        if (inPoly(px, py, cd, cd.length >> 1)) return true;
+      }
+      return false;
+    };
+
+    // Cyrus-Beck line clip: find the t-interval [tMin,tMax] (within [0,1])
+    // where segment (ax,ay)→(bx,by) is inside convex polygon d (n verts).
+    // Returns null if no intersection.
+    const edgeClip = (ax, ay, bx, by, d, n) => {
+      const dx = bx - ax,
+        dy = by - ay;
+      let tMin = 0,
+        tMax = 1;
+
+      // Polygon center for orienting inward normals
+      let cx = 0,
+        cy = 0;
+      for (let k = 0; k < n; k++) {
+        cx += d[k * 2];
+        cy += d[k * 2 + 1];
+      }
+      cx /= n;
+      cy /= n;
+
+      for (let k = 0; k < n; k++) {
+        const j = (k + 1) % n;
+        const ex = d[j * 2] - d[k * 2],
+          ey = d[j * 2 + 1] - d[k * 2 + 1];
+        // Inward-pointing normal (toward polygon center)
+        let nx = -ey,
+          ny = ex;
+        if (nx * (cx - d[k * 2]) + ny * (cy - d[k * 2 + 1]) < 0) {
+          nx = -nx;
+          ny = -ny;
+        }
+
+        const denom = nx * dx + ny * dy;
+        const num = nx * (ax - d[k * 2]) + ny * (ay - d[k * 2 + 1]);
+
+        if (Math.abs(denom) < 1e-10) {
+          if (num < -1e-10) return null; // outside and parallel
+          continue;
+        }
+
+        const t = -num / denom;
+        if (denom > 0) {
+          if (t > tMin) tMin = t;
+        } else {
+          if (t < tMax) tMax = t;
+        }
+        if (tMin > tMax + 1e-10) return null;
+      }
+
+      tMin = Math.max(0, tMin);
+      tMax = Math.min(1, tMax);
+      return tMin <= tMax + 1e-10 ? [tMin, tMax] : null;
+    };
+
+    // Check if a line segment is fully covered by covering faces near it
+    const segmentFullyCovered = (ax, ay, bx, by) => {
+      // Collect covered t-intervals from all covering faces whose spatial
+      // cells overlap the segment's bounding box
+      const sx0 = Math.min(ax, bx),
+        sy0 = Math.min(ay, by);
+      const sx1 = Math.max(ax, bx),
+        sy1 = Math.max(ay, by);
+      const gx0 = Math.max(0, Math.floor((sx0 - sMinX) / CELL) - 1);
+      const gy0 = Math.max(0, Math.floor((sy0 - sMinY) / CELL) - 1);
+      const gx1 = Math.min(sgw - 1, Math.floor((sx1 - sMinX) / CELL) + 1);
+      const gy1 = Math.min(sgh - 1, Math.floor((sy1 - sMinY) / CELL) + 1);
+
+      const intervals = [];
+      const seen = new Set(); // avoid testing the same covering face twice
+      for (let cgy = gy0; cgy <= gy1; cgy++) {
+        for (let cgx = gx0; cgx <= gx1; cgx++) {
+          const bucket = spatialGrid[cgy * sgw + cgx];
+          for (let bi = 0; bi < bucket.length; bi++) {
+            const fi = bucket[bi];
+            if (seen.has(fi)) continue;
+            seen.add(fi);
+            const cd = faces[fi].points.data;
+            const clip = edgeClip(ax, ay, bx, by, cd, cd.length >> 1);
+            if (clip) intervals.push(clip);
+          }
+        }
+      }
+
+      if (intervals.length === 0) return false;
+
+      // Sort by start, merge, check full [0,1] coverage
+      intervals.sort((a, b) => a[0] - b[0]);
+      let covered = 0;
+      for (let k = 0; k < intervals.length; k++) {
+        if (intervals[k][0] > covered + 1e-6) return false; // gap
+        if (intervals[k][1] > covered) covered = intervals[k][1];
+        if (covered >= 1 - 1e-6) return true;
+      }
+      return covered >= 1 - 1e-6;
+    };
+
+    // Process front-to-back (faces array is back-to-front, so reverse)
+    const occluded = new Uint8Array(faces.length);
+
+    for (let i = faces.length - 1; i >= 0; i--) {
+      const f = faces[i];
+      if (f.type === "content" || f.voxel.scale) continue;
+
+      const d = f.points.data;
+      if (d.length < 8) continue;
+
+      // Quick reject: center point not covered → face is visible
+      const cx = (d[0] + d[2] + d[4] + d[6]) / 4;
+      const cy = (d[1] + d[3] + d[5] + d[7]) / 4;
+      if (!pointIsCovered(cx, cy)) {
+        if (f.voxel.opaque !== false) insertCovering(i);
+        continue;
+      }
+
+      // Exact edge coverage: check all 4 edges of the quad
+      let allEdgesCovered = true;
+      const n = d.length >> 1;
+      for (let k = 0; k < n && allEdgesCovered; k++) {
+        const j = (k + 1) % n;
+        if (
+          !segmentFullyCovered(d[k * 2], d[k * 2 + 1], d[j * 2], d[j * 2 + 1])
+        )
+          allEdgesCovered = false;
+      }
+
+      // Edge coverage alone doesn't guarantee interior coverage,
+      // so also check a few interior points (diagonals + center)
+      if (allEdgesCovered) {
+        // Check two diagonal midpoints
+        const d1x = (d[0] + d[4]) / 2,
+          d1y = (d[1] + d[5]) / 2;
+        const d2x = (d[2] + d[6]) / 2,
+          d2y = (d[3] + d[7]) / 2;
+        if (!pointIsCovered(d1x, d1y) || !pointIsCovered(d2x, d2y)) {
+          allEdgesCovered = false;
+        }
+      }
+
+      if (allEdgesCovered) {
+        occluded[i] = 1;
+      }
+
+      // Only faces that survive (not occluded) can cover things behind them.
+      // If we remove a face, it can't hide what's behind it in the final SVG.
+      if (!occluded[i] && f.voxel.opaque !== false) {
+        insertCovering(i);
+      }
+    }
+
+    const result = [];
+    for (let i = 0; i < faces.length; i++) {
+      if (!occluded[i]) result.push(faces[i]);
+    }
+    return result;
   }
 }

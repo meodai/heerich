@@ -83,6 +83,7 @@ const camStrokeColor = document.getElementById("cam-stroke-color");
 const camFill = document.getElementById("cam-fill");
 const camOutline = document.getElementById("cam-outline");
 const camOutlineColor = document.getElementById("cam-outline-color");
+const camOcclusion = document.getElementById("cam-occlusion");
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -300,17 +301,20 @@ const baseStyle = {
 };
 function getSvgOpts() {
   const r = parseFloat(camOutline.value);
+  const occlusion = camOcclusion.checked;
   if (r > 0) {
     return {
       padding: 30 + r * 2,
       prepend: `<defs><filter id="cel"><feMorphology in="SourceAlpha" operator="dilate" radius="${r}" result="thick"/><feFlood flood-color="${camOutlineColor.value}"/><feComposite in2="thick" operator="in" result="border"/><feMerge><feMergeNode in="border"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><g filter="url(#cel)">`,
       append: `</g>`,
       faceAttributes: () => ({ "vector-effect": "non-scaling-stroke" }),
+      occlusion,
     };
   }
   return {
     padding: 30,
     faceAttributes: () => ({ "vector-effect": "non-scaling-stroke" }),
+    occlusion,
   };
 }
 
@@ -347,6 +351,7 @@ camOutline.addEventListener("input", () => {
   debouncedRerenderAll();
 });
 camOutlineColor.addEventListener("input", () => debouncedRerenderAll());
+camOcclusion.addEventListener("change", () => rerenderAll());
 syncStyleVars();
 
 function setupDemo(id, buildFn) {
