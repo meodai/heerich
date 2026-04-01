@@ -305,13 +305,13 @@ a {
 
 /* ─── Demo controls ─── */
 .demo-controls {
-  border-top: 1px solid var(--line);
   padding: 2rem 0;
   display: flex;
   flex-wrap: wrap;
   flex-direction: row-reverse;
   gap: 2rem;
   font-size: 0.8rem;
+  justify-content: center;
 }
 
 /* ─── Custom range slider ─── */
@@ -701,8 +701,7 @@ button:hover {
 
 .settings-panel .control-label {
   align-items: end;
-  padding: 0.45rem 0.8rem;
-  border-top: 1px solid var(--line);
+  padding: 0.75rem 0.8rem;
 }
 
 .settings-panel .control-label span:first-child {
