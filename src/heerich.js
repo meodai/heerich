@@ -954,6 +954,9 @@ export class Heerich {
             z + 0.5,
           );
 
+        // Oblique depth always increases with z so the camera looks from
+        // –z.  "front" (normal –z) faces the camera; "back" (normal +z)
+        // always faces away — never visible, skip it.
         if (sc || !hasVoxel(x, y, z - 1))
           addObliqueFace(
             "front",
@@ -966,19 +969,6 @@ export class Heerich {
             x + 0.5,
             y + 0.5,
             z,
-          );
-        if (sc || !hasVoxel(x, y, z + 1))
-          addObliqueFace(
-            "back",
-            [
-              [x + 1, y, z + 1],
-              [x + 1, y + 1, z + 1],
-              [x, y + 1, z + 1],
-              [x, y, z + 1],
-            ],
-            x + 0.5,
-            y + 0.5,
-            z + 1,
           );
       } else {
         // Perspective Mode uses robust 3D math and backface culling
