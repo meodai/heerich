@@ -305,13 +305,30 @@ a {
 
 /* ─── Demo controls ─── */
 .demo-controls {
-  padding: 2rem 0;
   display: flex;
   flex-wrap: wrap;
-  flex-direction: row-reverse;
-  gap: 2rem;
   font-size: 0.8rem;
   justify-content: center;
+  margin: 0 3vw;
+  gap: 1.5rem;
+  &:has(.control-label:only-child) {
+    margin: 0 7vw;
+  }
+}
+
+.demo-controls .control-label {
+  padding: 1rem 0;
+  flex: 1 1 calc(50% - 1.5rem);
+  box-sizing: border-box;
+  &:has(button, input[type="color"]) {
+    flex: 1 1 20%;
+  }
+  &:only-child {
+    flex: 1 1 100%;
+  }
+  .range-wrap {
+    flex: 1;
+  }
 }
 
 /* ─── Custom range slider ─── */
