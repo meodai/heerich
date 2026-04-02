@@ -617,7 +617,7 @@ button:hover {
   max-width: 35ch;
 }
 
-.settings-fields:has(#cam-bsp-culling:checked) .control-hint {
+.settings-fields:has(#occlusion-toggle:checked) .control-hint {
   display: block;
 }
 

@@ -1480,6 +1480,7 @@ export class Heerich {
    * @param {string} [options.append] - Raw SVG to insert after faces
    * @param {function(Face): Object|null} [options.faceAttributes] - Per-face attribute callback
    * @param {boolean} [options.occlusion=false] - Enable built-in occlusion culling
+   * @param {function(number[][], number[][][]): string|null} [options.resolveOcclusion] - Custom occlusion resolver (overrides built-in). Providing this implicitly enables occlusion.
    * @returns {string} SVG markup
    */
   toSVG(options = {}) {

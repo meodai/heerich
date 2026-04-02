@@ -71,7 +71,7 @@ window.addEventListener(
 const camProj = document.getElementById("cam-proj");
 const camAngle = document.getElementById("cam-angle");
 const camDist = document.getElementById("cam-dist");
-const camBspCulling = document.getElementById("cam-bsp-culling");
+const occlusionToggle = document.getElementById("occlusion-toggle");
 const camY = document.getElementById("cam-y");
 const camAngleLabel = document.getElementById("cam-angle-label");
 const camYLabel = document.getElementById("cam-y-label");
@@ -162,16 +162,14 @@ function getCamera() {
   const proj = camProj.value;
   const angle = parseFloat(camAngle.value);
   const dist = parseFloat(camDist.value);
-  const culling = camBspCulling.checked;
   if (proj === "oblique") {
-    return { type: "oblique", angle, distance: dist, culling };
+    return { type: "oblique", angle, distance: dist };
   }
   const camX = 5 + ((angle - 180) / 180) * 12;
   return {
     type: "perspective",
     position: [camX, parseFloat(camY.value)],
     distance: dist / 2,
-    culling,
   };
 }
 
@@ -233,7 +231,7 @@ function syncControlVisibility() {
 }
 syncControlVisibility();
 
-[camProj, camAngle, camY, camDist, camBspCulling].forEach((el) => {
+[camProj, camAngle, camY, camDist, occlusionToggle].forEach((el) => {
   const evt =
     el.tagName === "SELECT" || el.type === "checkbox" ? "change" : "input";
   el.addEventListener(evt, () => {
@@ -341,7 +339,7 @@ function getSvgOpts() {
     faceAttributes: () => ({ "vector-effect": "non-scaling-stroke" }),
   };
 
-  if (camBspCulling.checked) {
+  if (occlusionToggle.checked) {
     opts.resolveOcclusion = myResolveOcclusion;
   }
 
