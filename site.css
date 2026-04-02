@@ -609,6 +609,18 @@ button:hover {
   flex-direction: column;
 }
 
+.control-hint {
+  margin: 0;
+  padding: 0 0.8rem 0.5rem;
+  font-size: 0.7rem;
+  display: none;
+  max-width: 35ch;
+}
+
+.settings-fields:has(#occlusion-toggle:checked) .control-hint {
+  display: block;
+}
+
 .settings-panel .settings-grid-panel {
   padding: 0.7rem 0.8rem 0.8rem;
   border-top: 1px solid var(--line);
@@ -729,6 +741,36 @@ button:hover {
   flex: 1;
   min-width: 7rem;
   transform: translateY(-1ex);
+}
+
+.control-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 0.8rem;
+  height: 0.8rem;
+  border: 1px solid currentColor;
+  cursor: pointer;
+  align-self: center;
+
+  input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  &::after {
+    content: "";
+    display: block;
+    width: 0.5rem;
+    height: 0.5rem;
+    background: transparent;
+    transition: background 0.1s;
+  }
+
+  &:has(input:checked)::after {
+    background: currentColor;
+  }
 }
 
 input[type="color"] {

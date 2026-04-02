@@ -405,6 +405,41 @@ Options:
 | `prepend` | string | Raw SVG inserted before faces |
 | `append` | string | Raw SVG inserted after faces |
 | `faceAttributes` | function | Per-face attribute callback |
+| `occlusion` | boolean | Enable built-in occlusion culling (no external dependency) |
+| `resolveOcclusion` | function | Custom occlusion resolver (overrides built-in). Providing this implicitly enables occlusion. Input `(subjectCoords, overlappingCoords[])`, return `pathString` or `null` |
+
+#### Occlusion Culling for Pen Plotters
+By default, the engine relies on the browser's Paint Algorithm (back-to-front rendering). For zero overlapping vectors (perfect for plotters), enable built-in occlusion culling:
+
+```javascript
+const svg = h.toSVG({ occlusion: true });
+```
+
+The built-in clipper assumes convex occluders, which works well for oblique projection but may produce minor artifacts with perspective (where projected quads can become non-convex). For exact clipping, drop in [polygon-clipping](https://github.com/mfogel/polygon-clipping):
+
+```html
+<script src="https://unpkg.com/polygon-clipping@0.15.3/dist/polygon-clipping.umd.js"></script>
+```
+
+```javascript
+const svg = h.toSVG({
+  resolveOcclusion: (subject, occluders) => {
+    try {
+      const result = polygonClipping.difference([subject], ...occluders.map(o => [o]));
+      if (!result || result.length === 0) return null; // Fully occluded
+
+      let d = "";
+      for (const polygon of result) {
+        for (const ring of polygon) {
+          ring.forEach((pt, i) => { d += (i === 0 ? `M ${pt[0]} ${pt[1]} ` : `L ${pt[0]} ${pt[1]} `); });
+          d += "Z ";
+        }
+      }
+      return d.trim();
+    } catch { return null; }
+  }
+});
+```
 
 Use `prepend` and `append` to inject SVG filters for effects like cel-shaded outlines:
 

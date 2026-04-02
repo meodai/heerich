@@ -1,6 +1,7 @@
 import { SVGRenderer, computeBounds } from "./svg-renderer.js";
 import { Points } from "./points.js";
 import { boxCoords, sphereCoords, lineCoords, fillCoords } from "./shapes.js";
+
 export { boxCoords, sphereCoords, lineCoords, fillCoords };
 
 /**
@@ -1227,19 +1228,7 @@ export class Heerich {
                   y + 0.5,
                   z,
                 );
-              if (!test(x, y, z + 1))
-                addFace(
-                  "back",
-                  [
-                    [x + 1, y, z + 1],
-                    [x + 1, y + 1, z + 1],
-                    [x, y + 1, z + 1],
-                    [x, y, z + 1],
-                  ],
-                  x + 0.5,
-                  y + 0.5,
-                  z + 1,
-                );
+              // In Oblique projection, the 'back' face is always completely hidden
             } else {
               const addFace = (type, vertices, n, c) => {
                 faces3D.push({
@@ -1490,6 +1479,8 @@ export class Heerich {
    * @param {string} [options.prepend] - Raw SVG to insert before faces
    * @param {string} [options.append] - Raw SVG to insert after faces
    * @param {function(Face): Object|null} [options.faceAttributes] - Per-face attribute callback
+   * @param {boolean} [options.occlusion=false] - Enable built-in occlusion culling
+   * @param {function(number[][], number[][][]): string|null} [options.resolveOcclusion] - Custom occlusion resolver (overrides built-in). Providing this implicitly enables occlusion.
    * @returns {string} SVG markup
    */
   toSVG(options = {}) {

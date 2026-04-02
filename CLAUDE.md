@@ -37,6 +37,12 @@ The entire library is a single file: `src/heerich.js`, exporting the `Heerich` c
 2. `_projectAndSort()` — projects 3D faces to 2D points, depth-sorts back-to-front
 3. `toSVG()` — converts projected faces to SVG polygon elements with data attributes
 
+### Occlusion culling (optional)
+- `OccluderIndex` (`src/bsp.js`) — grid-based spatial index for 2D polygon occlusion
+- Built-in clipper assumes convex occluders (good for oblique, approximate for perspective); `resolveOcclusion` callback provides exact clipping
+- Enabled in `toSVG()` via `occlusion: true` (built-in) or by providing a `resolveOcclusion` function
+- `SVGRenderer` (`src/svg-renderer.js`) processes faces front-to-back, clips against inserted occluders
+
 ### Stateless rendering
 - `renderTest()` — renders from a test function without storing voxels (zero Map allocations). Useful for procedural/infinite scenes.
 

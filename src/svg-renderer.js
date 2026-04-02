@@ -1,3 +1,5 @@
+import { OccluderIndex } from "./bsp.js";
+
 const _kebabCache = {};
 const _styleCache = new WeakMap();
 
@@ -15,13 +17,90 @@ export class SVGRenderer {
    * @param {[number,number]} [options.offset=[0,0]] - Translate all geometry
    * @param {string} [options.prepend] - Raw SVG to insert before faces
    * @param {string} [options.append] - Raw SVG to insert after faces
+   * @param {boolean} [options.occlusion=false] - Enable built-in occlusion culling (no external dependency needed)
+   * @param {function(number[][], number[][][]): string|null} [options.resolveOcclusion] - Custom occlusion resolver (overrides built-in). Providing this implicitly enables occlusion.
    * @param {function(import('../heerich.js').Face): Object|null} [options.faceAttributes] - Per-face attribute callback
    * @param {number} [options.tileW] - Voxel tile pixel width (for content face transforms)
    * @returns {string} SVG markup
    */
   render(faces, options = {}) {
     const pad = options.padding || 20;
-    const bounds = computeBounds(faces);
+
+    let renderFaces = faces;
+    const useOcclusion = options.occlusion || options.resolveOcclusion;
+    if (useOcclusion) {
+      renderFaces = [];
+      const frontToBack = [...faces].reverse();
+      const bsp = new OccluderIndex();
+
+      for (const face of frontToBack) {
+        if (!face.points) continue;
+
+        const pts = face.points.data;
+        const len = face.points.length;
+        const poly = [];
+        let minX = Infinity,
+          minY = Infinity,
+          maxX = -Infinity,
+          maxY = -Infinity;
+
+        for (let i = 0; i < len; i++) {
+          const x = pts[i * 2],
+            y = pts[i * 2 + 1];
+          poly.push([x, y]);
+          if (x < minX) minX = x;
+          if (y < minY) minY = y;
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
+        }
+
+        const overlapping = bsp.getOverlapping(minX, minY, maxX, maxY);
+
+        let isVisible = true;
+        let pathD = null;
+
+        if (overlapping.length > 0) {
+          if (options.resolveOcclusion) {
+            // User-provided clipping (e.g. polygon-clipping library)
+            pathD = options.resolveOcclusion(poly, overlapping);
+          } else {
+            // Built-in convex polygon subtraction
+            const fragments = bsp.clip(poly);
+            if (fragments.length === 0) {
+              pathD = null; // Fully occluded
+            } else {
+              // Convert fragments to SVG path data
+              let d = "";
+              for (const frag of fragments) {
+                for (let i = 0; i < frag.length; i++) {
+                  d +=
+                    i === 0
+                      ? `M${frag[i][0]} ${frag[i][1]}`
+                      : `L${frag[i][0]} ${frag[i][1]}`;
+                }
+                d += "Z";
+              }
+              pathD = d;
+            }
+          }
+          if (!pathD) {
+            isVisible = false;
+          }
+        }
+
+        if (isVisible) {
+          bsp.insert(poly, minX, minY, maxX, maxY);
+          if (pathD && typeof pathD === "string") {
+            renderFaces.push({ ...face, _pathD: pathD });
+          } else {
+            renderFaces.push(face);
+          }
+        }
+      }
+      renderFaces.reverse();
+    }
+
+    const bounds = computeBounds(renderFaces);
 
     const vbX = options.viewBox ? options.viewBox[0] : bounds.x - pad;
     const vbY = options.viewBox ? options.viewBox[1] : bounds.y - pad;
@@ -38,8 +117,8 @@ export class SVGRenderer {
     if (options.prepend) parts.push(options.prepend);
     parts.push(`<g transform="translate(${offset[0]}, ${offset[1]})">`);
 
-    for (let fi = 0; fi < faces.length; fi++) {
-      const face = faces[fi];
+    for (let fi = 0; fi < renderFaces.length; fi++) {
+      const face = renderFaces[fi];
 
       if (face.type === "content") {
         parts.push(
@@ -90,9 +169,15 @@ export class SVGRenderer {
         }
       }
 
-      parts.push(
-        `<polygon points="${d[0]},${d[1]} ${d[2]},${d[3]} ${d[4]},${d[5]} ${d[6]},${d[7]}"${_buildSvgAttributes(style)} data-voxel="${v.x},${v.y},${v.z}" data-x="${v.x}" data-y="${v.y}" data-z="${v.z}" data-face="${face.type}"${metaAttrs}${extraAttrs} />`,
-      );
+      if (face._pathD) {
+        parts.push(
+          `<path d="${face._pathD}"${_buildSvgAttributes(style)} data-voxel="${v.x},${v.y},${v.z}" data-x="${v.x}" data-y="${v.y}" data-z="${v.z}" data-face="${face.type}"${metaAttrs}${extraAttrs} />`,
+        );
+      } else {
+        parts.push(
+          `<polygon points="${d[0]},${d[1]} ${d[2]},${d[3]} ${d[4]},${d[5]} ${d[6]},${d[7]}"${_buildSvgAttributes(style)} data-voxel="${v.x},${v.y},${v.z}" data-x="${v.x}" data-y="${v.y}" data-z="${v.z}" data-face="${face.type}"${metaAttrs}${extraAttrs} />`,
+        );
+      }
     }
 
     parts.push("</g>");
