@@ -4,8 +4,26 @@
 const EPSILON = 1e-4;
 
 export class OccluderIndex {
-  constructor() {
+  constructor(cellSize = 50) {
     this.nodes = []; // Convex polygons representing front-most faces
+    this.cellSize = cellSize;
+    this.grid = new Map(); // Map<number, number[]> — cell key → node indices
+  }
+
+  /** Returns grid cell keys that overlap the given AABB. */
+  _cellKeys(minX, minY, maxX, maxY) {
+    const cs = this.cellSize;
+    const x0 = Math.floor(minX / cs);
+    const y0 = Math.floor(minY / cs);
+    const x1 = Math.floor(maxX / cs);
+    const y1 = Math.floor(maxY / cs);
+    const keys = [];
+    for (let gx = x0; gx <= x1; gx++) {
+      for (let gy = y0; gy <= y1; gy++) {
+        keys.push((gx << 16) ^ gy);
+      }
+    }
+    return keys;
   }
 
   /**
@@ -14,18 +32,28 @@ export class OccluderIndex {
    */
   getOverlapping(minX, minY, maxX, maxY) {
     const overlapping = [];
-    for (let i = 0; i < this.nodes.length; i++) {
-      const occ = this.nodes[i];
-      // AABB overlap test
-      if (
-        !(
-          maxX < occ.bounds.minX ||
-          minX > occ.bounds.maxX ||
-          maxY < occ.bounds.minY ||
-          minY > occ.bounds.maxY
-        )
-      ) {
-        overlapping.push(occ.poly);
+    const seen = new Set();
+    const cellKeys = this._cellKeys(minX, minY, maxX, maxY);
+
+    for (let ci = 0; ci < cellKeys.length; ci++) {
+      const bucket = this.grid.get(cellKeys[ci]);
+      if (!bucket) continue;
+      for (let bi = 0; bi < bucket.length; bi++) {
+        const idx = bucket[bi];
+        if (seen.has(idx)) continue;
+        seen.add(idx);
+        const occ = this.nodes[idx];
+        // Exact AABB overlap test (narrow phase after grid broad phase)
+        if (
+          !(
+            maxX < occ.bounds.minX ||
+            minX > occ.bounds.maxX ||
+            maxY < occ.bounds.minY ||
+            minY > occ.bounds.maxY
+          )
+        ) {
+          overlapping.push(occ.poly);
+        }
       }
     }
     return overlapping;
@@ -110,6 +138,18 @@ export class OccluderIndex {
     }
 
     this.nodes.push({ poly: orientedPoly, bounds: { minX, minY, maxX, maxY } });
+
+    const idx = this.nodes.length - 1;
+    const cellKeys = this._cellKeys(minX, minY, maxX, maxY);
+    for (let i = 0; i < cellKeys.length; i++) {
+      const k = cellKeys[i];
+      let bucket = this.grid.get(k);
+      if (!bucket) {
+        bucket = [];
+        this.grid.set(k, bucket);
+      }
+      bucket.push(idx);
+    }
   }
 
   /**
