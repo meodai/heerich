@@ -69,6 +69,7 @@ window.addEventListener(
 const camProj = document.getElementById("cam-proj");
 const camAngle = document.getElementById("cam-angle");
 const camDist = document.getElementById("cam-dist");
+const camBspCulling = document.getElementById("cam-bsp-culling");
 const camY = document.getElementById("cam-y");
 const camAngleLabel = document.getElementById("cam-angle-label");
 const camYLabel = document.getElementById("cam-y-label");
@@ -159,14 +160,16 @@ function getCamera() {
   const proj = camProj.value;
   const angle = parseFloat(camAngle.value);
   const dist = parseFloat(camDist.value);
+  const culling = camBspCulling.checked;
   if (proj === "oblique") {
-    return { type: "oblique", angle, distance: dist };
+    return { type: "oblique", angle, distance: dist, culling };
   }
   const camX = 5 + ((angle - 180) / 180) * 12;
   return {
     type: "perspective",
     position: [camX, parseFloat(camY.value)],
     distance: dist / 2,
+    culling,
   };
 }
 
@@ -228,11 +231,12 @@ function syncControlVisibility() {
 }
 syncControlVisibility();
 
-[camProj, camAngle, camY, camDist].forEach((el) => {
-  const evt = el.tagName === "SELECT" ? "change" : "input";
+[camProj, camAngle, camY, camDist, camBspCulling].forEach((el) => {
+  const evt =
+    el.tagName === "SELECT" || el.type === "checkbox" ? "change" : "input";
   el.addEventListener(evt, () => {
     const span = el.parentElement.querySelector(".control-value");
-    if (span) span.textContent = el.value;
+    if (span && el.type !== "checkbox") span.textContent = el.value;
     if (el === camProj) syncControlVisibility();
     if (el === camAngle || el === camY) updatePerspectiveGrid();
     rerenderAll();
