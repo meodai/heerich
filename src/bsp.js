@@ -15,11 +15,37 @@ export class BSPTree {
   clip(poly) {
     let result = [poly];
 
-    for (const occluder of this.nodes) {
+    for (const occluderObj of this.nodes) {
       if (result.length === 0) return [];
       const nextResult = [];
+      const occluder = occluderObj.poly;
+      const ob = occluderObj.bounds;
 
       for (const p of result) {
+        // Broad phase: AABB check
+        let pMinX = Infinity,
+          pMinY = Infinity,
+          pMaxX = -Infinity,
+          pMaxY = -Infinity;
+        for (let i = 0; i < p.length; i++) {
+          const pt = p[i];
+          if (pt[0] < pMinX) pMinX = pt[0];
+          if (pt[1] < pMinY) pMinY = pt[1];
+          if (pt[0] > pMaxX) pMaxX = pt[0];
+          if (pt[1] > pMaxY) pMaxY = pt[1];
+        }
+
+        if (
+          pMaxX < ob.minX ||
+          pMinX > ob.maxX ||
+          pMaxY < ob.minY ||
+          pMinY > ob.maxY
+        ) {
+          // No AABB overlap, skip expensive narrow-phase polygon clipping
+          nextResult.push(p);
+          continue;
+        }
+
         const clipped = this.subtractConvex(p, occluder);
         nextResult.push(...clipped);
       }
@@ -43,7 +69,21 @@ export class BSPTree {
       // Area is positive (CCW), reverse points to make it CW
       orientedPoly = [...poly].reverse();
     }
-    this.nodes.push(orientedPoly);
+
+    // Pre-calculate AABB for broad-phase occlusion tests
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
+    for (let i = 0; i < orientedPoly.length; i++) {
+      const pt = orientedPoly[i];
+      if (pt[0] < minX) minX = pt[0];
+      if (pt[1] < minY) minY = pt[1];
+      if (pt[0] > maxX) maxX = pt[0];
+      if (pt[1] > maxY) maxY = pt[1];
+    }
+
+    this.nodes.push({ poly: orientedPoly, bounds: { minX, minY, maxX, maxY } });
   }
 
   /**
