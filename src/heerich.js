@@ -163,9 +163,6 @@ export class Heerich {
    * @param {CameraOptions} [opts]
    */
   setCamera(opts = {}) {
-    if (opts.culling !== undefined) {
-      this.renderOptions.culling = opts.culling;
-    }
     const type = opts.type || this.renderOptions.projection;
     this.renderOptions.projection = type;
 
