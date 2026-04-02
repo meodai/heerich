@@ -2,6 +2,8 @@ import { Heerich } from "./src/heerich.js";
 import { version } from "./package.json";
 import { initHero } from "./hero.js";
 import { highlight } from "https://esm.sh/sugar-high";
+import polygonClipping from "https://esm.sh/polygon-clipping";
+
 document.querySelectorAll("pre code").forEach((el) => {
   el.innerHTML = highlight(el.textContent);
 });
@@ -302,20 +304,53 @@ const baseStyle = {
   stroke: "var(--stroke-c)",
   strokeWidth: "var(--stroke-w)",
 };
+function myResolveOcclusion(subject, occluders) {
+  if (!polygonClipping) return null;
+
+  try {
+    const subjInput = [subject];
+    const occInputs = occluders.map((o) => [o]);
+
+    const result = polygonClipping.difference(subjInput, ...occInputs);
+    if (!result || result.length === 0) return null; // completely culled
+
+    let d = "";
+    for (const polygon of result) {
+      for (const ring of polygon) {
+        ring.forEach((pt, i) => {
+          d += i === 0 ? `M ${pt[0]} ${pt[1]} ` : `L ${pt[0]} ${pt[1]} `;
+        });
+        d += "Z ";
+      }
+    }
+    return d.trim();
+  } catch (e) {
+    // If floating point math error, fallback to raw poly path string
+    let d = "";
+    subject.forEach((pt, i) => {
+      d += i === 0 ? `M ${pt[0]} ${pt[1]} ` : `L ${pt[0]} ${pt[1]} `;
+    });
+    return d + "Z";
+  }
+}
+
 function getSvgOpts() {
   const r = parseFloat(camOutline.value);
-  if (r > 0) {
-    return {
-      padding: 30 + r * 2,
-      prepend: `<defs><filter id="cel"><feMorphology in="SourceAlpha" operator="dilate" radius="${r}" result="thick"/><feFlood flood-color="${camOutlineColor.value}"/><feComposite in2="thick" operator="in" result="border"/><feMerge><feMergeNode in="border"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><g filter="url(#cel)">`,
-      append: `</g>`,
-      faceAttributes: () => ({ "vector-effect": "non-scaling-stroke" }),
-    };
-  }
-  return {
-    padding: 30,
+  const opts = {
+    padding: r > 0 ? 30 + r * 2 : 30,
     faceAttributes: () => ({ "vector-effect": "non-scaling-stroke" }),
   };
+
+  if (camBspCulling.checked) {
+    opts.resolveOcclusion = myResolveOcclusion;
+  }
+
+  if (r > 0) {
+    opts.prepend = `<defs><filter id="cel"><feMorphology in="SourceAlpha" operator="dilate" radius="${r}" result="thick"/><feFlood flood-color="${camOutlineColor.value}"/><feComposite in2="thick" operator="in" result="border"/><feMerge><feMergeNode in="border"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><g filter="url(#cel)">`;
+    opts.append = `</g>`;
+  }
+
+  return opts;
 }
 
 // Style via CSS variables — no re-render needed

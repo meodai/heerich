@@ -1,7 +1,7 @@
 import { SVGRenderer, computeBounds } from "./svg-renderer.js";
 import { Points } from "./points.js";
 import { boxCoords, sphereCoords, lineCoords, fillCoords } from "./shapes.js";
-import { BSPTree } from "./bsp.js";
+
 export { boxCoords, sphereCoords, lineCoords, fillCoords };
 
 /**
@@ -1446,47 +1446,12 @@ export class Heerich {
 
     projectedFaces.sort(
       (a, b) =>
-        a.depth - b.depth ||
-        a.voxel.x - b.voxel.x ||
-        a.voxel.y - b.voxel.y ||
-        a.voxel.z - b.voxel.z,
-    );
-
-    let visibleFaces = projectedFaces;
-
-    if (this.renderOptions.culling) {
-      const bsp = new BSPTree();
-      visibleFaces = [];
-
-      for (const face of projectedFaces) {
-        if (!face.points || face.points.length === 0) continue;
-
-        const poly = [];
-        const data = face.points.data;
-        for (let i = 0; i < face.points.length; i++) {
-          poly.push([data[i * 2], data[i * 2 + 1]]);
-        }
-
-        const clipped = bsp.clip(poly);
-        // We render if at least some piece of the polygon survives the cull
-        if (clipped.length > 0) {
-          visibleFaces.push(face);
-          // Note: For a real BSP solid clipping, we insert the polygon so it acts as an occluder
-          bsp.insert(poly);
-        }
-      }
-    }
-
-    // Now re-sort surviving faces back-to-front (highest depth to lowest depth) for Painter's algorithm
-    visibleFaces.sort(
-      (a, b) =>
         b.depth - a.depth ||
         a.voxel.x - b.voxel.x ||
         a.voxel.y - b.voxel.y ||
         a.voxel.z - b.voxel.z,
     );
-
-    return visibleFaces;
+    return projectedFaces;
   }
 
   /**

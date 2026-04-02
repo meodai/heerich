@@ -9,6 +9,29 @@ export class BSPTree {
   }
 
   /**
+   * Find all previously inserted occluders whose bounding boxes overlap with the given face bounds.
+   * Useful for broad-phase rejection before performing exact clipping.
+   */
+  getOverlapping(minX, minY, maxX, maxY) {
+    const overlapping = [];
+    for (let i = 0; i < this.nodes.length; i++) {
+      const occ = this.nodes[i];
+      // AABB overlap test
+      if (
+        !(
+          maxX < occ.bounds.minX ||
+          minX > occ.bounds.maxX ||
+          maxY < occ.bounds.minY ||
+          minY > occ.bounds.maxY
+        )
+      ) {
+        overlapping.push(occ.poly);
+      }
+    }
+    return overlapping;
+  }
+
+  /**
    * Clip a polygon against all previously inserted occluders.
    * Returns an array of visible polygon fragments.
    */
@@ -58,29 +81,32 @@ export class BSPTree {
 
   /**
    * Add a polygon as an occluder to the BSP tree.
+   * Optionally provide pre-calculated bounding box to save processing time.
    */
-  insert(poly) {
+  insert(poly, minX, minY, maxX, maxY) {
     // Enforce Clockwise (CW) winding so that the "inside" is always to the right of the edges.
     const area = this.calcSignedArea(poly);
     if (Math.abs(area) < EPSILON) return; // Degenerate polygon doesn't occlude anything
 
     let orientedPoly = poly;
     if (area > 0) {
-      // Area is positive (CCW), reverse points to make it CW
+      // Area is CCW, reverse points to make it CW
       orientedPoly = [...poly].reverse();
     }
 
-    // Pre-calculate AABB for broad-phase occlusion tests
-    let minX = Infinity,
-      minY = Infinity,
-      maxX = -Infinity,
+    // Pre-calculate AABB for broad-phase occlusion tests if not provided
+    if (minX === undefined) {
+      minX = Infinity;
+      minY = Infinity;
+      maxX = -Infinity;
       maxY = -Infinity;
-    for (let i = 0; i < orientedPoly.length; i++) {
-      const pt = orientedPoly[i];
-      if (pt[0] < minX) minX = pt[0];
-      if (pt[1] < minY) minY = pt[1];
-      if (pt[0] > maxX) maxX = pt[0];
-      if (pt[1] > maxY) maxY = pt[1];
+      for (let i = 0; i < orientedPoly.length; i++) {
+        const pt = orientedPoly[i];
+        if (pt[0] < minX) minX = pt[0];
+        if (pt[1] < minY) minY = pt[1];
+        if (pt[0] > maxX) maxX = pt[0];
+        if (pt[1] > maxY) maxY = pt[1];
+      }
     }
 
     this.nodes.push({ poly: orientedPoly, bounds: { minX, minY, maxX, maxY } });

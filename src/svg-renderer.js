@@ -1,3 +1,5 @@
+import { BSPTree } from "./bsp.js";
+
 const _kebabCache = {};
 const _styleCache = new WeakMap();
 
@@ -15,13 +17,66 @@ export class SVGRenderer {
    * @param {[number,number]} [options.offset=[0,0]] - Translate all geometry
    * @param {string} [options.prepend] - Raw SVG to insert before faces
    * @param {string} [options.append] - Raw SVG to insert after faces
+   * @param {function(number[][], number[][][]): string|null} [options.resolveOcclusion] - Function to intersect faces front-to-back and return SVG path data
    * @param {function(import('../heerich.js').Face): Object|null} [options.faceAttributes] - Per-face attribute callback
    * @param {number} [options.tileW] - Voxel tile pixel width (for content face transforms)
    * @returns {string} SVG markup
    */
   render(faces, options = {}) {
     const pad = options.padding || 20;
-    const bounds = computeBounds(faces);
+
+    let renderFaces = faces;
+    if (options.resolveOcclusion) {
+      renderFaces = [];
+      const frontToBack = [...faces].reverse();
+      const bsp = new BSPTree();
+
+      for (const face of frontToBack) {
+        if (!face.points) continue;
+
+        const pts = face.points.data;
+        const len = face.points.length;
+        const poly = [];
+        let minX = Infinity,
+          minY = Infinity,
+          maxX = -Infinity,
+          maxY = -Infinity;
+
+        for (let i = 0; i < len; i++) {
+          const x = pts[i * 2],
+            y = pts[i * 2 + 1];
+          poly.push([x, y]);
+          if (x < minX) minX = x;
+          if (y < minY) minY = y;
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
+        }
+
+        const overlapping = bsp.getOverlapping(minX, minY, maxX, maxY);
+
+        let isVisible = true;
+        let pathD = null;
+
+        if (overlapping.length > 0) {
+          pathD = options.resolveOcclusion(poly, overlapping);
+          if (!pathD) {
+            isVisible = false;
+          }
+        }
+
+        if (isVisible) {
+          bsp.insert(poly, minX, minY, maxX, maxY);
+          if (pathD && typeof pathD === "string") {
+            renderFaces.push({ ...face, _pathD: pathD });
+          } else {
+            renderFaces.push(face);
+          }
+        }
+      }
+      renderFaces.reverse(); // Switch back to back-to-front rendering
+    }
+
+    const bounds = computeBounds(renderFaces);
 
     const vbX = options.viewBox ? options.viewBox[0] : bounds.x - pad;
     const vbY = options.viewBox ? options.viewBox[1] : bounds.y - pad;
@@ -38,8 +93,8 @@ export class SVGRenderer {
     if (options.prepend) parts.push(options.prepend);
     parts.push(`<g transform="translate(${offset[0]}, ${offset[1]})">`);
 
-    for (let fi = 0; fi < faces.length; fi++) {
-      const face = faces[fi];
+    for (let fi = 0; fi < renderFaces.length; fi++) {
+      const face = renderFaces[fi];
 
       if (face.type === "content") {
         parts.push(
@@ -90,9 +145,15 @@ export class SVGRenderer {
         }
       }
 
-      parts.push(
-        `<polygon points="${d[0]},${d[1]} ${d[2]},${d[3]} ${d[4]},${d[5]} ${d[6]},${d[7]}"${_buildSvgAttributes(style)} data-voxel="${v.x},${v.y},${v.z}" data-x="${v.x}" data-y="${v.y}" data-z="${v.z}" data-face="${face.type}"${metaAttrs}${extraAttrs} />`,
-      );
+      if (face._pathD) {
+        parts.push(
+          `<path d="${face._pathD}"${_buildSvgAttributes(style)} data-voxel="${v.x},${v.y},${v.z}" data-x="${v.x}" data-y="${v.y}" data-z="${v.z}" data-face="${face.type}"${metaAttrs}${extraAttrs} />`,
+        );
+      } else {
+        parts.push(
+          `<polygon points="${d[0]},${d[1]} ${d[2]},${d[3]} ${d[4]},${d[5]} ${d[6]},${d[7]}"${_buildSvgAttributes(style)} data-voxel="${v.x},${v.y},${v.z}" data-x="${v.x}" data-y="${v.y}" data-z="${v.z}" data-face="${face.type}"${metaAttrs}${extraAttrs} />`,
+        );
+      }
     }
 
     parts.push("</g>");

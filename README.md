@@ -405,6 +405,36 @@ Options:
 | `prepend` | string | Raw SVG inserted before faces |
 | `append` | string | Raw SVG inserted after faces |
 | `faceAttributes` | function | Per-face attribute callback |
+| `resolveOcclusion` | function | Intersects faces front-to-back to generate clipped `<path>` elements (ideal for plotters). Input `(subjectCoords, overlappingCoords[])`, expected return `pathString` |
+
+#### Occlusion Culling for Pen Plotters
+By default, the engine relies on the browser's Paint Algorithm (back-to-front rendering). For zero overlapping vectors (perfect for plotters), drop in [polygon-clipping](https://github.com/mfogel/polygon-clipping):
+
+```html
+<script src="https://unpkg.com/polygon-clipping@0.15.3/dist/polygon-clipping.umd.js"></script>
+```
+
+```javascript
+const svg = h.toSVG({
+  // Filter occluded paths to actual visible `<path>` lines
+  resolveOcclusion: (subject, occluders) => {
+    try {
+      const result = polygonClipping.difference([subject], ...occluders.map(o => [o]));
+      if (!result || result.length === 0) return null; // Fully occluded
+
+      // Format MultiPolygon as an SVG d string
+      let d = "";
+      for (const polygon of result) {
+        for (const ring of polygon) {
+          ring.forEach((pt, i) => { d += (i === 0 ? `M ${pt[0]} ${pt[1]} ` : `L ${pt[0]} ${pt[1]} `); });
+          d += "Z ";
+        }
+      }
+      return d.trim();
+    } catch { return null; }
+  }
+});
+```
 
 Use `prepend` and `append` to inject SVG filters for effects like cel-shaded outlines:
 
