@@ -17,7 +17,8 @@ export class SVGRenderer {
    * @param {[number,number]} [options.offset=[0,0]] - Translate all geometry
    * @param {string} [options.prepend] - Raw SVG to insert before faces
    * @param {string} [options.append] - Raw SVG to insert after faces
-   * @param {function(number[][], number[][][]): string|null} [options.resolveOcclusion] - Function to intersect faces front-to-back and return SVG path data
+   * @param {boolean} [options.occlusion=false] - Enable built-in occlusion culling (no external dependency needed)
+   * @param {function(number[][], number[][][]): string|null} [options.resolveOcclusion] - Custom occlusion resolver (overrides built-in). Providing this implicitly enables occlusion.
    * @param {function(import('../heerich.js').Face): Object|null} [options.faceAttributes] - Per-face attribute callback
    * @param {number} [options.tileW] - Voxel tile pixel width (for content face transforms)
    * @returns {string} SVG markup
@@ -26,7 +27,8 @@ export class SVGRenderer {
     const pad = options.padding || 20;
 
     let renderFaces = faces;
-    if (options.resolveOcclusion) {
+    const useOcclusion = options.occlusion || options.resolveOcclusion;
+    if (useOcclusion) {
       renderFaces = [];
       const frontToBack = [...faces].reverse();
       const bsp = new OccluderIndex();
@@ -58,7 +60,29 @@ export class SVGRenderer {
         let pathD = null;
 
         if (overlapping.length > 0) {
-          pathD = options.resolveOcclusion(poly, overlapping);
+          if (options.resolveOcclusion) {
+            // User-provided clipping (e.g. polygon-clipping library)
+            pathD = options.resolveOcclusion(poly, overlapping);
+          } else {
+            // Built-in convex polygon subtraction
+            const fragments = bsp.clip(poly);
+            if (fragments.length === 0) {
+              pathD = null; // Fully occluded
+            } else {
+              // Convert fragments to SVG path data
+              let d = "";
+              for (const frag of fragments) {
+                for (let i = 0; i < frag.length; i++) {
+                  d +=
+                    i === 0
+                      ? `M${frag[i][0]} ${frag[i][1]}`
+                      : `L${frag[i][0]} ${frag[i][1]}`;
+                }
+                d += "Z";
+              }
+              pathD = d;
+            }
+          }
           if (!pathD) {
             isVisible = false;
           }
@@ -73,7 +97,7 @@ export class SVGRenderer {
           }
         }
       }
-      renderFaces.reverse(); // Switch back to back-to-front rendering
+      renderFaces.reverse();
     }
 
     const bounds = computeBounds(renderFaces);
