@@ -3,7 +3,7 @@
 
 const EPSILON = 1e-4;
 
-export class BSPTree {
+export class OccluderIndex {
   constructor() {
     this.nodes = []; // Convex polygons representing front-most faces
   }

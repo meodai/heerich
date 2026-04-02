@@ -1,4 +1,4 @@
-import { BSPTree } from "./bsp.js";
+import { OccluderIndex } from "./bsp.js";
 
 const _kebabCache = {};
 const _styleCache = new WeakMap();
@@ -29,7 +29,7 @@ export class SVGRenderer {
     if (options.resolveOcclusion) {
       renderFaces = [];
       const frontToBack = [...faces].reverse();
-      const bsp = new BSPTree();
+      const bsp = new OccluderIndex();
 
       for (const face of frontToBack) {
         if (!face.points) continue;
