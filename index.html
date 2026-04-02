@@ -103,15 +103,14 @@
           <input type="range" id="cam-dist" min="1" max="80" value="10" />
           <span class="control-value">10</span>
         </label>
-        <label
-          class="control-label"
-          style="justify-content: flex-start; gap: 8px"
-        >
-          <input type="checkbox" id="cam-bsp-culling" />
+        <label class="control-label">
+          <span>Occlusion</span>
           <span
-            title="External hook to polygon-clipping for exact pen plotting cuts"
-            >Path Occlusion Culling</span
+            class="control-toggle"
+            title="Polygon clipping for exact pen plotting cuts"
           >
+            <input type="checkbox" id="cam-bsp-culling" />
+          </span>
         </label>
       </div>
       <div class="settings-section-title">
