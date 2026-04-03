@@ -21,6 +21,7 @@ export class SVGRenderer {
    * @param {function(number[][], number[][][]): string|null} [options.resolveOcclusion] - Custom occlusion resolver (overrides built-in). Providing this implicitly enables occlusion.
    * @param {function(import('../heerich.js').Face): Object|null} [options.faceAttributes] - Per-face attribute callback
    * @param {number} [options.tileW] - Voxel tile pixel width (for content face transforms)
+   * @param {Map<string, import('../heerich.js').DecalDef>} [options.decals] - Registered decal definitions
    * @returns {string} SVG markup
    */
   render(faces, options = {}) {
@@ -110,10 +111,38 @@ export class SVGRenderer {
     const offset = options.offset || [0, 0];
     const tw = options.tileW || 1;
     const faceAttrFn = options.faceAttributes || null;
+    const decalDefs = options.decals || null;
+
+    // Collect which decals are actually used so we only emit those symbols
+    const usedDecals = new Set();
+    if (decalDefs && decalDefs.size > 0) {
+      for (let fi = 0; fi < renderFaces.length; fi++) {
+        const face = renderFaces[fi];
+        if (face.style && face.style.decal) {
+          const decal = face.style.decal;
+          usedDecals.add(typeof decal === "string" ? decal : decal.name);
+        }
+      }
+    }
 
     const parts = [
       `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vbX} ${vbY} ${vbW} ${vbH}" style="width:100%; height:100%;">`,
     ];
+
+    // Emit <defs> with <symbol> elements for used decals
+    if (usedDecals.size > 0) {
+      parts.push("<defs>");
+      for (const name of usedDecals) {
+        const def = decalDefs.get(name);
+        if (def) {
+          parts.push(
+            `<symbol id="decal-${name}" viewBox="0 0 1 1" overflow="visible">${def.content}</symbol>`,
+          );
+        }
+      }
+      parts.push("</defs>");
+    }
+
     if (options.prepend) parts.push(options.prepend);
     parts.push(`<g transform="translate(${offset[0]}, ${offset[1]})">`);
 
@@ -139,7 +168,8 @@ export class SVGRenderer {
         if (custom) {
           const styleOverrides = {};
           for (const [key, value] of Object.entries(custom)) {
-            if (value === undefined || value === null) continue;
+            if (value === undefined || value === null || key === "decal")
+              continue;
             if (
               key === "fill" ||
               key === "stroke" ||
@@ -177,6 +207,31 @@ export class SVGRenderer {
         parts.push(
           `<polygon points="${d[0]},${d[1]} ${d[2]},${d[3]} ${d[4]},${d[5]} ${d[6]},${d[7]}"${_buildSvgAttributes(style)} data-voxel="${v.x},${v.y},${v.z}" data-x="${v.x}" data-y="${v.y}" data-z="${v.z}" data-face="${face.type}"${metaAttrs}${extraAttrs} />`,
         );
+      }
+
+      // Emit decal <use> if this face has a decal reference
+      if (style && style.decal && decalDefs) {
+        const decalRef = style.decal;
+        const decalName =
+          typeof decalRef === "string" ? decalRef : decalRef.name;
+        if (decalDefs.has(decalName)) {
+          // Affine matrix mapping unit square (0,0)-(1,1) onto the projected quad
+          // P0=d[0,1] P1=d[2,3] P2=d[4,5] P3=d[6,7]
+          // (0,0)->P0  (1,0)->P1  (0,1)->P3
+          const a = d[2] - d[0],
+            b = d[3] - d[1];
+          const c = d[6] - d[0],
+            dd = d[7] - d[1];
+          const e = d[0],
+            f = d[1];
+          let useAttrs = "";
+          if (typeof decalRef === "object" && decalRef.style) {
+            useAttrs = _buildSvgAttributes(decalRef.style);
+          }
+          parts.push(
+            `<use href="#decal-${decalName}" width="1" height="1" transform="matrix(${a},${b},${c},${dd},${e},${f})"${useAttrs} />`,
+          );
+        }
       }
     }
 
@@ -224,6 +279,7 @@ function _buildSvgAttributes(styleObj) {
   const merged = { strokeLinejoin: "round", ...styleObj };
   let attrStr = "";
   for (const key in merged) {
+    if (key === "decal") continue;
     const value = merged[key];
     if (value !== undefined && value !== null) {
       const kebabKey =

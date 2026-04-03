@@ -596,7 +596,7 @@ setupDemo("demo-style", (v) => {
     camera: getCamera(),
     style: {
       fill: "var(--fill)",
-      stroke: "#333",
+      stroke: "var(--stroke-c)",
       strokeWidth: "var(--stroke-w)",
     },
   });
@@ -611,6 +611,50 @@ setupDemo("demo-style", (v) => {
     },
   });
   return e.toSVG(getSvgOpts());
+});
+
+// ─── 9b. Decals ─────────────────────────
+setupDemo("demo-decals", (v) => {
+  const s = "var(--stroke-w)";
+  const sc = "var(--stroke-c)";
+  const e = new Heerich({
+    tile: 80,
+    camera: getCamera(),
+    style: {
+      fill: "var(--fill)",
+      stroke: sc,
+      strokeWidth: s,
+    },
+  });
+
+  const ns = 'vector-effect="non-scaling-stroke"';
+  e.defineDecal(
+    "circle",
+    `<circle cx="0.5" cy="0.5" r="0.5" fill="none" stroke="${sc}" stroke-width="${s}" ${ns}/>`,
+  );
+  e.defineDecal(
+    "triangle",
+    `<path d="M0.5 0 L1 1 L0 1 Z" fill="none" stroke="${sc}" stroke-width="${s}" stroke-linejoin="round" ${ns}/>`,
+  );
+  e.defineDecal(
+    "cross",
+    `<path d="M0 0 L1 1 M1 0 L0 1" fill="none" stroke="${sc}" stroke-width="${s}" stroke-linecap="round" ${ns}/>`,
+  );
+
+  e.addGeometry({
+    type: "box",
+    position: [0, 0, 0],
+    size: [1, 1, 1],
+    style: {
+      top: { decal: "circle" },
+      bottom: { decal: "circle" },
+      front: { decal: "triangle" },
+      right: { decal: "cross" },
+      left: { decal: "cross" },
+    },
+  });
+
+  return e.toSVG({ ...getSvgOpts(), padding: 100 });
 });
 
 // ─── 10. SVG styles ───────────────────

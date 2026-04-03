@@ -15,6 +15,18 @@ export { boxCoords, sphereCoords, lineCoords, fillCoords };
  * @property {string} [strokeDasharray] - Dash pattern
  * @property {string} [strokeLinecap] - Line cap style
  * @property {string} [strokeLinejoin] - Line join style
+ * @property {string|DecalRef} [decal] - Decal name or decal reference object
+ */
+
+/**
+ * @typedef {Object} DecalRef
+ * @property {string} name - Decal name (as registered via defineDecal)
+ * @property {Object} [style] - Style overrides applied to the <use> element
+ */
+
+/**
+ * @typedef {Object} DecalDef
+ * @property {string} content - SVG content (rendered inside a <symbol viewBox="0 0 1 1">)
  */
 
 /**
@@ -138,6 +150,8 @@ export class Heerich {
     this.setCamera(cam);
     /** @type {Map<number, Voxel>} */
     this.voxels = new Map();
+    /** @type {Map<string, DecalDef>} */
+    this.decals = new Map();
     /** @type {boolean} */
     /** @type {number} Monotonically increasing epoch — bumped on every mutation */
     this._epoch = 0;
@@ -606,6 +620,10 @@ export class Heerich {
             },
       style: { ...this.defaultStyle },
       voxels: voxelData,
+      decals:
+        this.decals.size > 0
+          ? Object.fromEntries(this.decals.entries())
+          : undefined,
     };
   }
 
@@ -629,6 +647,12 @@ export class Heerich {
       if (v.scale) voxel.scale = v.scale;
       if (v.scaleOrigin) voxel.scaleOrigin = v.scaleOrigin;
       engine.voxels.set(engine._k(v.x, v.y, v.z), voxel);
+    }
+
+    if (data.decals) {
+      for (const [name, def] of Object.entries(data.decals)) {
+        engine.decals.set(name, def);
+      }
     }
 
     engine._invalidate();
@@ -681,6 +705,17 @@ export class Heerich {
         opts.shape || "rounded",
       );
     throw new Error(`Unknown geometry type: "${type}"`);
+  }
+
+  /**
+   * Register a named decal. Content is arbitrary SVG authored in a 0–1 unit
+   * coordinate space (it will be placed inside a <symbol viewBox="0 0 1 1">).
+   * @param {string} name - Unique decal name
+   * @param {DecalDef|string} def - Decal definition object, or raw SVG string
+   */
+  defineDecal(name, def) {
+    if (typeof def === "string") def = { content: def };
+    this.decals.set(name, def);
   }
 
   /**
@@ -1489,6 +1524,7 @@ export class Heerich {
     return this._svgRenderer.render(faces, {
       ...options,
       tileW: this.renderOptions.tileW,
+      decals: this.decals,
     });
   }
 }

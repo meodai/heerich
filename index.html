@@ -238,6 +238,7 @@
             <li><a href="#rotation">Rotation</a></li>
             <li><a href="#grouping">Smooth solids</a></li>
             <li><a href="#styles">Styling faces</a></li>
+            <li><a href="#decals">Using decals</a></li>
             <li><a href="#svg-styles">SVG style properties</a></li>
             <li><a href="#functional">Functional styles</a></li>
             <li><a href="#scale">Voxel scaling</a></li>
@@ -760,6 +761,41 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
             <em>existing</em>
             geometry without fabricating new voxels — ideal for shading specific
             cross-sections after the overall volume is finalized.
+          </p>
+        </div>
+      </div>
+
+      <!-- ─── 9b. Decals ──────────────────────────────────── -->
+
+      <div class="section-row" id="decals">
+        <div class="section-demo">
+          <div class="demo" id="demo-decals">
+            <div class="demo-canvas"></div>
+            <div class="demo-controls"></div>
+          </div>
+        </div>
+        <div class="section-text">
+          <h2>Using decals</h2>
+          <p>
+            Register named SVG snippets authored in a <code>0–1</code> unit
+            coordinate space. Reference them by name in any face style — the
+            engine maps them onto each projected face with an affine transform,
+            so they deform correctly with the camera.
+          </p>
+          <pre><code>scene.defineDecal('circle', {
+  content: '&lt;circle cx="0.5" cy="0.5" r="0.35" fill="gold"/&gt;'
+});
+
+scene.addGeometry({
+  type: 'box', position: [0, 0, 0], size: 1,
+  style: {
+    top: { fill: '#fff', decal: 'circle' }
+  }
+});</code></pre>
+          <p>
+            Decals can contain any SVG — paths, text, circles, groups. Use
+            <code>overflow="visible"</code> (the default) to let content bleed
+            past the face edge, or clip it yourself.
           </p>
         </div>
       </div>

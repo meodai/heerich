@@ -535,6 +535,39 @@ h.applyGeometry({
 
 Content voxels receive CSS custom properties `--x`, `--y`, `--z`, `--scale`, `--tile` for positioning.
 
+## Decals
+
+Stamp arbitrary SVG onto voxel faces. Define decals in a `0–1` unit coordinate space, then reference them by name in any face style. The engine maps the content onto each projected face with an affine transform, so decals deform correctly with the camera.
+
+```js
+// Register a decal — any SVG content in a 0–1 unit square
+h.defineDecal('circle', {
+  content: '<circle cx="0.5" cy="0.5" r="0.4" fill="none" stroke="#333" stroke-width="0.05"/>'
+})
+
+// Shorthand — just the SVG string
+h.defineDecal('cross', '<path d="M0 0 L1 1 M1 0 L0 1" stroke="#333" stroke-width="0.05" fill="none"/>')
+
+// Reference by name in any face style
+h.addGeometry({
+  type: 'box', position: [0, 0, 0], size: 3,
+  style: {
+    top:   { fill: '#fff', decal: 'circle' },
+    front: { fill: '#ccc', decal: 'cross' },
+  }
+})
+
+// Per-use style overrides
+h.addGeometry({
+  type: 'box', position: [4, 0, 0], size: 1,
+  style: {
+    top: { fill: '#fff', decal: { name: 'circle', style: { opacity: 0.5 } } }
+  }
+})
+```
+
+Decals are rendered as `<symbol viewBox="0 0 1 1" overflow="visible">` in `<defs>`, with a `<use>` per face. They support any SVG content — paths, text, circles, images, groups. Use `vector-effect="non-scaling-stroke"` for uniform stroke widths across faces. Decals are included in `toJSON()`/`fromJSON()` serialization.
+
 ## Querying
 
 ```js
