@@ -1079,13 +1079,13 @@ heerich.applyGeometry({
           <dt><strong>Orthographic</strong></dt>
           <dd>
             Applies true 3D parallel projection based on pan and pitch camera
-            angles (angle and phi), allowing for custom dimetric and trimetric
+            angles (angle and pitch), allowing for custom dimetric and trimetric
             angles.
           </dd>
 
           <dt><strong>Isometric</strong></dt>
           <dd>
-            A mathematically perfect preset of the Orthographic mode (pitch phi:
+            A mathematically perfect preset of the Orthographic mode (pitch:
             35.264°), achieving a standard isometric look. Can be rotated in 90°
             increments using angle (45°, 135°, 225°, 315°).
           </dd>
@@ -1097,7 +1097,7 @@ heerich.setCamera({ type: 'oblique', angle: 315, distance: 25 })
 heerich.setCamera({ type: 'perspective', position: [5, 5], distance: 12 })
 
 // Orthographic (parallel 3D)
-heerich.setCamera({ type: 'orthographic', angle: 45, phi: 35.264 })
+heerich.setCamera({ type: 'orthographic', angle: 45, pitch: 35.264 })
 
 // Isometric shortcut (supports angle: 45 | 135 | 225 | 315)
 heerich.setCamera({ type: "isometric", angle: 45 })</code></pre>

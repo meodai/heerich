@@ -48,8 +48,8 @@ The engine exposes four distinct geometric projections:
 
 - **oblique** (default): A parallel projection where depth angles and offset scales are manually tracked. Perfect for classic pixel-art aesthetics.
 - **perspective**: Simulates real-world depth with classical single-vanishing-point math anchored by an explicit camera position.
-- **orthographic**: True 3D parallel projection derived from camera pan (`angle`) and pitch (`phi`) angles. Use this for dimetric/trimetric setups.
-- **isometric**: A preset of the orthographic projection using standard isometric constants (pitch `phi: 35.264°`). It supports rotating the camera via `angle` in exact 90° increments (45°, 135°, 225°, 315°).
+- **orthographic**: True 3D parallel projection derived from camera pan (`angle`) and pitch angles. Use this for dimetric/trimetric setups.
+- **isometric**: A preset of the orthographic projection using standard isometric constants (pitch `pitch: 35.264°`). It supports rotating the camera via `angle` in exact 90° increments (45°, 135°, 225°, 315°).
 
 ```js
 // Oblique (parallel)
@@ -64,7 +64,7 @@ const h = new Heerich({
 
 // Orthographic (parallel 3D)
 const h = new Heerich({
-  camera: { type: 'orthographic', angle: 45, phi: 35.264 }
+  camera: { type: 'orthographic', angle: 45, pitch: 35.264 }
 })
 
 // Isometric shortcut (supports angle: 45 | 135 | 225 | 315)

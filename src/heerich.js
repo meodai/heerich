@@ -192,10 +192,10 @@ export class Heerich {
     } else if (type === "orthographic" || type === "isometric") {
       this.renderOptions.angle =
         (opts.angle !== undefined ? opts.angle : 45) * (Math.PI / 180);
-      this.renderOptions.phi =
+      this.renderOptions.pitch =
         type === "isometric"
           ? 35.264 * (Math.PI / 180)
-          : (opts.phi !== undefined ? opts.phi : 35.264) * (Math.PI / 180);
+          : (opts.pitch !== undefined ? opts.pitch : 35.264) * (Math.PI / 180);
     } else {
       const pos = opts.position || [5, 5];
       this.renderOptions.cameraX = pos[0];
@@ -1404,11 +1404,11 @@ export class Heerich {
           projection === "orthographic" ||
           projection === "isometric"
         ) {
-          const { angle = 0, phi = 0 } = this.renderOptions;
+          const { angle = 0, pitch = 0 } = this.renderOptions;
           const cosT = Math.cos(angle),
             sinT = Math.sin(angle);
-          const cosP = Math.cos(phi),
-            sinP = Math.sin(phi);
+          const cosP = Math.cos(pitch),
+            sinP = Math.sin(pitch);
           const x1 = (cx + 0.5) * cosT - (cz + 0.5) * sinT;
           const y1 =
             (cy + 0.5) * cosP - ((cx + 0.5) * sinT + (cz + 0.5) * cosT) * sinP;
@@ -1447,11 +1447,11 @@ export class Heerich {
           projection === "isometric"
         ) {
           const flat = [];
-          const { angle = 0, phi = 0 } = this.renderOptions;
+          const { angle = 0, pitch = 0 } = this.renderOptions;
           const cosT = Math.cos(angle),
             sinT = Math.sin(angle);
-          const cosP = Math.cos(phi),
-            sinP = Math.sin(phi);
+          const cosP = Math.cos(pitch),
+            sinP = Math.sin(pitch);
           for (const [vx, vy, vz] of corners) {
             const x1 = vx * cosT - vz * sinT;
             const y1 = vy * cosP - (vx * sinT + vz * cosT) * sinP;
@@ -1487,11 +1487,11 @@ export class Heerich {
         }
         face.points = new Points(flat);
       } else if (projection === "orthographic" || projection === "isometric") {
-        const { angle = 0, phi = 0 } = this.renderOptions;
+        const { angle = 0, pitch = 0 } = this.renderOptions;
         const cosT = Math.cos(angle),
           sinT = Math.sin(angle);
-        const cosP = Math.cos(phi),
-          sinP = Math.sin(phi);
+        const cosP = Math.cos(pitch),
+          sinP = Math.sin(pitch);
 
         // View vector is Z-axis inversely transformed
         // We know Z extends backward, so we adjust accordingly
