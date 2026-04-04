@@ -170,12 +170,12 @@ function getCamera() {
   if (proj === "orthographic") {
     return {
       type: "orthographic",
-      theta: angle,
+      angle: angle,
       phi: parseFloat(camY.value) * 3,
     };
   }
   if (proj === "isometric") {
-    return { type: "isometric", theta: angle, phi: 35.264 };
+    return { type: "isometric", angle: angle, phi: 35.264 };
   }
   const camX = 5 + ((angle - 180) / 180) * 12;
   return {

@@ -190,8 +190,8 @@ export class Heerich {
       this.renderOptions.depthOffsetX = Math.cos(rad) * distance * zScale;
       this.renderOptions.depthOffsetY = Math.sin(rad) * distance * zScale;
     } else if (type === "orthographic" || type === "isometric") {
-      this.renderOptions.theta =
-        (opts.theta !== undefined ? opts.theta : 45) * (Math.PI / 180);
+      this.renderOptions.angle =
+        (opts.angle !== undefined ? opts.angle : 45) * (Math.PI / 180);
       this.renderOptions.phi =
         type === "isometric"
           ? 35.264 * (Math.PI / 180)
@@ -1404,9 +1404,9 @@ export class Heerich {
           projection === "orthographic" ||
           projection === "isometric"
         ) {
-          const { theta = 0, phi = 0 } = this.renderOptions;
-          const cosT = Math.cos(theta),
-            sinT = Math.sin(theta);
+          const { angle = 0, phi = 0 } = this.renderOptions;
+          const cosT = Math.cos(angle),
+            sinT = Math.sin(angle);
           const cosP = Math.cos(phi),
             sinP = Math.sin(phi);
           const x1 = (cx + 0.5) * cosT - (cz + 0.5) * sinT;
@@ -1447,9 +1447,9 @@ export class Heerich {
           projection === "isometric"
         ) {
           const flat = [];
-          const { theta = 0, phi = 0 } = this.renderOptions;
-          const cosT = Math.cos(theta),
-            sinT = Math.sin(theta);
+          const { angle = 0, phi = 0 } = this.renderOptions;
+          const cosT = Math.cos(angle),
+            sinT = Math.sin(angle);
           const cosP = Math.cos(phi),
             sinP = Math.sin(phi);
           for (const [vx, vy, vz] of corners) {
@@ -1487,9 +1487,9 @@ export class Heerich {
         }
         face.points = new Points(flat);
       } else if (projection === "orthographic" || projection === "isometric") {
-        const { theta = 0, phi = 0 } = this.renderOptions;
-        const cosT = Math.cos(theta),
-          sinT = Math.sin(theta);
+        const { angle = 0, phi = 0 } = this.renderOptions;
+        const cosT = Math.cos(angle),
+          sinT = Math.sin(angle);
         const cosP = Math.cos(phi),
           sinP = Math.sin(phi);
 
