@@ -189,6 +189,11 @@ export class Heerich {
       const zScale = this.renderOptions.tileZ / this.renderOptions.tileW;
       this.renderOptions.depthOffsetX = Math.cos(rad) * distance * zScale;
       this.renderOptions.depthOffsetY = Math.sin(rad) * distance * zScale;
+    } else if (type === "orthographic") {
+      this.renderOptions.theta =
+        (opts.theta !== undefined ? opts.theta : 45) * (Math.PI / 180);
+      this.renderOptions.phi =
+        (opts.phi !== undefined ? opts.phi : 35.264) * (Math.PI / 180);
     } else {
       const pos = opts.position || [5, 5];
       this.renderOptions.cameraX = pos[0];
@@ -1393,6 +1398,20 @@ export class Heerich {
           py = truncate((cy + 0.5) * tileH + (cz + 0.5) * depthOffsetY);
           scale = 1;
           depth = cz + 0.5 - (cx + 0.5) * dx_norm - (cy + 0.5) * dy_norm;
+        } else if (projection === "orthographic") {
+          const { theta = 0, phi = 0 } = this.renderOptions;
+          const cosT = Math.cos(theta),
+            sinT = Math.sin(theta);
+          const cosP = Math.cos(phi),
+            sinP = Math.sin(phi);
+          const x1 = (cx + 0.5) * cosT - (cz + 0.5) * sinT;
+          const y1 =
+            (cy + 0.5) * cosP - ((cx + 0.5) * sinT + (cz + 0.5) * cosT) * sinP;
+          px = truncate((x1 + 5) * tileW);
+          py = truncate((y1 + 5) * tileH);
+          scale = 1;
+          depth =
+            (cy + 0.5) * sinP + ((cx + 0.5) * sinT + (cz + 0.5) * cosT) * cosP;
         } else {
           const t = cameraDistance / (cz + 0.5 + cameraDistance);
           px = truncate((cameraX + (cx + 0.5 - cameraX) * t) * tileW);
@@ -1416,6 +1435,19 @@ export class Heerich {
               truncate(vx * tileW + vz * depthOffsetX),
               truncate(vy * tileH + vz * depthOffsetY),
             );
+          }
+          face.points = new Points(flat);
+        } else if (projection === "orthographic") {
+          const flat = [];
+          const { theta = 0, phi = 0 } = this.renderOptions;
+          const cosT = Math.cos(theta),
+            sinT = Math.sin(theta);
+          const cosP = Math.cos(phi),
+            sinP = Math.sin(phi);
+          for (const [vx, vy, vz] of corners) {
+            const x1 = vx * cosT - vz * sinT;
+            const y1 = vy * cosP - (vx * sinT + vz * cosT) * sinP;
+            flat.push(truncate((x1 + 5) * tileW), truncate((y1 + 5) * tileH));
           }
           face.points = new Points(flat);
         } else {
@@ -1446,6 +1478,31 @@ export class Heerich {
           );
         }
         face.points = new Points(flat);
+      } else if (projection === "orthographic") {
+        const { theta = 0, phi = 0 } = this.renderOptions;
+        const cosT = Math.cos(theta),
+          sinT = Math.sin(theta);
+        const cosP = Math.cos(phi),
+          sinP = Math.sin(phi);
+
+        // View vector is Z-axis inversely transformed
+        // We know Z extends backward, so we adjust accordingly
+        const viewVec = [sinT * cosP, sinP, cosT * cosP];
+        const dot =
+          viewVec[0] * face.n[0] +
+          viewVec[1] * face.n[1] +
+          viewVec[2] * face.n[2];
+        if (dot >= 0) continue;
+
+        const flat = [];
+        for (const v of face.vertices) {
+          const x1 = v[0] * cosT - v[2] * sinT;
+          const y1 = v[1] * cosP - (v[0] * sinT + v[2] * cosT) * sinP;
+          flat.push(truncate((x1 + 5) * tileW), truncate((y1 + 5) * tileH));
+        }
+        face.points = new Points(flat);
+        face.depth =
+          face.c[1] * sinP + (face.c[0] * sinT + face.c[2] * cosT) * cosP;
       } else if (projection === "perspective") {
         const Cx = cameraX;
         const Cy = cameraY;
