@@ -78,9 +78,10 @@ export { boxCoords, sphereCoords, lineCoords, fillCoords };
 
 /**
  * @typedef {Object} CameraOptions
- * @property {'oblique'|'perspective'} [type='oblique'] - Projection type
- * @property {number} [angle=45] - Oblique camera angle in degrees
- * @property {number} [distance=15] - Camera distance
+ * @property {'oblique'|'perspective'|'orthographic'|'isometric'} [type='oblique'] - Projection type
+ * @property {number} [angle=45] - Oblique: depth axis direction. Orthographic/isometric: horizontal rotation (pan).
+ * @property {number} [pitch=35.264] - Orthographic only: vertical tilt in degrees
+ * @property {number} [distance=15] - Oblique/perspective: camera distance
  * @property {[number,number]} [position] - Perspective camera position [x, y]
  */
 

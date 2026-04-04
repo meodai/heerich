@@ -32,8 +32,15 @@ The entire library is a single file: `src/heerich.js`, exporting the `Heerich` c
 - Optional rotation via `_rotateCoords()` wrapping any coord iterator
 - Style functions: can be static objects or `(x,y,z)` callbacks, resolved per-voxel at add time
 
+### Camera projections
+- **oblique** (default): parallel projection, Z axis at configurable `angle` + `distance`
+- **perspective**: single-vanishing-point with `position` + `distance`
+- **orthographic**: true 3D parallel projection with `angle` (pan) + `pitch` (tilt)
+- **isometric**: orthographic preset with `pitch` locked to 35.264°, only `angle` exposed
+- `angle` is shared across types for easy switching; meaning differs per type (see README)
+
 ### Rendering pipeline
-1. `getFaces()` — iterates voxels, culls hidden faces (neighbor check + backface culling for perspective), produces 3D face objects
+1. `getFaces()` — iterates voxels, culls hidden faces (neighbor check + backface culling for perspective/orthographic), produces 3D face objects
 2. `_projectAndSort()` — projects 3D faces to 2D points, depth-sorts back-to-front
 3. `toSVG()` — converts projected faces to SVG polygon elements with data attributes
 

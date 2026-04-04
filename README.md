@@ -44,39 +44,44 @@ document.body.innerHTML = h.toSVG()
 
 ## Camera
 
-The engine exposes four distinct geometric projections:
+The engine exposes four projection types:
 
-- **oblique** (default): A parallel projection where depth angles and offset scales are manually tracked. Perfect for classic pixel-art aesthetics.
-- **perspective**: Simulates real-world depth with classical single-vanishing-point math anchored by an explicit camera position.
-- **orthographic**: True 3D parallel projection derived from camera pan (`angle`) and pitch angles. Use this for dimetric/trimetric setups.
-- **isometric**: A preset of the orthographic projection using standard isometric constants (pitch `pitch: 35.264°`). It supports rotating the camera via `angle` in exact 90° increments (45°, 135°, 225°, 315°).
+- **oblique** (default): Parallel projection where depth recedes at a configurable angle. Classic pixel-art / cabinet-projection look.
+- **perspective**: Single-vanishing-point projection with an explicit camera position.
+- **orthographic**: True 3D parallel projection with configurable pan (`angle`) and tilt (`pitch`). Use this for dimetric, trimetric, or any custom orthographic view.
+- **isometric**: Orthographic preset with pitch locked to 35.264°. For the classic isometric diamond grid.
 
 ```js
 // Oblique (parallel)
-const h = new Heerich({
-  camera: { type: 'oblique', angle: 45, distance: 15 }
-})
+new Heerich({ camera: { type: 'oblique', angle: 45, distance: 15 } })
 
 // Perspective (1-point)
-const h = new Heerich({
-  camera: { type: 'perspective', position: [5, 5], distance: 10 }
-})
+new Heerich({ camera: { type: 'perspective', position: [5, 5], distance: 10 } })
 
 // Orthographic (parallel 3D)
-const h = new Heerich({
-  camera: { type: 'orthographic', angle: 45, pitch: 35.264 }
-})
+new Heerich({ camera: { type: 'orthographic', angle: 45, pitch: 35.264 } })
 
-// Isometric shortcut (supports angle: 45 | 135 | 225 | 315)
-const h = new Heerich({
-  camera: { type: 'isometric', angle: 45 }
-})
+// Isometric (orthographic with fixed pitch)
+new Heerich({ camera: { type: 'isometric', angle: 45 } })
 
 // Update camera at any time
 h.setCamera({ angle: 30, distance: 20 })
 ```
 
-> **Note**: Because `orthographic` and `isometric` use parallel projection, objects do not experience perspective foreshortening. Consequently, the `distance` parameter has no effect in these modes.
+### The `angle` parameter
+
+The `angle` parameter is shared across camera types for easy switching, but its meaning differs:
+
+| Type | `angle` controls | Default |
+|------|-----------------|---------|
+| `oblique` | Direction the depth (Z) axis recedes | 45° |
+| `orthographic` | Horizontal rotation (pan) around the scene | 45° |
+| `isometric` | Horizontal rotation — recommended values: 45°, 135°, 225°, 315° | 45° |
+| `perspective` | (Mapped to camera X position) | — |
+
+For isometric, any `angle` value works, but **45°, 135°, 225°, and 315°** produce the standard isometric orientations where edges align to the pixel grid.
+
+> **Note**: `orthographic` and `isometric` use parallel projection — `distance` has no effect in these modes.
 
 ## Shapes
 
