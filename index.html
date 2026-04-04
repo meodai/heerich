@@ -245,7 +245,6 @@
             <li><a href="#functional">Functional styles</a></li>
             <li><a href="#scale">Voxel scaling</a></li>
             <li><a href="#functional-scale">Functional scale</a></li>
-            <li><a href="#camera">Camera &amp; projection</a></li>
             <li><a href="#opaque">Transparent voxels</a></li>
             <li><a href="#content-voxels">Content voxels</a></li>
             <li><a href="#queries">Querying voxels</a></li>
@@ -1051,74 +1050,6 @@ heerich.applyGeometry({
           </p>
         </div>
       </div>
-
-      <!-- ─── 14. Camera (text-only) ─────────────────────── -->
-
-      <div class="section-full">
-        <h2 id="camera">Camera &amp; projection</h2>
-
-        <p>
-          The rendering pipeline natively exposes four distinct geometric
-          projections:
-        </p>
-
-        <dl class="camera-definitions">
-          <dt><strong>Oblique</strong></dt>
-          <dd>
-            Implements parallel projection where depth angles and offset scales
-            are manually enforced — perfect for hyper-clean classic pixel-art
-            aesthetics.
-          </dd>
-
-          <dt><strong>Perspective</strong></dt>
-          <dd>
-            Leans on classical single-vanishing-point math anchored by an
-            abstract camera position, simulating real-world depth.
-          </dd>
-
-          <dt><strong>Orthographic</strong></dt>
-          <dd>
-            Applies true 3D parallel projection based on pan and pitch camera
-            angles (angle and pitch), allowing for custom dimetric and trimetric
-            angles.
-          </dd>
-
-          <dt><strong>Isometric</strong></dt>
-          <dd>
-            A mathematically perfect preset of the Orthographic mode (pitch:
-            35.264°), achieving a standard isometric look. Can be rotated in 90°
-            increments using angle (45°, 135°, 225°, 315°).
-          </dd>
-        </dl>
-        <pre><code >// Oblique (parallel)
-heerich.setCamera({ type: 'oblique', angle: 315, distance: 25 })
-
-// Perspective (1-point)
-heerich.setCamera({ type: 'perspective', position: [5, 5], distance: 12 })
-
-// Orthographic (parallel 3D)
-heerich.setCamera({ type: 'orthographic', angle: 45, pitch: 35.264 })
-
-// Isometric shortcut (supports angle: 45 | 135 | 225 | 315)
-heerich.setCamera({ type: "isometric", angle: 45 })</code></pre>
-
-        <p>
-          Look for the floating <strong>Settings</strong> panel (typically in
-          the top right). Swapping to perspective, adjusting camera elevations,
-          or shifting base hues applies sweeping, uninterrupted recalculations
-          instantly across the entire documentation.
-        </p>
-
-        <p class="note">
-          In perspective mode, the Angle slider moves the camera's X position,
-          and very low distances can clip geometry behind the camera.<br /><br />
-          In orthographic and isometric modes, objects do not experience
-          perspective foreshortening, meaning the distance parameter has no
-          effect and is disabled in the UI.
-        </p>
-      </div>
-
-      <!-- ─── Transparent voxels ─────────────────────────── -->
 
       <div class="section-row" id="opaque">
         <div class="section-demo">
