@@ -76,6 +76,8 @@ const h = new Heerich({
 h.setCamera({ angle: 30, distance: 20 })
 ```
 
+> **Note**: Because `orthographic` and `isometric` use parallel projection, objects do not experience perspective foreshortening. Consequently, the `distance` parameter has no effect in these modes.
+
 ## Shapes
 
 All shape methods accept a common set of options:
