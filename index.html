@@ -1058,19 +1058,38 @@ heerich.applyGeometry({
         <h2 id="camera">Camera &amp; projection</h2>
 
         <p>
-          The rendering pipeline natively exposes three distinct geometric
-          projections.
-          <strong>Oblique</strong> implements parallel projection where depth
-          angles and offset scales are manually enforced — perfect for
-          hyper-clean orthographic aesthetics.
-          <strong>Perspective</strong> leans on classical single-vanishing-point
-          math anchored by an abstract camera position.
+          The rendering pipeline natively exposes four distinct geometric
+          projections:
         </p>
 
-        <p>
-          <strong>Orthographic</strong> applies true 3D isometric/dimetric
-          parallel projection based on camera angles.
-        </p>
+        <dl class="camera-definitions">
+          <dt><strong>Oblique</strong></dt>
+          <dd>
+            Implements parallel projection where depth angles and offset scales
+            are manually enforced — perfect for hyper-clean classic pixel-art
+            aesthetics.
+          </dd>
+
+          <dt><strong>Perspective</strong></dt>
+          <dd>
+            Leans on classical single-vanishing-point math anchored by an
+            abstract camera position, simulating real-world depth.
+          </dd>
+
+          <dt><strong>Orthographic</strong></dt>
+          <dd>
+            Applies true 3D parallel projection based on pan and pitch camera
+            angles (theta and phi), allowing for custom dimetric and trimetric
+            angles.
+          </dd>
+
+          <dt><strong>Isometric</strong></dt>
+          <dd>
+            A mathematically perfect, locked-angle preset of the Orthographic
+            mode (theta: 45°, phi: 35.264°), achieving a standard isometric look
+            without manual tweaking.
+          </dd>
+        </dl>
         <pre><code >// Oblique (parallel)
 heerich.setCamera({ type: 'oblique', angle: 315, distance: 25 })
 

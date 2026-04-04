@@ -44,17 +44,32 @@ document.body.innerHTML = h.toSVG()
 
 ## Camera
 
-Two projection modes are available:
+The engine exposes four distinct geometric projections:
+
+- **oblique** (default): A parallel projection where depth angles and offset scales are manually tracked. Perfect for classic pixel-art aesthetics.
+- **perspective**: Simulates real-world depth with classical single-vanishing-point math anchored by an explicit camera position.
+- **orthographic**: True 3D parallel projection derived from camera pan (`theta`) and pitch (`phi`) angles. Use this for dimetric/trimetric setups.
+- **isometric**: A locked-angle preset of the orthographic projection using standard isometric constants (`theta: 45`, `phi: 35.264`). Very clean and exact.
 
 ```js
-// Oblique (default) — classic pixel-art look
+// Oblique (parallel)
 const h = new Heerich({
   camera: { type: 'oblique', angle: 45, distance: 15 }
 })
 
-// Perspective — vanishing-point projection
+// Perspective (1-point)
 const h = new Heerich({
   camera: { type: 'perspective', position: [5, 5], distance: 10 }
+})
+
+// Orthographic (parallel 3D)
+const h = new Heerich({
+  camera: { type: 'orthographic', theta: 45, phi: 35.264 }
+})
+
+// Isometric shortcut
+const h = new Heerich({
+  camera: { type: 'isometric' }
 })
 
 // Update camera at any time
