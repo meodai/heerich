@@ -1111,7 +1111,10 @@ heerich.setCamera({ type: "isometric", theta: 45 })</code></pre>
 
         <p class="note">
           In perspective mode, the Angle slider moves the camera's X position,
-          and very low distances can clip geometry behind the camera.
+          and very low distances can clip geometry behind the camera.<br /><br />
+          In orthographic and isometric modes, objects do not experience
+          perspective foreshortening, meaning the distance parameter has no
+          effect and is disabled in the UI.
         </p>
       </div>
 

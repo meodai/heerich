@@ -30,7 +30,9 @@ function enhanceRange(input) {
   wrap.appendChild(capR);
 
   // Find the .value span — it's a sibling of the wrapper in the <label>
-  const valueSpan = wrap.parentElement.querySelector(".control-value");
+  const valueSpan = wrap
+    .closest(".control-label")
+    .querySelector(".control-value");
 
   function syncVal() {
     const min = parseFloat(input.min) || 0;
@@ -238,7 +240,8 @@ function syncControlVisibility() {
   const isometric = camProj.value === "isometric";
   camAngleLabel.style.display = perspective ? "none" : "";
   camYLabel.style.display = orthographic ? "" : "none";
-  camDist.parentElement.style.display = orthographic || isometric ? "none" : "";
+  camDist.closest(".control-label").style.display =
+    orthographic || isometric ? "none" : "";
   camPerspectiveControl.hidden = !perspective;
 
   if (isometric) {
@@ -250,7 +253,9 @@ function syncControlVisibility() {
       45,
       Math.min(315, Math.round((val - 45) / 90) * 90 + 45),
     );
-    const span = camAngle.parentElement.querySelector(".control-value");
+    const span = camAngle
+      .closest(".control-label")
+      .querySelector(".control-value");
     if (span) span.textContent = camAngle.value;
   } else {
     camAngle.min = "0";
@@ -266,7 +271,7 @@ syncControlVisibility();
   const evt =
     el.tagName === "SELECT" || el.type === "checkbox" ? "change" : "input";
   el.addEventListener(evt, () => {
-    const span = el.parentElement.querySelector(".control-value");
+    const span = el.closest(".control-label").querySelector(".control-value");
     if (span && el.type !== "checkbox") span.textContent = el.value;
     if (el === camProj) syncControlVisibility();
     if (el === camAngle || el === camY) updatePerspectiveGrid();
@@ -300,7 +305,7 @@ document
     camDist.value = (2 + Math.random() * 18).toFixed(1);
     camY.value = (1 + Math.random() * 9).toFixed(1);
     [camAngle, camDist, camY].forEach((el) => {
-      const span = el.parentElement.querySelector(".control-value");
+      const span = el.closest(".control-label").querySelector(".control-value");
       if (span) span.textContent = el.value;
     });
     syncControlVisibility();
@@ -397,7 +402,9 @@ function syncStyleVars() {
   hero.repaint();
 }
 camStroke.addEventListener("input", () => {
-  const span = camStroke.parentElement.querySelector(".control-value");
+  const span = camStroke
+    .closest(".control-label")
+    .querySelector(".control-value");
   if (span) span.textContent = camStroke.value;
   syncStyleVars();
 });
@@ -411,7 +418,9 @@ document.getElementById("cam-fill-clear").addEventListener("click", () => {
   syncStyleVars();
 });
 camOutline.addEventListener("input", () => {
-  const span = camOutline.parentElement.querySelector(".control-value");
+  const span = camOutline
+    .closest(".control-label")
+    .querySelector(".control-value");
   if (span) span.textContent = camOutline.value;
   debouncedRerenderAll();
 });
@@ -428,7 +437,7 @@ function setupDemo(id, buildFn) {
     controls[key] = el;
 
     const update = () => {
-      const span = el.parentElement.querySelector(".control-value");
+      const span = el.closest(".control-label").querySelector(".control-value");
       if (span) span.textContent = el.value;
       render();
     };
@@ -1056,7 +1065,7 @@ function animateHoles({
 
   [durInput, staggerInput].forEach((el) => {
     el.addEventListener("input", () => {
-      const span = el.parentElement.querySelector(".control-value");
+      const span = el.closest(".control-label").querySelector(".control-value");
       if (span) span.textContent = el.value;
     });
   });
