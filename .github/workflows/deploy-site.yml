@@ -23,7 +23,7 @@ jobs:
         with:
           node-version: 23.11.0
           cache: npm
-      - run: npm ci
+      - run: npm install
       - run: npm run build:site
       - uses: actions/upload-pages-artifact@v3
         with:
