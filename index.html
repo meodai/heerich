@@ -1085,9 +1085,9 @@ heerich.applyGeometry({
 
           <dt><strong>Isometric</strong></dt>
           <dd>
-            A mathematically perfect, locked-angle preset of the Orthographic
-            mode (theta: 45°, phi: 35.264°), achieving a standard isometric look
-            without manual tweaking.
+            A mathematically perfect preset of the Orthographic mode (pitch phi:
+            35.264°), achieving a standard isometric look. Can be rotated in 90°
+            increments using theta (45°, 135°, 225°, 315°).
           </dd>
         </dl>
         <pre><code >// Oblique (parallel)
@@ -1099,8 +1099,8 @@ heerich.setCamera({ type: 'perspective', position: [5, 5], distance: 12 })
 // Orthographic (parallel 3D)
 heerich.setCamera({ type: 'orthographic', theta: 45, phi: 35.264 })
 
-// Isometric shortcut
-heerich.setCamera({ type: "isometric" })</code></pre>
+// Isometric shortcut (supports theta: 45 | 135 | 225 | 315)
+heerich.setCamera({ type: "isometric", theta: 45 })</code></pre>
 
         <p>
           Look for the floating <strong>Settings</strong> panel (typically in

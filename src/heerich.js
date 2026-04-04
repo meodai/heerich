@@ -191,9 +191,7 @@ export class Heerich {
       this.renderOptions.depthOffsetY = Math.sin(rad) * distance * zScale;
     } else if (type === "orthographic" || type === "isometric") {
       this.renderOptions.theta =
-        type === "isometric"
-          ? 45 * (Math.PI / 180)
-          : (opts.theta !== undefined ? opts.theta : 45) * (Math.PI / 180);
+        (opts.theta !== undefined ? opts.theta : 45) * (Math.PI / 180);
       this.renderOptions.phi =
         type === "isometric"
           ? 35.264 * (Math.PI / 180)

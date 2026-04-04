@@ -173,7 +173,7 @@ function getCamera() {
     };
   }
   if (proj === "isometric") {
-    return { type: "orthographic", theta: 45, phi: 35.264 };
+    return { type: "isometric", theta: angle, phi: 35.264 };
   }
   const camX = 5 + ((angle - 180) / 180) * 12;
   return {
@@ -236,10 +236,28 @@ function syncControlVisibility() {
   const perspective = camProj.value === "perspective";
   const orthographic = camProj.value === "orthographic";
   const isometric = camProj.value === "isometric";
-  camAngleLabel.style.display = perspective || isometric ? "none" : "";
+  camAngleLabel.style.display = perspective ? "none" : "";
   camYLabel.style.display = orthographic ? "" : "none";
   camDist.parentElement.style.display = orthographic || isometric ? "none" : "";
   camPerspectiveControl.hidden = !perspective;
+
+  if (isometric) {
+    camAngle.min = "45";
+    camAngle.max = "315";
+    camAngle.step = "90";
+    const val = parseFloat(camAngle.value) || 45;
+    camAngle.value = Math.max(
+      45,
+      Math.min(315, Math.round((val - 45) / 90) * 90 + 45),
+    );
+    const span = camAngle.parentElement.querySelector(".control-value");
+    if (span) span.textContent = camAngle.value;
+  } else {
+    camAngle.min = "0";
+    camAngle.max = "360";
+    camAngle.step = "1";
+  }
+
   updatePerspectiveGrid();
 }
 syncControlVisibility();
