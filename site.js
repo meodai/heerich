@@ -172,6 +172,9 @@ function getCamera() {
       phi: parseFloat(camY.value) * 3,
     };
   }
+  if (proj === "isometric") {
+    return { type: "orthographic", theta: 45, phi: 35.264 };
+  }
   const camX = 5 + ((angle - 180) / 180) * 12;
   return {
     type: "perspective",
@@ -232,9 +235,10 @@ function rerenderAll() {
 function syncControlVisibility() {
   const perspective = camProj.value === "perspective";
   const orthographic = camProj.value === "orthographic";
-  camAngleLabel.style.display = perspective ? "none" : "";
-  camYLabel.style.display = "none";
-  camDist.parentElement.style.display = orthographic ? "none" : "";
+  const isometric = camProj.value === "isometric";
+  camAngleLabel.style.display = perspective || isometric ? "none" : "";
+  camYLabel.style.display = orthographic ? "" : "none";
+  camDist.parentElement.style.display = orthographic || isometric ? "none" : "";
   camPerspectiveControl.hidden = !perspective;
   updatePerspectiveGrid();
 }
@@ -272,7 +276,7 @@ camGrid.addEventListener("pointerdown", (event) => {
 document
   .getElementById("btn-randomize-settings")
   .addEventListener("click", () => {
-    const projs = ["perspective", "oblique", "orthographic"];
+    const projs = ["perspective", "oblique", "orthographic", "isometric"];
     camProj.value = projs[Math.floor(Math.random() * projs.length)];
     camAngle.value = Math.round(Math.random() * 360);
     camDist.value = (2 + Math.random() * 18).toFixed(1);

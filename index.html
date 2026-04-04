@@ -65,6 +65,7 @@
             <option value="oblique">oblique</option>
             <option value="perspective">perspective</option>
             <option value="orthographic">orthographic</option>
+            <option value="isometric">isometric</option>
           </select>
         </label>
         <label class="control-label" id="cam-angle-label">
@@ -1077,7 +1078,10 @@ heerich.setCamera({ type: 'oblique', angle: 315, distance: 25 })
 heerich.setCamera({ type: 'perspective', position: [5, 5], distance: 12 })
 
 // Orthographic (parallel 3D)
-heerich.setCamera({ type: 'orthographic', theta: 45, phi: 35.264 })</code></pre>
+heerich.setCamera({ type: 'orthographic', theta: 45, phi: 35.264 })
+
+// Isometric shortcut
+heerich.setCamera({ type: "isometric" })</code></pre>
 
         <p>
           Look for the floating <strong>Settings</strong> panel (typically in

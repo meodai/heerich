@@ -189,11 +189,15 @@ export class Heerich {
       const zScale = this.renderOptions.tileZ / this.renderOptions.tileW;
       this.renderOptions.depthOffsetX = Math.cos(rad) * distance * zScale;
       this.renderOptions.depthOffsetY = Math.sin(rad) * distance * zScale;
-    } else if (type === "orthographic") {
+    } else if (type === "orthographic" || type === "isometric") {
       this.renderOptions.theta =
-        (opts.theta !== undefined ? opts.theta : 45) * (Math.PI / 180);
+        type === "isometric"
+          ? 45 * (Math.PI / 180)
+          : (opts.theta !== undefined ? opts.theta : 45) * (Math.PI / 180);
       this.renderOptions.phi =
-        (opts.phi !== undefined ? opts.phi : 35.264) * (Math.PI / 180);
+        type === "isometric"
+          ? 35.264 * (Math.PI / 180)
+          : (opts.phi !== undefined ? opts.phi : 35.264) * (Math.PI / 180);
     } else {
       const pos = opts.position || [5, 5];
       this.renderOptions.cameraX = pos[0];
@@ -1398,7 +1402,10 @@ export class Heerich {
           py = truncate((cy + 0.5) * tileH + (cz + 0.5) * depthOffsetY);
           scale = 1;
           depth = cz + 0.5 - (cx + 0.5) * dx_norm - (cy + 0.5) * dy_norm;
-        } else if (projection === "orthographic") {
+        } else if (
+          projection === "orthographic" ||
+          projection === "isometric"
+        ) {
           const { theta = 0, phi = 0 } = this.renderOptions;
           const cosT = Math.cos(theta),
             sinT = Math.sin(theta);
@@ -1437,7 +1444,10 @@ export class Heerich {
             );
           }
           face.points = new Points(flat);
-        } else if (projection === "orthographic") {
+        } else if (
+          projection === "orthographic" ||
+          projection === "isometric"
+        ) {
           const flat = [];
           const { theta = 0, phi = 0 } = this.renderOptions;
           const cosT = Math.cos(theta),
@@ -1478,7 +1488,7 @@ export class Heerich {
           );
         }
         face.points = new Points(flat);
-      } else if (projection === "orthographic") {
+      } else if (projection === "orthographic" || projection === "isometric") {
         const { theta = 0, phi = 0 } = this.renderOptions;
         const cosT = Math.cos(theta),
           sinT = Math.sin(theta);
