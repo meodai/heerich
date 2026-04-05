@@ -1,5 +1,5 @@
-import { Heerich } from "./src/heerich.js";
-import { version } from "./package.json";
+import { Heerich } from "../src/heerich.js";
+import { version } from "../package.json";
 import { initHero } from "./hero.js";
 import { highlight } from "https://esm.sh/sugar-high";
 import polygonClipping from "https://esm.sh/polygon-clipping";

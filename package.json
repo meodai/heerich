@@ -18,12 +18,12 @@
     "src/heerich.js"
   ],
   "scripts": {
-    "dev": "vite --host",
+    "dev": "vite site --host",
     "build": "vite build && tsc",
-    "build:site": "vite build --config vite.site.config.js",
-    "preview": "vite preview",
-    "format": "prettier --write \"src/**/*.js\" \"*.js\" \"*.css\" \"*.html\"",
-    "format:check": "prettier --check \"src/**/*.js\" \"*.js\" \"*.css\" \"*.html\""
+    "build:site": "vite build --config site/vite.config.js",
+    "preview": "vite preview site",
+    "format": "prettier --write \"src/**/*.js\" \"site/**/*.js\" \"site/**/*.css\" \"site/**/*.html\"",
+    "format:check": "prettier --check \"src/**/*.js\" \"site/**/*.js\" \"site/**/*.css\" \"site/**/*.html\""
   },
   "keywords": [
     "voxel",

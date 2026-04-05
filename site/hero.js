@@ -1,4 +1,4 @@
-import { Heerich } from "./src/heerich.js";
+import { Heerich } from "../src/heerich.js";
 
 export function initHero(
   container,
