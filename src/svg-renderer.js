@@ -65,28 +65,37 @@ export class SVGRenderer {
           if (options.resolveOcclusion) {
             // User-provided clipping (e.g. polygon-clipping library)
             pathD = options.resolveOcclusion(poly, overlapping);
+            if (!pathD) {
+              isVisible = false;
+            }
           } else {
             // Built-in convex polygon subtraction
             const fragments = bsp.clip(poly);
             if (fragments.length === 0) {
-              pathD = null; // Fully occluded
+              isVisible = false; // Fully occluded
             } else {
-              // Convert fragments to SVG path data
-              let d = "";
-              for (const frag of fragments) {
-                for (let i = 0; i < frag.length; i++) {
-                  d +=
-                    i === 0
-                      ? `M${frag[i][0]} ${frag[i][1]}`
-                      : `L${frag[i][0]} ${frag[i][1]}`;
+              // Compare fragment area to original to detect whether the face
+              // was actually occluded vs merely split along shared edges
+              let fragArea = 0;
+              for (const frag of fragments) fragArea += bsp.calcArea(frag);
+              const origArea = bsp.calcArea(poly);
+
+              if (fragArea < origArea * 0.999) {
+                // Face is actually partially occluded — use clipped path
+                let d = "";
+                for (const frag of fragments) {
+                  for (let i = 0; i < frag.length; i++) {
+                    d +=
+                      i === 0
+                        ? `M${frag[i][0]} ${frag[i][1]}`
+                        : `L${frag[i][0]} ${frag[i][1]}`;
+                  }
+                  d += "Z";
                 }
-                d += "Z";
+                pathD = d;
               }
-              pathD = d;
+              // else: face not actually occluded, render as original polygon
             }
-          }
-          if (!pathD) {
-            isVisible = false;
           }
         }
 
