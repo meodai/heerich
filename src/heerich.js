@@ -17,6 +17,7 @@ export { boxCoords, sphereCoords, lineCoords, fillCoords };
  * @property {string} [strokeLinecap] - Line cap style
  * @property {string} [strokeLinejoin] - Line join style
  * @property {string|DecalRef} [decal] - Decal name or decal reference object
+ * @property {import('./hatch.js').HatchOptions} [hatch] - Hatching lines drawn over the face
  */
 
 /**
