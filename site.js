@@ -712,6 +712,41 @@ setupDemo("demo-decals", (v) => {
   return e.toSVG({ ...getSvgOpts(), padding: 50 });
 });
 
+// ─── 9c. Hatching ────────────────────
+setupDemo("demo-hatching", (v) => {
+  const e = new Heerich({
+    tile: 30,
+    camera: getCamera(),
+    style: {
+      fill: "var(--fill)",
+      stroke: "var(--stroke-c)",
+      strokeWidth: "var(--stroke-w)",
+    },
+  });
+
+  const hatch = { angle: v.angle, period: v.period };
+
+  e.addGeometry({
+    type: "box",
+    position: [0, 0, 0],
+    size: [5, 5, 5],
+    style: {
+      top: { hatch: { ...hatch, angle: v.angle } },
+      front: {
+        hatch: {
+          ...hatch,
+          angle: (v.angle + 90) % 180,
+          strokeWidth: v.width,
+          stroke: v.color,
+        },
+      },
+      right: { hatch: { ...hatch, angle: (v.angle - 30) % 180 } },
+    },
+  });
+
+  return e.toSVG(getSvgOpts());
+});
+
 // ─── 10. SVG styles ───────────────────
 setupDemo("demo-svg-styles", (v) => {
   const e = new Heerich({

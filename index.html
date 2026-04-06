@@ -241,6 +241,7 @@
             <li><a href="#grouping">Smooth solids</a></li>
             <li><a href="#styles">Styling faces</a></li>
             <li><a href="#decals">Using decals</a></li>
+            <li><a href="#hatching">Hatching</a></li>
             <li><a href="#svg-styles">SVG style properties</a></li>
             <li><a href="#functional">Functional styles</a></li>
             <li><a href="#scale">Voxel scaling</a></li>
@@ -802,6 +803,82 @@ scene.addGeometry({
             automatically converted to cubic beziers before warping. Only
             <code>&lt;path&gt;</code> elements are supported for now; other
             shapes must be converted to paths first.
+          </p>
+        </div>
+      </div>
+
+      <!-- ─── 9c. Hatching ─────────────────────────────────── -->
+
+      <div class="section-row" id="hatching">
+        <div class="section-demo">
+          <div class="demo" id="demo-hatching">
+            <div class="demo-canvas"></div>
+            <div class="demo-controls">
+              <label class="control-label">
+                Angle
+                <input
+                  type="range"
+                  min="0"
+                  max="180"
+                  value="45"
+                  step="1"
+                  data-bind="angle"
+                />
+                <span class="control-value">45</span>
+              </label>
+              <label class="control-label">
+                Period
+                <input
+                  type="range"
+                  min="1"
+                  max="20"
+                  value="5"
+                  step="0.5"
+                  data-bind="period"
+                />
+                <span class="control-value">5</span>
+              </label>
+              <label class="control-label">
+                Color <input type="color" value="#000000" data-bind="color" />
+              </label>
+              <label class="control-label">
+                Width
+                <input
+                  type="range"
+                  min="0.5"
+                  max="6"
+                  value="1"
+                  step="0.5"
+                  data-bind="width"
+                />
+                <span class="control-value">1</span>
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="section-text">
+          <h2>Hatching</h2>
+          <p>
+            Add a <code>hatch</code> object to any face style to overlay
+            parallel lines. The lines are clipped precisely to the face polygon
+            — including partially-occluded faces when occlusion culling is
+            active.
+          </p>
+          <pre><code>heerich.addGeometry({
+  type: 'box', position: [0, 0, 0], size: 4,
+  style: {
+    top:   { fill: '#eee', hatch: { angle: 45, period: 5 } },
+    front: { fill: '#ccc', hatch: { angle: 90, period: 8, stroke: '#666' } },
+    right: { fill: '#ddd', hatch: { angle: 0,  period: 6, strokeWidth: 2 } }
+  }
+});</code></pre>
+          <p>
+            Options: <code>angle</code> (degrees, default <code>45</code>),
+            <code>period</code> (px between lines, default <code>5</code>),
+            <code>stroke</code> (color, defaults to <code>currentColor</code>),
+            <code>strokeWidth</code> (default <code>1</code>), and
+            <code>opacity</code>. The same callback API as other styles applies
+            — pass a function to vary hatching per-voxel.
           </p>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import { OccluderIndex } from "./bsp.js";
 import { warpPreparedContent } from "./decal-warp.js";
+import { buildHatchSVG } from "./hatch.js";
 
 const _kebabCache = {};
 const _styleCache = new WeakMap();
@@ -113,7 +114,6 @@ export class SVGRenderer {
     const tw = options.tileW || 1;
     const faceAttrFn = options.faceAttributes || null;
     const decalDefs = options.decals || null;
-
     const parts = [
       `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vbX} ${vbY} ${vbW} ${vbH}" style="width:100%; height:100%;">`,
     ];
@@ -182,6 +182,11 @@ export class SVGRenderer {
         parts.push(
           `<polygon points="${d[0]},${d[1]} ${d[2]},${d[3]} ${d[4]},${d[5]} ${d[6]},${d[7]}"${_buildSvgAttributes(style)} data-voxel="${v.x},${v.y},${v.z}" data-x="${v.x}" data-y="${v.y}" data-z="${v.z}" data-face="${face.type}"${metaAttrs}${extraAttrs} />`,
         );
+      }
+
+      // Emit hatch lines clipped to the face shape
+      if (style && style.hatch) {
+        parts.push(buildHatchSVG(d, style.hatch, face._pathD || null, style));
       }
 
       // Emit warped decal paths if this face has a decal reference
@@ -254,7 +259,7 @@ function _buildSvgAttributes(styleObj) {
   const merged = { strokeLinejoin: "round", ...styleObj };
   let attrStr = "";
   for (const key in merged) {
-    if (key === "decal") continue;
+    if (key === "decal" || key === "hatch") continue;
     const value = merged[key];
     if (value !== undefined && value !== null) {
       const kebabKey =
