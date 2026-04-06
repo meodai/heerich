@@ -724,7 +724,12 @@ setupDemo("demo-hatching", (v) => {
     },
   });
 
-  const hatch = { angle: v.angle, period: v.period };
+  const hatch = {
+    angle: v.angle,
+    period: v.period,
+    strokeWidth: v.width,
+    stroke: v.color,
+  };
 
   e.addGeometry({
     type: "box",
@@ -736,8 +741,6 @@ setupDemo("demo-hatching", (v) => {
         hatch: {
           ...hatch,
           angle: (v.angle + 90) % 180,
-          strokeWidth: v.width,
-          stroke: v.color,
         },
       },
       right: { hatch: { ...hatch, angle: (v.angle - 30) % 180 } },
