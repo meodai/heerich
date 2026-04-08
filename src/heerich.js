@@ -4,6 +4,8 @@ import { Points } from "./points.js";
 import { boxCoords, sphereCoords, lineCoords, fillCoords } from "./shapes.js";
 
 export { boxCoords, sphereCoords, lineCoords, fillCoords };
+export { GPURenderer } from "./gpu-renderer.js";
+export { SVGRenderer } from "./svg-renderer.js";
 
 /**
  * @typedef {Object} StyleObject
@@ -165,16 +167,18 @@ export class Heerich {
     this._cachedEpoch = -1;
     /** @type {Face[]|null} */
     this._cachedFaces = null;
+    /** @type {number} Epoch at which _cachedRawFaces was computed */
+    this._cachedRawEpoch = -1;
+    /** @type {Face[]|null} */
+    this._cachedRawFaces = null;
     /** @type {SVGRenderer|null} */
     this._svgRenderer = null;
     /** @type {boolean} */
     this._batching = false;
-    /** @type {Set<number>} Voxel keys that changed since last getFaces */
+    /** @type {Set<number>} Voxel keys that changed since last _buildFaces3D */
     this._dirtyKeys = new Set();
     /** @type {Map<number, Object[]>} Cached 3D faces per voxel key */
     this._faceCache3D = new Map();
-    /** @type {number} Epoch at which the full cache was last valid */
-    this._faceCacheEpoch = -1;
   }
 
   /**
@@ -231,7 +235,10 @@ export class Heerich {
   /** Mark the scene as modified. */
   _invalidate() {
     this._epoch++;
-    if (!this._batching) this._cachedFaces = null;
+    if (!this._batching) {
+      this._cachedFaces = null;
+      this._cachedRawFaces = null;
+    }
   }
 
   /**
@@ -845,41 +852,25 @@ export class Heerich {
   }
 
   /**
-   * Generate an array of renderable 2D polygon faces from stored voxels, properly depth-sorted.
-   * Results are cached until the scene is modified.
-   * @returns {Face[]}
+   * Build all neighbor-exposed 3D faces for every voxel, using the incremental
+   * per-voxel cache. Always emits all 6 faces (camera direction is irrelevant
+   * here — filtering happens in `_projectAndSort` for SVG, or in the GPU
+   * renderer's own backface culling for 3D output).
+   *
+   * Each face carries `n` (normal) and `c` (center) so that `_projectAndSort`
+   * can do backface culling and depth computation without extra lookups.
+   *
+   * @returns {Object[]} Raw 3D face objects
    */
-  getFaces() {
-    if (this._cachedEpoch === this._epoch && this._cachedFaces) {
-      return this._cachedFaces;
-    }
-
-    const projectedFaces = [];
-    const {
-      projection,
-      tileW,
-      tileH,
-      depthOffsetX,
-      depthOffsetY,
-      cameraX,
-      cameraY,
-      cameraDistance,
-    } = this.renderOptions;
-
+  _buildFaces3D() {
     const hasVoxel = (x, y, z) => {
       const v = this.voxels.get(this._k(x, y, z));
       return v && v.opaque !== false;
     };
 
-    // Oblique depth constants (used in face gen and content projection)
-    const dx_norm = projection === "oblique" ? depthOffsetX / tileW : 0;
-    const dy_norm = projection === "oblique" ? depthOffsetY / tileH : 0;
-
-    // Incremental: only regenerate 3D faces for dirty voxels
     const dirtyKeys = this._dirtyKeys;
     const useIncremental = dirtyKeys.size > 0 && this._faceCache3D.size > 0;
 
-    // Remove cache entries for deleted voxels
     if (useIncremental) {
       for (const dk of dirtyKeys) {
         this._faceCache3D.delete(dk);
@@ -887,8 +878,8 @@ export class Heerich {
     }
 
     const faces3D = [];
+
     for (const [key, voxel] of this.voxels.entries()) {
-      // Reuse cached 3D faces for unchanged voxels
       if (useIncremental && !dirtyKeys.has(key)) {
         const cached = this._faceCache3D.get(key);
         if (cached) {
@@ -899,7 +890,6 @@ export class Heerich {
 
       const { x, y, z, styles } = voxel;
 
-      // Skip fully occluded voxels — all 6 neighbors are opaque
       if (
         !voxel.scale &&
         hasVoxel(x - 1, y, z) &&
@@ -914,231 +904,96 @@ export class Heerich {
 
       const faceStart = faces3D.length;
 
-      // Content voxels: emit a content entry instead of polygon faces
       if (voxel.content) {
-        faces3D.push({
-          type: "content",
-          voxel,
-          content: voxel.content,
-          _pos: [x, y, z],
-        });
+        faces3D.push({ type: "content", voxel, content: voxel.content, _pos: [x, y, z] });
         this._faceCache3D.set(key, faces3D.slice(faceStart));
         continue;
       }
 
-      // Precompute base style (default + styles.default) once per voxel
       const base = styles.default
         ? { ...this.defaultStyle, ...styles.default }
         : this.defaultStyle;
-      const getStyles = (faceName) => {
+      const getStyle = (faceName) => {
         const faceStyle = styles[faceName];
         return faceStyle ? { ...base, ...faceStyle } : base;
       };
 
-      // In Oblique projection:
-      // A standard grid relies on absolute occlusion to decide boundaries.
-      // If we just mapped raw vectors, parallel walls get confused by the math.
-      // We fall back conditionally to explicit voxel checking for oblique, but true vector calculation for perspective.
-
       const sc = voxel.scale;
       const so = voxel.scaleOrigin;
 
-      if (projection === "oblique") {
-        const getDepth = (cx, cy, cz) => cz - cx * dx_norm - cy * dy_norm;
+      const addFace = (type, vertices, n, cx, cy, cz) => {
+        let c = [cx, cy, cz];
+        if (sc) {
+          const ox = x + so[0], oy = y + so[1], oz = z + so[2];
+          c = [
+            ox + (cx - ox) * sc[0],
+            oy + (cy - oy) * sc[1],
+            oz + (cz - oz) * sc[2],
+          ];
+        }
+        faces3D.push({
+          type,
+          voxel,
+          vertices: sc ? Heerich._scaleVertices(vertices, x, y, z, sc, so) : vertices,
+          n,
+          c,
+          style: getStyle(type),
+        });
+      };
 
-        const addObliqueFace = (type, vertices, cx, cy, cz) => {
-          faces3D.push({
-            type,
-            voxel,
-            vertices: sc
-              ? Heerich._scaleVertices(vertices, x, y, z, sc, so)
-              : vertices,
-            depth: getDepth(cx, cy, cz),
-            style: getStyles(type),
-          });
-        };
+      // Emit all 6 neighbor-exposed faces. Camera-direction filtering is
+      // deferred to _projectAndSort (for SVG) or left to the GPU.
+      if (sc || !hasVoxel(x, y - 1, z))
+        addFace("top",    [[x,y,z],[x+1,y,z],[x+1,y,z+1],[x,y,z+1]],             [0,-1,0], x+0.5, y,   z+0.5);
+      if (sc || !hasVoxel(x, y + 1, z))
+        addFace("bottom", [[x,y+1,z+1],[x+1,y+1,z+1],[x+1,y+1,z],[x,y+1,z]],   [0,1,0],  x+0.5, y+1, z+0.5);
+      if (sc || !hasVoxel(x - 1, y, z))
+        addFace("left",   [[x,y,z+1],[x,y,z],[x,y+1,z],[x,y+1,z+1]],             [-1,0,0], x,   y+0.5, z+0.5);
+      if (sc || !hasVoxel(x + 1, y, z))
+        addFace("right",  [[x+1,y,z],[x+1,y,z+1],[x+1,y+1,z+1],[x+1,y+1,z]],   [1,0,0],  x+1, y+0.5, z+0.5);
+      if (sc || !hasVoxel(x, y, z - 1))
+        addFace("front",  [[x,y,z],[x,y+1,z],[x+1,y+1,z],[x+1,y,z]],             [0,0,-1], x+0.5, y+0.5, z);
+      if (sc || !hasVoxel(x, y, z + 1))
+        addFace("back",   [[x+1,y,z+1],[x+1,y+1,z+1],[x,y+1,z+1],[x,y,z+1]],   [0,0,1],  x+0.5, y+0.5, z+1);
 
-        // For oblique, we strictly cull invisible orientations
-        // Scaled voxels bypass neighbor occlusion (they don't fill the cell)
-        if (depthOffsetY < 0 && (sc || !hasVoxel(x, y - 1, z)))
-          addObliqueFace(
-            "top",
-            [
-              [x, y, z],
-              [x + 1, y, z],
-              [x + 1, y, z + 1],
-              [x, y, z + 1],
-            ],
-            x + 0.5,
-            y,
-            z + 0.5,
-          );
-        if (depthOffsetY > 0 && (sc || !hasVoxel(x, y + 1, z)))
-          addObliqueFace(
-            "bottom",
-            [
-              [x, y + 1, z + 1],
-              [x + 1, y + 1, z + 1],
-              [x + 1, y + 1, z],
-              [x, y + 1, z],
-            ],
-            x + 0.5,
-            y + 1,
-            z + 0.5,
-          );
-
-        if (depthOffsetX < 0 && (sc || !hasVoxel(x - 1, y, z)))
-          addObliqueFace(
-            "left",
-            [
-              [x, y, z + 1],
-              [x, y, z],
-              [x, y + 1, z],
-              [x, y + 1, z + 1],
-            ],
-            x,
-            y + 0.5,
-            z + 0.5,
-          );
-        if (depthOffsetX > 0 && (sc || !hasVoxel(x + 1, y, z)))
-          addObliqueFace(
-            "right",
-            [
-              [x + 1, y, z],
-              [x + 1, y, z + 1],
-              [x + 1, y + 1, z + 1],
-              [x + 1, y + 1, z],
-            ],
-            x + 1,
-            y + 0.5,
-            z + 0.5,
-          );
-
-        // Oblique depth always increases with z so the camera looks from
-        // –z.  "front" (normal –z) faces the camera; "back" (normal +z)
-        // always faces away — never visible, skip it.
-        if (sc || !hasVoxel(x, y, z - 1))
-          addObliqueFace(
-            "front",
-            [
-              [x, y, z],
-              [x, y + 1, z],
-              [x + 1, y + 1, z],
-              [x + 1, y, z],
-            ],
-            x + 0.5,
-            y + 0.5,
-            z,
-          );
-      } else {
-        // Perspective Mode uses robust 3D math and backface culling
-        const addPerspFace = (type, vertices, n, c) => {
-          if (sc) {
-            const ox = x + so[0],
-              oy = y + so[1],
-              oz = z + so[2];
-            c = [
-              ox + (c[0] - ox) * sc[0],
-              oy + (c[1] - oy) * sc[1],
-              oz + (c[2] - oz) * sc[2],
-            ];
-          }
-          faces3D.push({
-            type,
-            voxel,
-            vertices: sc
-              ? Heerich._scaleVertices(vertices, x, y, z, sc, so)
-              : vertices,
-            n,
-            c,
-            style: getStyles(type),
-          });
-        };
-
-        if (sc || !hasVoxel(x, y - 1, z))
-          addPerspFace(
-            "top",
-            [
-              [x, y, z],
-              [x + 1, y, z],
-              [x + 1, y, z + 1],
-              [x, y, z + 1],
-            ],
-            [0, -1, 0],
-            [x + 0.5, y, z + 0.5],
-          );
-        if (sc || !hasVoxel(x, y + 1, z))
-          addPerspFace(
-            "bottom",
-            [
-              [x, y + 1, z + 1],
-              [x + 1, y + 1, z + 1],
-              [x + 1, y + 1, z],
-              [x, y + 1, z],
-            ],
-            [0, 1, 0],
-            [x + 0.5, y + 1, z + 0.5],
-          );
-        if (sc || !hasVoxel(x - 1, y, z))
-          addPerspFace(
-            "left",
-            [
-              [x, y, z + 1],
-              [x, y, z],
-              [x, y + 1, z],
-              [x, y + 1, z + 1],
-            ],
-            [-1, 0, 0],
-            [x, y + 0.5, z + 0.5],
-          );
-        if (sc || !hasVoxel(x + 1, y, z))
-          addPerspFace(
-            "right",
-            [
-              [x + 1, y, z],
-              [x + 1, y, z + 1],
-              [x + 1, y + 1, z + 1],
-              [x + 1, y + 1, z],
-            ],
-            [1, 0, 0],
-            [x + 1, y + 0.5, z + 0.5],
-          );
-        if (sc || !hasVoxel(x, y, z - 1))
-          addPerspFace(
-            "front",
-            [
-              [x, y, z],
-              [x, y + 1, z],
-              [x + 1, y + 1, z],
-              [x + 1, y, z],
-            ],
-            [0, 0, -1],
-            [x + 0.5, y + 0.5, z],
-          );
-        if (sc || !hasVoxel(x, y, z + 1))
-          addPerspFace(
-            "back",
-            [
-              [x + 1, y, z + 1],
-              [x + 1, y + 1, z + 1],
-              [x, y + 1, z + 1],
-              [x, y, z + 1],
-            ],
-            [0, 0, 1],
-            [x + 0.5, y + 0.5, z + 1],
-          );
-      }
-
-      // Cache this voxel's 3D faces for incremental updates
       if (faces3D.length > faceStart) {
         this._faceCache3D.set(key, faces3D.slice(faceStart));
       }
     }
 
     this._dirtyKeys.clear();
-    this._faceCacheEpoch = this._epoch;
+    return faces3D;
+  }
 
-    const result = this._projectAndSort(faces3D);
+  /**
+   * Generate faces from stored voxels.
+   *
+   * By default returns projected, depth-sorted 2D faces for SVG rendering.
+   * Pass `{ raw: true }` to get all neighbour-exposed 3D faces without any
+   * camera-dependent culling or projection — the correct input for
+   * `GPURenderer.render()`, which lets the GPU handle its own backface culling.
+   *
+   * Both modes are epoch-cached: repeated calls with no scene changes are free.
+   *
+   * @param {Object} [options]
+   * @param {boolean} [options.raw=false] - Return raw 3D faces instead of projected 2D faces.
+   * @returns {Face[]}
+   */
+  getFaces(options = {}) {
+    if (options.raw) {
+      if (this._cachedRawEpoch === this._epoch && this._cachedRawFaces) {
+        return this._cachedRawFaces;
+      }
+      const result = this._buildFaces3D().filter((f) => f.type !== "content");
+      this._cachedRawFaces = result;
+      this._cachedRawEpoch = this._epoch;
+      return result;
+    }
+
+    if (this._cachedEpoch === this._epoch && this._cachedFaces) {
+      return this._cachedFaces;
+    }
+    const result = this._projectAndSort(this._buildFaces3D());
     this._cachedFaces = result;
     this._cachedEpoch = this._epoch;
     return result;
@@ -1490,6 +1345,17 @@ export class Heerich {
       }
 
       if (projection === "oblique") {
+        // Camera-direction cull: oblique only sees one horizontal face, one
+        // vertical face, and the front. Back is always hidden.
+        if (
+          face.type === "back" ||
+          (face.type === "top"    && depthOffsetY >= 0) ||
+          (face.type === "bottom" && depthOffsetY <= 0) ||
+          (face.type === "left"   && depthOffsetX >= 0) ||
+          (face.type === "right"  && depthOffsetX <= 0)
+        ) continue;
+
+        face.depth = face.c[2] - face.c[0] * dx_norm - face.c[1] * dy_norm;
         const flat = [];
         for (const v of face.vertices) {
           flat.push(
