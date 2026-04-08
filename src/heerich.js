@@ -4,6 +4,7 @@ import { Points } from "./points.js";
 import { boxCoords, sphereCoords, lineCoords, fillCoords } from "./shapes.js";
 
 export { boxCoords, sphereCoords, lineCoords, fillCoords };
+export { GPURenderer } from "./gpu-renderer.js";
 export { SVGRenderer } from "./svg-renderer.js";
 
 /**
