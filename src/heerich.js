@@ -4,7 +4,6 @@ import { Points } from "./points.js";
 import { boxCoords, sphereCoords, lineCoords, fillCoords } from "./shapes.js";
 
 export { boxCoords, sphereCoords, lineCoords, fillCoords };
-export { GPURenderer } from "./gpu-renderer.js";
 export { SVGRenderer } from "./svg-renderer.js";
 
 /**
@@ -906,7 +905,12 @@ export class Heerich {
       const faceStart = faces3D.length;
 
       if (voxel.content) {
-        faces3D.push({ type: "content", voxel, content: voxel.content, _pos: [x, y, z] });
+        faces3D.push({
+          type: "content",
+          voxel,
+          content: voxel.content,
+          _pos: [x, y, z],
+        });
         this._faceCache3D.set(key, faces3D.slice(faceStart));
         continue;
       }
@@ -925,7 +929,9 @@ export class Heerich {
       const addFace = (type, vertices, n, cx, cy, cz) => {
         let c = [cx, cy, cz];
         if (sc) {
-          const ox = x + so[0], oy = y + so[1], oz = z + so[2];
+          const ox = x + so[0],
+            oy = y + so[1],
+            oz = z + so[2];
           c = [
             ox + (cx - ox) * sc[0],
             oy + (cy - oy) * sc[1],
@@ -935,7 +941,9 @@ export class Heerich {
         faces3D.push({
           type,
           voxel,
-          vertices: sc ? Heerich._scaleVertices(vertices, x, y, z, sc, so) : vertices,
+          vertices: sc
+            ? Heerich._scaleVertices(vertices, x, y, z, sc, so)
+            : vertices,
           n,
           c,
           style: getStyle(type),
@@ -945,17 +953,89 @@ export class Heerich {
       // Emit all 6 neighbor-exposed faces. Camera-direction filtering is
       // deferred to _projectAndSort (for SVG) or left to the GPU.
       if (sc || !hasVoxel(x, y - 1, z))
-        addFace("top",    [[x,y,z],[x+1,y,z],[x+1,y,z+1],[x,y,z+1]],             [0,-1,0], x+0.5, y,   z+0.5);
+        addFace(
+          "top",
+          [
+            [x, y, z],
+            [x + 1, y, z],
+            [x + 1, y, z + 1],
+            [x, y, z + 1],
+          ],
+          [0, -1, 0],
+          x + 0.5,
+          y,
+          z + 0.5,
+        );
       if (sc || !hasVoxel(x, y + 1, z))
-        addFace("bottom", [[x,y+1,z+1],[x+1,y+1,z+1],[x+1,y+1,z],[x,y+1,z]],   [0,1,0],  x+0.5, y+1, z+0.5);
+        addFace(
+          "bottom",
+          [
+            [x, y + 1, z + 1],
+            [x + 1, y + 1, z + 1],
+            [x + 1, y + 1, z],
+            [x, y + 1, z],
+          ],
+          [0, 1, 0],
+          x + 0.5,
+          y + 1,
+          z + 0.5,
+        );
       if (sc || !hasVoxel(x - 1, y, z))
-        addFace("left",   [[x,y,z+1],[x,y,z],[x,y+1,z],[x,y+1,z+1]],             [-1,0,0], x,   y+0.5, z+0.5);
+        addFace(
+          "left",
+          [
+            [x, y, z + 1],
+            [x, y, z],
+            [x, y + 1, z],
+            [x, y + 1, z + 1],
+          ],
+          [-1, 0, 0],
+          x,
+          y + 0.5,
+          z + 0.5,
+        );
       if (sc || !hasVoxel(x + 1, y, z))
-        addFace("right",  [[x+1,y,z],[x+1,y,z+1],[x+1,y+1,z+1],[x+1,y+1,z]],   [1,0,0],  x+1, y+0.5, z+0.5);
+        addFace(
+          "right",
+          [
+            [x + 1, y, z],
+            [x + 1, y, z + 1],
+            [x + 1, y + 1, z + 1],
+            [x + 1, y + 1, z],
+          ],
+          [1, 0, 0],
+          x + 1,
+          y + 0.5,
+          z + 0.5,
+        );
       if (sc || !hasVoxel(x, y, z - 1))
-        addFace("front",  [[x,y,z],[x,y+1,z],[x+1,y+1,z],[x+1,y,z]],             [0,0,-1], x+0.5, y+0.5, z);
+        addFace(
+          "front",
+          [
+            [x, y, z],
+            [x, y + 1, z],
+            [x + 1, y + 1, z],
+            [x + 1, y, z],
+          ],
+          [0, 0, -1],
+          x + 0.5,
+          y + 0.5,
+          z,
+        );
       if (sc || !hasVoxel(x, y, z + 1))
-        addFace("back",   [[x+1,y,z+1],[x+1,y+1,z+1],[x,y+1,z+1],[x,y,z+1]],   [0,0,1],  x+0.5, y+0.5, z+1);
+        addFace(
+          "back",
+          [
+            [x + 1, y, z + 1],
+            [x + 1, y + 1, z + 1],
+            [x, y + 1, z + 1],
+            [x, y, z + 1],
+          ],
+          [0, 0, 1],
+          x + 0.5,
+          y + 0.5,
+          z + 1,
+        );
 
       if (faces3D.length > faceStart) {
         this._faceCache3D.set(key, faces3D.slice(faceStart));
@@ -972,7 +1052,7 @@ export class Heerich {
    * By default returns projected, depth-sorted 2D faces for SVG rendering.
    * Pass `{ raw: true }` to get all neighbour-exposed 3D faces without any
    * camera-dependent culling or projection — the correct input for
-   * `GPURenderer.render()`, which lets the GPU handle its own backface culling.
+   * GPURenderer, which lets the GPU handle its own backface culling.
    *
    * Both modes are epoch-cached: repeated calls with no scene changes are free.
    *
@@ -1350,11 +1430,12 @@ export class Heerich {
         // vertical face, and the front. Back is always hidden.
         if (
           face.type === "back" ||
-          (face.type === "top"    && depthOffsetY >= 0) ||
+          (face.type === "top" && depthOffsetY >= 0) ||
           (face.type === "bottom" && depthOffsetY <= 0) ||
-          (face.type === "left"   && depthOffsetX >= 0) ||
-          (face.type === "right"  && depthOffsetX <= 0)
-        ) continue;
+          (face.type === "left" && depthOffsetX >= 0) ||
+          (face.type === "right" && depthOffsetX <= 0)
+        )
+          continue;
 
         face.depth = face.c[2] - face.c[0] * dx_norm - face.c[1] * dy_norm;
         const flat = [];
