@@ -1,22 +1,20 @@
-// Benchmark getFaces() across projections and scene sizes.
-// Run directly: node tests/getFaces.bench.js
-// Or import { run } to collect structured results.
+// Benchmark toSVG() — full face-gen → project → serialize pipeline,
+// with and without occlusion clipping (the expensive path in real usage).
+// Run directly: node tests/toSVG.bench.js
 
 import { Heerich } from "../src/heerich.js";
 
-const SIZES = [10, 25, 40];
-const PROJECTIONS = ["oblique", "perspective", "orthographic"];
-const WARMUP = 5;
-const ITERS = 30;
+const SIZES = [15, 25];
+const PROJECTIONS = ["oblique", "perspective"];
+const WARMUP = 3;
+const ITERS = 15;
 
 function buildScene(size) {
   const h = new Heerich();
-  h.batch(() => {
-    h.applyGeometry({
-      type: "box",
-      position: [0, 0, 0],
-      size: [size, size, size],
-    });
+  h.applyGeometry({
+    type: "box",
+    position: [0, 0, 0],
+    size: [size, size, size],
   });
   return h;
 }
@@ -43,21 +41,25 @@ export function run() {
     for (const projection of PROJECTIONS) {
       const h = buildScene(size);
       h.renderOptions.projection = projection;
-      const cold = bench(() => {
+      const plain = bench(() => {
         h._invalidate();
-        h.getFaces();
+        h.toSVG();
       });
-      const warm = bench(() => h.getFaces());
+      const occluded = bench(() => {
+        h._invalidate();
+        h.toSVG({ occlusion: true });
+      });
       rows.push({
         size,
         voxels: size ** 3,
         projection,
-        cold: cold.median,
-        warm: warm.median,
+        plain: plain.median,
+        occluded: occluded.median,
+        ratio: occluded.median / plain.median,
       });
     }
   }
-  return { name: "getFaces", rows, meta: { warmup: WARMUP, iters: ITERS } };
+  return { name: "toSVG", rows, meta: { warmup: WARMUP, iters: ITERS } };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
@@ -65,7 +67,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   console.log(`node ${process.version}   warmup=${meta.warmup} iters=${meta.iters}\n`);
   for (const r of rows) {
     console.log(
-      `  ${r.size}³ ${r.projection.padEnd(13)} cold=${r.cold.toFixed(2).padStart(7)} ms  warm=${r.warm.toFixed(2).padStart(7)} ms`,
+      `  ${r.size}³ ${r.projection.padEnd(12)} plain=${r.plain.toFixed(2).padStart(7)} ms  occ=${r.occluded.toFixed(2).padStart(7)} ms  (${r.ratio.toFixed(1)}×)`,
     );
   }
 }

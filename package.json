@@ -23,7 +23,7 @@
     "build:site": "vite build --config site/vite.config.js",
     "preview": "vite preview site",
     "test": "npm run bench",
-    "bench": "node tests/getFaces.bench.js",
+    "bench": "node tests/benches.js",
     "format": "prettier --write \"src/**/*.js\" \"site/**/*.js\" \"site/**/*.css\" \"site/**/*.html\"",
     "format:check": "prettier --check \"src/**/*.js\" \"site/**/*.js\" \"site/**/*.css\" \"site/**/*.html\""
   },
