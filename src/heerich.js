@@ -853,23 +853,32 @@ export class Heerich {
 
   /**
    * Build all neighbor-exposed 3D faces for every voxel, using the incremental
-   * per-voxel cache. Always emits all 6 faces (camera direction is irrelevant
-   * here — filtering happens in `_projectAndSort` for SVG, or in the GPU
-   * renderer's own backface culling for 3D output).
+   * per-voxel cache. Emits up to 6 faces per voxel. The `back` face (normal
+   * [0,0,1]) is included so that orthographic/isometric cameras can see it when
+   * rotated past ~90°; oblique always culls it via `cullTypes`.
    *
    * Each face carries `n` (normal) and `c` (center) so that `_projectAndSort`
    * can do backface culling and depth computation without extra lookups.
    *
+   * @param {Set<string>|null} [cullTypes] - Optional set of face type strings to
+   *   skip at generation time (e.g. oblique direction cull). When provided the
+   *   per-voxel incremental cache is bypassed so that the cache always stores
+   *   the full unculled set.
    * @returns {Object[]} Raw 3D face objects
    */
-  _buildFaces3D() {
+  _buildFaces3D(cullTypes = null) {
     const hasVoxel = (x, y, z) => {
       const v = this.voxels.get(this._k(x, y, z));
       return v && v.opaque !== false;
     };
 
     const dirtyKeys = this._dirtyKeys;
-    const useIncremental = dirtyKeys.size > 0 && this._faceCache3D.size > 0;
+    // Bypass the per-voxel cache when direction culling is active: the cache
+    // stores the full unculled set, so mixing culled and unculled entries would
+    // corrupt it. The epoch-level cache in getFaces() still avoids redundant
+    // work for static scenes.
+    const useIncremental =
+      !cullTypes && dirtyKeys.size > 0 && this._faceCache3D.size > 0;
 
     if (useIncremental) {
       for (const dk of dirtyKeys) {
@@ -911,7 +920,7 @@ export class Heerich {
           content: voxel.content,
           _pos: [x, y, z],
         });
-        this._faceCache3D.set(key, faces3D.slice(faceStart));
+        if (!cullTypes) this._faceCache3D.set(key, faces3D.slice(faceStart));
         continue;
       }
 
@@ -927,6 +936,7 @@ export class Heerich {
       const so = voxel.scaleOrigin;
 
       const addFace = (type, vertices, n, cx, cy, cz) => {
+        if (cullTypes && cullTypes.has(type)) return;
         let c = [cx, cy, cz];
         if (sc) {
           const ox = x + so[0],
@@ -950,8 +960,9 @@ export class Heerich {
         });
       };
 
-      // Emit all 6 neighbor-exposed faces. Camera-direction filtering is
-      // deferred to _projectAndSort (for SVG) or left to the GPU.
+      // Emit up to 5 neighbor-exposed faces (back is always omitted — see JSDoc).
+      // Camera-direction filtering for oblique is applied via cullTypes; other
+      // projections filter in _projectAndSort via dot-product backface culling.
       if (sc || !hasVoxel(x, y - 1, z))
         addFace(
           "top",
@@ -1036,8 +1047,7 @@ export class Heerich {
           y + 0.5,
           z + 1,
         );
-
-      if (faces3D.length > faceStart) {
+      if (!cullTypes && faces3D.length > faceStart) {
         this._faceCache3D.set(key, faces3D.slice(faceStart));
       }
     }
@@ -1074,7 +1084,23 @@ export class Heerich {
     if (this._cachedEpoch === this._epoch && this._cachedFaces) {
       return this._cachedFaces;
     }
-    const result = this._projectAndSort(this._buildFaces3D());
+
+    // For oblique projection, cull invisible faces at generation time so the
+    // hot rebuild path never allocates them. Other projections rely on the
+    // dot-product backface check in _projectAndSort and benefit from the
+    // per-voxel incremental cache, so cullTypes stays null for them.
+    let cullTypes = null;
+    if (this.renderOptions.projection === "oblique") {
+      const { depthOffsetX, depthOffsetY } = this.renderOptions;
+      cullTypes = new Set();
+      cullTypes.add("back"); // back face is never visible in oblique
+      if (depthOffsetY >= 0) cullTypes.add("top");
+      if (depthOffsetY <= 0) cullTypes.add("bottom");
+      if (depthOffsetX >= 0) cullTypes.add("left");
+      if (depthOffsetX <= 0) cullTypes.add("right");
+    }
+
+    const result = this._projectAndSort(this._buildFaces3D(cullTypes));
     this._cachedFaces = result;
     this._cachedEpoch = this._epoch;
     return result;
@@ -1339,6 +1365,8 @@ export class Heerich {
 
     const { cameraDistance } = this.renderOptions;
 
+    var calls = 0;
+
     for (const face of faces3D) {
       if (face.type === "content") {
         const [cx, cy, cz] = face._pos;
@@ -1383,6 +1411,9 @@ export class Heerich {
         ];
         if (projection === "oblique") {
           const flat = [];
+          if (calls++ > 100) {
+            debugger;
+          }
           for (const [vx, vy, vz] of corners) {
             flat.push(
               truncate(vx * tileW + vz * depthOffsetX),
@@ -1511,7 +1542,8 @@ export class Heerich {
         b.depth - a.depth ||
         a.voxel.x - b.voxel.x ||
         a.voxel.y - b.voxel.y ||
-        a.voxel.z - b.voxel.z,
+        a.voxel.z - b.voxel.z ||
+        a.type.localeCompare(b.type),
     );
     return projectedFaces;
   }
