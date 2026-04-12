@@ -104,6 +104,31 @@ export { SVGRenderer } from "./svg-renderer.js";
  * @property {number} [_scale] - Perspective scale factor (content faces only)
  */
 
+/**
+ * Test whether a point (px, py) lies inside a convex polygon described by a Points instance.
+ * Uses the cross-product sign method — O(n) on the number of vertices.
+ * @param {number} px
+ * @param {number} py
+ * @param {import('./points.js').Points} points
+ * @returns {boolean}
+ */
+function _pointInConvexPoly(px, py, points) {
+  const d = points.data;
+  const n = d.length >> 1;
+  let sign = 0;
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    const ex = d[j * 2] - d[i * 2];
+    const ey = d[j * 2 + 1] - d[i * 2 + 1];
+    const cross = ex * (py - d[i * 2 + 1]) - ey * (px - d[i * 2]);
+    if (cross === 0) continue;
+    const s = cross > 0 ? 1 : -1;
+    if (sign === 0) sign = s;
+    else if (sign !== s) return false;
+  }
+  return sign !== 0;
+}
+
 /** Neighbor offsets: [dx, dy, dz, exposedFace] */
 /** @type {[number, number, number, string][]} */
 const ADJ = [
@@ -580,6 +605,24 @@ export class Heerich {
       front: this.getVoxel([x, y, z - 1]),
       back: this.getVoxel([x, y, z + 1]),
     };
+  }
+
+  /**
+   * Find all voxels matching a predicate.
+   * @param {function(Voxel): boolean} predicate
+   * @returns {Voxel[]}
+   * @example
+   * // Find by meta ID
+   * engine.findVoxels(v => v.meta?.id === 'tower')
+   * // Find all voxels at a specific Y level
+   * engine.findVoxels(v => v.y === 0)
+   */
+  findVoxels(predicate) {
+    const results = [];
+    for (const voxel of this.voxels.values()) {
+      if (predicate(voxel)) results.push(voxel);
+    }
+    return results;
   }
 
   /**
@@ -1344,6 +1387,44 @@ export class Heerich {
   }
 
   /**
+   * Project a single 3D point to 2D pixel space using the current camera.
+   * @param {number} x
+   * @param {number} y
+   * @param {number} z
+   * @returns {{x: number, y: number}}
+   */
+  _projectPoint(x, y, z) {
+    const { projection, tileW, tileH, depthOffsetX, depthOffsetY, cameraX, cameraY, cameraDistance } = this.renderOptions;
+    const t = (v) => Math.round(v * 1e4) / 1e4;
+
+    if (projection === 'oblique') {
+      return {
+        x: t(x * tileW + z * depthOffsetX),
+        y: t(y * tileH + z * depthOffsetY),
+      };
+    }
+
+    if (projection === 'orthographic' || projection === 'isometric') {
+      const { angle = 0, pitch = 0 } = this.renderOptions;
+      const cosT = Math.cos(angle), sinT = Math.sin(angle);
+      const cosP = Math.cos(pitch), sinP = Math.sin(pitch);
+      const x1 = x * cosT - z * sinT;
+      const y1 = y * cosP - (x * sinT + z * cosT) * sinP;
+      return {
+        x: t((x1 + 5) * tileW),
+        y: t((y1 + 5) * tileH),
+      };
+    }
+
+    // perspective
+    const pt = cameraDistance / (z + cameraDistance);
+    return {
+      x: t((cameraX + (x - cameraX) * pt) * tileW),
+      y: t((cameraY + (y - cameraY) * pt) * tileH),
+    };
+  }
+
+  /**
    * Project 3D faces to 2D and sort by depth (shared by getFaces and renderTest).
    * @param {Object[]} faces3D - Face objects with `vertices` (3D) or `points` (already 2D)
    * @returns {Face[]} Projected, depth-sorted face array
@@ -1564,6 +1645,111 @@ export class Heerich {
       h: b.h + padding * 2,
       faces,
     };
+  }
+
+  /**
+   * Query position and size data for a single voxel.
+   *
+   * Accepts either a `[x, y, z]` coordinate array or a voxel object reference
+   * (e.g. one returned by `getVoxel()`, `findVoxels()`, or `face.voxel`).
+   *
+   * All 2D values are in the same pixel space as `getFaces()` / `getBounds()` —
+   * i.e. before any SVG viewBox offset or padding is applied.
+   *
+   * @param {[number,number,number]|Voxel} posOrVoxel - Coordinate array or voxel reference
+   * @returns {{
+   *   voxel: Voxel|null,
+   *   center3D: [number,number,number],
+   *   center2D: {x:number, y:number},
+   *   bounds2D: {x:number, y:number, w:number, h:number}|null,
+   *   normalizedCenter2D: {x:number, y:number}|null,
+   *   normalizedSize2D: {w:number, h:number}|null,
+   * }}
+   */
+  getVoxelInfo(posOrVoxel) {
+    const voxel = Array.isArray(posOrVoxel)
+      ? this.getVoxel(posOrVoxel)
+      : posOrVoxel;
+
+    if (!voxel) {
+      return { voxel: null, center3D: null, center2D: null, bounds2D: null, normalizedCenter2D: null, normalizedSize2D: null };
+    }
+
+    const { x, y, z } = voxel;
+    const cx = x + 0.5, cy = y + 0.5, cz = z + 0.5;
+
+    const center3D = /** @type {[number,number,number]} */ ([cx, cy, cz]);
+    const center2D = this._projectPoint(cx, cy, cz);
+
+    // Collect projected bounds from all visible faces belonging to this voxel.
+    // getFaces() is epoch-cached so this filter is the only cost.
+    const faces = this.getFaces();
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    let hasFaces = false;
+    for (let i = 0; i < faces.length; i++) {
+      const face = faces[i];
+      if (face.voxel !== voxel) continue;
+      const d = face.points.data;
+      for (let j = 0; j < d.length; j += 2) {
+        const px = d[j], py = d[j + 1];
+        if (px < minX) minX = px;
+        if (py < minY) minY = py;
+        if (px > maxX) maxX = px;
+        if (py > maxY) maxY = py;
+      }
+      hasFaces = true;
+    }
+
+    const bounds2D = hasFaces
+      ? { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
+      : null;
+
+    // Normalize against scene bounds. getBounds() reuses the same getFaces() cache.
+    const scene = computeBounds(faces);
+    const normalizedCenter2D = scene.w > 0 && scene.h > 0
+      ? { x: (center2D.x - scene.x) / scene.w, y: (center2D.y - scene.y) / scene.h }
+      : null;
+    const normalizedSize2D = bounds2D && scene.w > 0 && scene.h > 0
+      ? { w: bounds2D.w / scene.w, h: bounds2D.h / scene.h }
+      : null;
+
+    return { voxel, center3D, center2D, bounds2D, normalizedCenter2D, normalizedSize2D };
+  }
+
+  /**
+   * Find the frontmost voxel at a 2D screen-space position.
+   *
+   * Coordinates are expected in the same raw pixel space that `getFaces()` and
+   * `getBounds()` use — i.e. before any SVG viewBox offset or padding. If you
+   * are working from a mouse event on a rendered SVG, pass the viewBox origin
+   * via `options.offset` to convert automatically:
+   *
+   * ```js
+   * const bounds = h.getBounds(padding)
+   * const hit = h.findByPosition([svgX, svgY], { offset: [bounds.x, bounds.y] })
+   * ```
+   *
+   * @param {[number, number]} pos - 2D position [x, y] in screen/SVG space
+   * @param {Object} [options]
+   * @param {[number, number]} [options.offset] - [dx, dy] added to pos before testing (e.g. viewBox origin from getBounds())
+   * @returns {{ voxel: Voxel, face: Face } | null}
+   */
+  findByPosition(pos, options = {}) {
+    const offset = options.offset;
+    const px = offset ? pos[0] + offset[0] : pos[0];
+    const py = offset ? pos[1] + offset[1] : pos[1];
+
+    const faces = this.getFaces();
+    // Faces are sorted back-to-front for rendering; iterate in reverse to hit
+    // frontmost faces first and return on the first match.
+    for (let i = faces.length - 1; i >= 0; i--) {
+      const face = faces[i];
+      if (face.type === 'content') continue;
+      if (_pointInConvexPoly(px, py, face.points)) {
+        return { voxel: face.voxel, face };
+      }
+    }
+    return null;
   }
 
   /**

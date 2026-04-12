@@ -249,6 +249,8 @@
             <li><a href="#opaque">Transparent voxels</a></li>
             <li><a href="#content-voxels">Content voxels</a></li>
             <li><a href="#queries">Querying voxels</a></li>
+            <li><a href="#find-voxels">Finding voxels</a></li>
+            <li><a href="#find-by-position">Position queries</a></li>
             <li><a href="#animation">Animation</a></li>
             <li><a href="#combined">Putting it all together</a></li>
             <li><a href="#gallery">After Heerich</a></li>
@@ -1253,6 +1255,111 @@ for (const voxel of heerich) { ... }
 // Serialization
 const json = heerich.toJSON()
 const copy = Heerich.fromJSON(json)</code></pre>
+        </div>
+      </div>
+
+      <!-- ─── findVoxels ──────────────────────────────────── -->
+
+      <div class="section-row" id="find-voxels">
+        <div class="section-demo">
+          <div class="demo" id="demo-find-voxels">
+            <div class="demo-canvas"></div>
+            <div class="demo-controls">
+              <label class="control-label">
+                Highlight
+                <select class="control-select" data-bind="group">
+                  <option value="all">all groups</option>
+                  <option value="base">base</option>
+                  <option value="tower">tower</option>
+                  <option value="pillar">pillars</option>
+                </select>
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="section-text">
+          <h2>Finding voxels</h2>
+          <p>
+            <code>findVoxels(predicate)</code> scans the entire voxel map and
+            returns every voxel for which the predicate returns
+            <code>true</code>. The most common pattern is tagging groups at
+            add time with a <code>meta</code> id, then querying by that id
+            later.
+          </p>
+          <pre><code>h.addGeometry({ type: 'box', position: [0, 4, 0], size: [7, 2, 7],
+  meta: { id: 'base' } })
+h.addGeometry({ type: 'box', position: [2, 1, 2], size: [3, 3, 3],
+  meta: { id: 'tower' } })
+
+// Retrieve a named group
+const tower = h.findVoxels(v => v.meta?.id === 'tower')
+
+// Restyle the result
+for (const voxel of tower) {
+  h.applyStyle({
+    type: 'box', position: [voxel.x, voxel.y, voxel.z], size: 1,
+    style: { default: { fill: '#e05252' } }
+  })
+}</code></pre>
+          <p>
+            Predicates can match on any voxel property — coordinates, style
+            values, or arbitrary <code>meta</code> fields. The returned array
+            contains live references to the stored voxel objects.
+          </p>
+          <pre><code>// Find all voxels at ground level
+h.findVoxels(v => v.y === 0)
+
+// Find within a coordinate range
+h.findVoxels(v => v.x >= 2 && v.x <= 5)</code></pre>
+        </div>
+      </div>
+
+      <!-- ─── findByPosition / getVoxelInfo ────────────── -->
+
+      <div class="section-row" id="find-by-position">
+        <div class="section-demo">
+          <div class="demo" id="demo-find-by-pos">
+            <div class="demo-canvas"></div>
+            <div class="demo-controls">
+              <div class="demo-hit-info">
+                <span class="hit-placeholder">hover over the scene</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="section-text">
+          <h2>Position queries</h2>
+          <p>
+            <code>findByPosition([x, y])</code> performs a 2D screen-space
+            hit test against all projected faces, returning the frontmost
+            voxel and face at that position. Coordinates are in the same
+            pixel space as <code>getFaces()</code> — when working from mouse
+            events on a rendered SVG, use the SVG element's coordinate
+            transform to convert:
+          </p>
+          <pre><code>svgEl.addEventListener('mousemove', e => {
+  const pt = svgEl.createSVGPoint()
+  pt.x = e.clientX; pt.y = e.clientY
+  const { x, y } = pt.matrixTransform(svgEl.getScreenCTM().inverse())
+
+  const hit = h.findByPosition([x, y])
+  if (hit) {
+    console.log(hit.voxel.x, hit.voxel.y, hit.voxel.z)
+    console.log(hit.face.type) // 'top', 'front', 'left', …
+  }
+})</code></pre>
+          <p>
+            <code>getVoxelInfo(posOrVoxel)</code> returns the projected
+            centroid, 2D bounding box, and normalized position for any
+            voxel — given either a coordinate array or a voxel reference
+            directly from <code>findByPosition</code>:
+          </p>
+          <pre><code>const { center2D, bounds2D, normalizedCenter2D } =
+  h.getVoxelInfo(hit.voxel)
+
+// center2D   — { x, y } in pixel space
+// bounds2D   — { x, y, w, h } pixel bounding box of visible faces
+// normalizedCenter2D — { x, y } in 0–1 relative to scene bounds</code></pre>
         </div>
       </div>
 

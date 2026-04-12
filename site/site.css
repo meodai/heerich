@@ -827,6 +827,33 @@ input[type="color"]::-webkit-color-swatch {
   margin: 0;
 }
 
+/* ─── Hit info panel (findByPosition demo) ─── */
+.demo-hit-info {
+  font-family: monospace;
+  font-size: 0.8rem;
+  line-height: 1.8;
+  color: var(--text);
+  opacity: 0.8;
+  padding: 0.75rem 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 1.5rem;
+}
+
+.hit-field {
+  display: inline-flex;
+  gap: 0.4em;
+}
+
+.hit-label {
+  opacity: 0.45;
+}
+
+.hit-placeholder {
+  opacity: 0.35;
+  font-style: italic;
+}
+
 .gallery .demo-canvas {
   aspect-ratio: 1;
 }
