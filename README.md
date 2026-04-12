@@ -493,6 +493,9 @@ Get the projected 2D face array directly (for custom renderers or Canvas output)
 // From stored voxels
 const faces = h.getFaces()
 
+// Raw 3D faces (no projection or backface culling) — for GPU renderers
+const raw = h.getFaces({ raw: true })
+
 // Stateless — from a test function, no voxels stored
 const faces = h.renderTest({
   bounds: [[-10, -10, -10], [10, 10, 10]],
@@ -504,9 +507,11 @@ const faces = h.renderTest({
 const svg = h.toSVG({ faces })
 ```
 
+Pass `{ raw: true }` to get all neighbour-exposed 3D faces without camera-dependent culling or projection. Raw faces keep their original 3D coordinates — useful for GPU renderers that handle their own backface culling and projection.
+
 ### Custom Renderers
 
-`getFaces()` returns everything you need to build your own renderer. Each face has:
+`getFaces()` returns everything you need to build your own renderer. Each projected face has:
 
 - `face.points` — projected 2D coordinates (flat array via `face.points.data`: `[x0, y0, x1, y1, ...]`)
 - `face.style` — resolved style object (`fill`, `stroke`, `strokeWidth`, etc.)
