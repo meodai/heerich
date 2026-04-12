@@ -104,6 +104,31 @@ export { SVGRenderer } from "./svg-renderer.js";
  * @property {number} [_scale] - Perspective scale factor (content faces only)
  */
 
+/**
+ * Test whether a point (px, py) lies inside a convex polygon described by a Points instance.
+ * Uses the cross-product sign method — O(n) on the number of vertices.
+ * @param {number} px
+ * @param {number} py
+ * @param {import('./points.js').Points} points
+ * @returns {boolean}
+ */
+function _pointInConvexPoly(px, py, points) {
+  const d = points.data;
+  const n = d.length >> 1;
+  let sign = 0;
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    const ex = d[j * 2] - d[i * 2];
+    const ey = d[j * 2 + 1] - d[i * 2 + 1];
+    const cross = ex * (py - d[i * 2 + 1]) - ey * (px - d[i * 2]);
+    if (cross === 0) continue;
+    const s = cross > 0 ? 1 : -1;
+    if (sign === 0) sign = s;
+    else if (sign !== s) return false;
+  }
+  return sign !== 0;
+}
+
 /** Neighbor offsets: [dx, dy, dz, exposedFace] */
 /** @type {[number, number, number, string][]} */
 const ADJ = [
@@ -1689,6 +1714,42 @@ export class Heerich {
       : null;
 
     return { voxel, center3D, center2D, bounds2D, normalizedCenter2D, normalizedSize2D };
+  }
+
+  /**
+   * Find the frontmost voxel at a 2D screen-space position.
+   *
+   * Coordinates are expected in the same raw pixel space that `getFaces()` and
+   * `getBounds()` use — i.e. before any SVG viewBox offset or padding. If you
+   * are working from a mouse event on a rendered SVG, pass the viewBox origin
+   * via `options.offset` to convert automatically:
+   *
+   * ```js
+   * const bounds = h.getBounds(padding)
+   * const hit = h.findByPosition([svgX, svgY], { offset: [bounds.x, bounds.y] })
+   * ```
+   *
+   * @param {[number, number]} pos - 2D position [x, y] in screen/SVG space
+   * @param {Object} [options]
+   * @param {[number, number]} [options.offset] - [dx, dy] added to pos before testing (e.g. viewBox origin from getBounds())
+   * @returns {{ voxel: Voxel, face: Face } | null}
+   */
+  findByPosition(pos, options = {}) {
+    const offset = options.offset;
+    const px = offset ? pos[0] + offset[0] : pos[0];
+    const py = offset ? pos[1] + offset[1] : pos[1];
+
+    const faces = this.getFaces();
+    // Faces are sorted back-to-front for rendering; iterate in reverse to hit
+    // frontmost faces first and return on the first match.
+    for (let i = faces.length - 1; i >= 0; i--) {
+      const face = faces[i];
+      if (face.type === 'content') continue;
+      if (_pointInConvexPoly(px, py, face.points)) {
+        return { voxel: face.voxel, face };
+      }
+    }
+    return null;
   }
 
   /**
