@@ -1362,6 +1362,44 @@ export class Heerich {
   }
 
   /**
+   * Project a single 3D point to 2D pixel space using the current camera.
+   * @param {number} x
+   * @param {number} y
+   * @param {number} z
+   * @returns {{x: number, y: number}}
+   */
+  _projectPoint(x, y, z) {
+    const { projection, tileW, tileH, tileZ, depthOffsetX, depthOffsetY, cameraX, cameraY, cameraDistance } = this.renderOptions;
+    const t = (v) => Math.round(v * 1e4) / 1e4;
+
+    if (projection === 'oblique') {
+      return {
+        x: t(x * tileW + z * depthOffsetX),
+        y: t(y * tileH + z * depthOffsetY),
+      };
+    }
+
+    if (projection === 'orthographic' || projection === 'isometric') {
+      const { angle = 0, pitch = 0 } = this.renderOptions;
+      const cosT = Math.cos(angle), sinT = Math.sin(angle);
+      const cosP = Math.cos(pitch), sinP = Math.sin(pitch);
+      const x1 = x * cosT - z * sinT;
+      const y1 = y * cosP - (x * sinT + z * cosT) * sinP;
+      return {
+        x: t((x1 + 5) * tileW),
+        y: t((y1 + 5) * tileH),
+      };
+    }
+
+    // perspective
+    const pt = cameraDistance / (z + cameraDistance);
+    return {
+      x: t((cameraX + (x - cameraX) * pt) * tileW),
+      y: t((cameraY + (y - cameraY) * pt) * tileH),
+    };
+  }
+
+  /**
    * Project 3D faces to 2D and sort by depth (shared by getFaces and renderTest).
    * @param {Object[]} faces3D - Face objects with `vertices` (3D) or `points` (already 2D)
    * @returns {Face[]} Projected, depth-sorted face array
