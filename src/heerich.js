@@ -1369,7 +1369,7 @@ export class Heerich {
    * @returns {{x: number, y: number}}
    */
   _projectPoint(x, y, z) {
-    const { projection, tileW, tileH, tileZ, depthOffsetX, depthOffsetY, cameraX, cameraY, cameraDistance } = this.renderOptions;
+    const { projection, tileW, tileH, depthOffsetX, depthOffsetY, cameraX, cameraY, cameraDistance } = this.renderOptions;
     const t = (v) => Math.round(v * 1e4) / 1e4;
 
     if (projection === 'oblique') {
@@ -1620,6 +1620,75 @@ export class Heerich {
       h: b.h + padding * 2,
       faces,
     };
+  }
+
+  /**
+   * Query position and size data for a single voxel.
+   *
+   * Accepts either a `[x, y, z]` coordinate array or a voxel object reference
+   * (e.g. one returned by `getVoxel()`, `findVoxels()`, or `face.voxel`).
+   *
+   * All 2D values are in the same pixel space as `getFaces()` / `getBounds()` —
+   * i.e. before any SVG viewBox offset or padding is applied.
+   *
+   * @param {[number,number,number]|Voxel} posOrVoxel - Coordinate array or voxel reference
+   * @returns {{
+   *   voxel: Voxel|null,
+   *   center3D: [number,number,number],
+   *   center2D: {x:number, y:number},
+   *   bounds2D: {x:number, y:number, w:number, h:number}|null,
+   *   normalizedCenter2D: {x:number, y:number}|null,
+   *   normalizedSize2D: {w:number, h:number}|null,
+   * }}
+   */
+  getVoxelInfo(posOrVoxel) {
+    const voxel = Array.isArray(posOrVoxel)
+      ? this.getVoxel(posOrVoxel)
+      : posOrVoxel;
+
+    if (!voxel) {
+      return { voxel: null, center3D: null, center2D: null, bounds2D: null, normalizedCenter2D: null, normalizedSize2D: null };
+    }
+
+    const { x, y, z } = voxel;
+    const cx = x + 0.5, cy = y + 0.5, cz = z + 0.5;
+
+    const center3D = /** @type {[number,number,number]} */ ([cx, cy, cz]);
+    const center2D = this._projectPoint(cx, cy, cz);
+
+    // Collect projected bounds from all visible faces belonging to this voxel.
+    // getFaces() is epoch-cached so this filter is the only cost.
+    const faces = this.getFaces();
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    let hasFaces = false;
+    for (let i = 0; i < faces.length; i++) {
+      const face = faces[i];
+      if (face.voxel !== voxel) continue;
+      const d = face.points.data;
+      for (let j = 0; j < d.length; j += 2) {
+        const px = d[j], py = d[j + 1];
+        if (px < minX) minX = px;
+        if (py < minY) minY = py;
+        if (px > maxX) maxX = px;
+        if (py > maxY) maxY = py;
+      }
+      hasFaces = true;
+    }
+
+    const bounds2D = hasFaces
+      ? { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
+      : null;
+
+    // Normalize against scene bounds. getBounds() reuses the same getFaces() cache.
+    const scene = computeBounds(faces);
+    const normalizedCenter2D = scene.w > 0 && scene.h > 0
+      ? { x: (center2D.x - scene.x) / scene.w, y: (center2D.y - scene.y) / scene.h }
+      : null;
+    const normalizedSize2D = bounds2D && scene.w > 0 && scene.h > 0
+      ? { w: bounds2D.w / scene.w, h: bounds2D.h / scene.h }
+      : null;
+
+    return { voxel, center3D, center2D, bounds2D, normalizedCenter2D, normalizedSize2D };
   }
 
   /**
