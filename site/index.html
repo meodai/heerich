@@ -1282,9 +1282,8 @@ const copy = Heerich.fromJSON(json)</code></pre>
           <p>
             <code>findVoxels(predicate)</code> scans the entire voxel map and
             returns every voxel for which the predicate returns
-            <code>true</code>. The most common pattern is tagging groups at
-            add time with a <code>meta</code> id, then querying by that id
-            later.
+            <code>true</code>. The most common pattern is tagging groups at add
+            time with a <code>meta</code> id, then querying by that id later.
           </p>
           <pre><code>h.addGeometry({ type: 'box', position: [0, 4, 0], size: [7, 2, 7],
   meta: { id: 'base' } })
@@ -1310,7 +1309,7 @@ for (const voxel of tower) {
 h.findVoxels(v => v.y === 0)
 
 // Find within a coordinate range
-h.findVoxels(v => v.x >= 2 && v.x <= 5)</code></pre>
+h.findVoxels(v =&gt; v.x &gt;= 2 &amp;&amp; v.x &lt;= 5)</code></pre>
         </div>
       </div>
 
@@ -1330,12 +1329,11 @@ h.findVoxels(v => v.x >= 2 && v.x <= 5)</code></pre>
         <div class="section-text">
           <h2>Position queries</h2>
           <p>
-            <code>findByPosition([x, y])</code> performs a 2D screen-space
-            hit test against all projected faces, returning the frontmost
-            voxel and face at that position. Coordinates are in the same
-            pixel space as <code>getFaces()</code> — when working from mouse
-            events on a rendered SVG, use the SVG element's coordinate
-            transform to convert:
+            <code>findByPosition([x, y])</code> performs a 2D screen-space hit
+            test against all projected faces, returning the frontmost voxel and
+            face at that position. Coordinates are in the same pixel space as
+            <code>getFaces()</code> — when working from mouse events on a
+            rendered SVG, use the SVG element's coordinate transform to convert:
           </p>
           <pre><code>svgEl.addEventListener('mousemove', e => {
   const pt = svgEl.createSVGPoint()
@@ -1350,9 +1348,9 @@ h.findVoxels(v => v.x >= 2 && v.x <= 5)</code></pre>
 })</code></pre>
           <p>
             <code>getVoxelInfo(posOrVoxel)</code> returns the projected
-            centroid, 2D bounding box, and normalized position for any
-            voxel — given either a coordinate array or a voxel reference
-            directly from <code>findByPosition</code>:
+            centroid, 2D bounding box, and normalized position for any voxel —
+            given either a coordinate array or a voxel reference directly from
+            <code>findByPosition</code>:
           </p>
           <pre><code>const { center2D, bounds2D, normalizedCenter2D } =
   h.getVoxelInfo(hit.voxel)

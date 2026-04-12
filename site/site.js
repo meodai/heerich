@@ -1014,16 +1014,38 @@ setupDemo("demo-queries", (v) => {
 setupDemo("demo-find-voxels", (v) => {
   const e = new Heerich({ tile: 22, camera: getCamera(), style: baseStyle });
 
-  e.addGeometry({ type: "box", position: [0, 4, 0], size: [7, 2, 7], meta: { id: "base" } });
-  e.addGeometry({ type: "box", position: [2, 1, 2], size: [3, 3, 3], meta: { id: "tower" } });
-  for (const [px, pz] of [[0, 0], [6, 0], [0, 6], [6, 6]]) {
-    e.addGeometry({ type: "box", position: [px, 2, pz], size: [1, 2, 1], meta: { id: "pillar" } });
+  e.addGeometry({
+    type: "box",
+    position: [0, 4, 0],
+    size: [7, 2, 7],
+    meta: { id: "base" },
+  });
+  e.addGeometry({
+    type: "box",
+    position: [2, 1, 2],
+    size: [3, 3, 3],
+    meta: { id: "tower" },
+  });
+  for (const [px, pz] of [
+    [0, 0],
+    [6, 0],
+    [0, 6],
+    [6, 6],
+  ]) {
+    e.addGeometry({
+      type: "box",
+      position: [px, 2, pz],
+      size: [1, 2, 1],
+      meta: { id: "pillar" },
+    });
   }
 
   if (v.group !== "all") {
     for (const voxel of e.findVoxels((vx) => vx.meta?.id === v.group)) {
       e.applyStyle({
-        type: "box", position: [voxel.x, voxel.y, voxel.z], size: [1, 1, 1],
+        type: "box",
+        position: [voxel.x, voxel.y, voxel.z],
+        size: [1, 1, 1],
         style: { default: { fill: "#e05252", stroke: "#9b2222" } },
       });
     }
@@ -1036,10 +1058,26 @@ setupDemo("demo-find-voxels", (v) => {
 let _posQueryEngine = null;
 
 setupDemo("demo-find-by-pos", () => {
-  _posQueryEngine = new Heerich({ tile: 24, camera: getCamera(), style: baseStyle });
-  _posQueryEngine.addGeometry({ type: "box", position: [0, 4, 0], size: [7, 2, 7] });
-  _posQueryEngine.addGeometry({ type: "box", position: [1, 2, 1], size: [5, 2, 5] });
-  _posQueryEngine.addGeometry({ type: "box", position: [2, 0, 2], size: [3, 2, 3] });
+  _posQueryEngine = new Heerich({
+    tile: 24,
+    camera: getCamera(),
+    style: baseStyle,
+  });
+  _posQueryEngine.addGeometry({
+    type: "box",
+    position: [0, 4, 0],
+    size: [7, 2, 7],
+  });
+  _posQueryEngine.addGeometry({
+    type: "box",
+    position: [1, 2, 1],
+    size: [5, 2, 5],
+  });
+  _posQueryEngine.addGeometry({
+    type: "box",
+    position: [2, 0, 2],
+    size: [3, 2, 3],
+  });
   return _posQueryEngine.toSVG(getSvgOpts());
 });
 
@@ -1056,7 +1094,9 @@ setupDemo("demo-find-by-pos", () => {
     const pt = svg.createSVGPoint();
     pt.x = e.clientX;
     pt.y = e.clientY;
-    const { x: svgX, y: svgY } = pt.matrixTransform(svg.getScreenCTM().inverse());
+    const { x: svgX, y: svgY } = pt.matrixTransform(
+      svg.getScreenCTM().inverse(),
+    );
 
     const hit = _posQueryEngine.findByPosition([svgX, svgY]);
 
@@ -1069,7 +1109,8 @@ setupDemo("demo-find-by-pos", () => {
     }
 
     if (hit) {
-      const { center2D, bounds2D, normalizedCenter2D } = _posQueryEngine.getVoxelInfo(hit.voxel);
+      const { center2D, bounds2D, normalizedCenter2D } =
+        _posQueryEngine.getVoxelInfo(hit.voxel);
       overlay.innerHTML = bounds2D
         ? `<rect x="${bounds2D.x}" y="${bounds2D.y}" width="${bounds2D.w}" height="${bounds2D.h}"
                 fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 2" opacity="0.6"/>
@@ -1081,18 +1122,24 @@ setupDemo("demo-find-by-pos", () => {
         infoEl.innerHTML =
           `<span class="hit-field"><span class="hit-label">voxel</span> [${hit.voxel.x}, ${hit.voxel.y}, ${hit.voxel.z}]</span>` +
           `<span class="hit-field"><span class="hit-label">face</span> ${hit.face.type}</span>` +
-          (nc ? `<span class="hit-field"><span class="hit-label">pos</span> ${(nc.x * 100).toFixed(1)}%, ${(nc.y * 100).toFixed(1)}%</span>` : "");
+          (nc
+            ? `<span class="hit-field"><span class="hit-label">pos</span> ${(nc.x * 100).toFixed(1)}%, ${(nc.y * 100).toFixed(1)}%</span>`
+            : "");
       }
     } else {
       overlay.innerHTML = "";
-      if (infoEl) infoEl.innerHTML = '<span class="hit-placeholder">hover over the scene</span>';
+      if (infoEl)
+        infoEl.innerHTML =
+          '<span class="hit-placeholder">hover over the scene</span>';
     }
   });
 
   canvas.addEventListener("mouseleave", () => {
     const overlay = canvas.querySelector("#heerich-hit-overlay");
     if (overlay) overlay.innerHTML = "";
-    if (infoEl) infoEl.innerHTML = '<span class="hit-placeholder">hover over the scene</span>';
+    if (infoEl)
+      infoEl.innerHTML =
+        '<span class="hit-placeholder">hover over the scene</span>';
   });
 }
 

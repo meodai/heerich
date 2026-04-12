@@ -1394,20 +1394,31 @@ export class Heerich {
    * @returns {{x: number, y: number}}
    */
   _projectPoint(x, y, z) {
-    const { projection, tileW, tileH, depthOffsetX, depthOffsetY, cameraX, cameraY, cameraDistance } = this.renderOptions;
+    const {
+      projection,
+      tileW,
+      tileH,
+      depthOffsetX,
+      depthOffsetY,
+      cameraX,
+      cameraY,
+      cameraDistance,
+    } = this.renderOptions;
     const t = (v) => Math.round(v * 1e4) / 1e4;
 
-    if (projection === 'oblique') {
+    if (projection === "oblique") {
       return {
         x: t(x * tileW + z * depthOffsetX),
         y: t(y * tileH + z * depthOffsetY),
       };
     }
 
-    if (projection === 'orthographic' || projection === 'isometric') {
+    if (projection === "orthographic" || projection === "isometric") {
       const { angle = 0, pitch = 0 } = this.renderOptions;
-      const cosT = Math.cos(angle), sinT = Math.sin(angle);
-      const cosP = Math.cos(pitch), sinP = Math.sin(pitch);
+      const cosT = Math.cos(angle),
+        sinT = Math.sin(angle);
+      const cosP = Math.cos(pitch),
+        sinP = Math.sin(pitch);
       const x1 = x * cosT - z * sinT;
       const y1 = y * cosP - (x * sinT + z * cosT) * sinP;
       return {
@@ -1672,11 +1683,20 @@ export class Heerich {
       : posOrVoxel;
 
     if (!voxel) {
-      return { voxel: null, center3D: null, center2D: null, bounds2D: null, normalizedCenter2D: null, normalizedSize2D: null };
+      return {
+        voxel: null,
+        center3D: null,
+        center2D: null,
+        bounds2D: null,
+        normalizedCenter2D: null,
+        normalizedSize2D: null,
+      };
     }
 
     const { x, y, z } = voxel;
-    const cx = x + 0.5, cy = y + 0.5, cz = z + 0.5;
+    const cx = x + 0.5,
+      cy = y + 0.5,
+      cz = z + 0.5;
 
     const center3D = /** @type {[number,number,number]} */ ([cx, cy, cz]);
     const center2D = this._projectPoint(cx, cy, cz);
@@ -1684,14 +1704,18 @@ export class Heerich {
     // Collect projected bounds from all visible faces belonging to this voxel.
     // getFaces() is epoch-cached so this filter is the only cost.
     const faces = this.getFaces();
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
     let hasFaces = false;
     for (let i = 0; i < faces.length; i++) {
       const face = faces[i];
       if (face.voxel !== voxel) continue;
       const d = face.points.data;
       for (let j = 0; j < d.length; j += 2) {
-        const px = d[j], py = d[j + 1];
+        const px = d[j],
+          py = d[j + 1];
         if (px < minX) minX = px;
         if (py < minY) minY = py;
         if (px > maxX) maxX = px;
@@ -1706,14 +1730,26 @@ export class Heerich {
 
     // Normalize against scene bounds. getBounds() reuses the same getFaces() cache.
     const scene = computeBounds(faces);
-    const normalizedCenter2D = scene.w > 0 && scene.h > 0
-      ? { x: (center2D.x - scene.x) / scene.w, y: (center2D.y - scene.y) / scene.h }
-      : null;
-    const normalizedSize2D = bounds2D && scene.w > 0 && scene.h > 0
-      ? { w: bounds2D.w / scene.w, h: bounds2D.h / scene.h }
-      : null;
+    const normalizedCenter2D =
+      scene.w > 0 && scene.h > 0
+        ? {
+            x: (center2D.x - scene.x) / scene.w,
+            y: (center2D.y - scene.y) / scene.h,
+          }
+        : null;
+    const normalizedSize2D =
+      bounds2D && scene.w > 0 && scene.h > 0
+        ? { w: bounds2D.w / scene.w, h: bounds2D.h / scene.h }
+        : null;
 
-    return { voxel, center3D, center2D, bounds2D, normalizedCenter2D, normalizedSize2D };
+    return {
+      voxel,
+      center3D,
+      center2D,
+      bounds2D,
+      normalizedCenter2D,
+      normalizedSize2D,
+    };
   }
 
   /**
@@ -1744,7 +1780,7 @@ export class Heerich {
     // frontmost faces first and return on the first match.
     for (let i = faces.length - 1; i >= 0; i--) {
       const face = faces[i];
-      if (face.type === 'content') continue;
+      if (face.type === "content") continue;
       if (_pointInConvexPoly(px, py, face.points)) {
         return { voxel: face.voxel, face };
       }
