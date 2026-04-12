@@ -629,6 +629,77 @@ const redVoxels = h.findVoxels(v => v.styles?.default?.fill === '#ff0000')
 
 Returns a plain array of voxel objects. Each voxel has `x`, `y`, `z`, `styles`, and optionally `meta`, `scale`, `scaleOrigin`, `content`, and `opaque`. The returned references are live — mutations to them affect the scene (call `h.batch(() => {})` or trigger `applyStyle` to rerender after manual mutations).
 
+### `getVoxelInfo(posOrVoxel)`
+
+Returns projected position and size data for a single voxel. Accepts either a `[x, y, z]` coordinate array or a voxel object reference (from `getVoxel()`, `findVoxels()`, or `face.voxel`).
+
+```js
+const info = h.getVoxelInfo([2, 0, 3])
+const info = h.getVoxelInfo(someVoxelRef)
+
+// {
+//   voxel              — the raw voxel object (null if not found)
+//   center3D           — [x+0.5, y+0.5, z+0.5] in voxel space
+//   center2D           — { x, y } projected centroid in pixel space
+//   bounds2D           — { x, y, w, h } pixel bounding box of visible faces
+//   normalizedCenter2D — { x, y } center as 0–1 fraction of scene bounds
+//   normalizedSize2D   — { w, h } size as 0–1 fraction of scene bounds
+// }
+```
+
+All 2D values are in the same coordinate space as `getFaces()` and `getBounds()` — before any SVG viewBox offset or padding. `bounds2D` is `null` when the voxel exists but all its faces are culled (e.g. fully surrounded).
+
+```js
+// Combine with findVoxels to query a group
+const voxels = h.findVoxels(v => v.meta?.id === 'tower')
+const infos = voxels.map(v => h.getVoxelInfo(v))
+const avgX = infos.reduce((s, i) => s + i.center2D.x, 0) / infos.length
+```
+
+### `findByPosition([x, y], options?)`
+
+Finds the frontmost voxel at a 2D screen-space position. Iterates projected faces front-to-back and returns the first hit, or `null` if the position is over empty space.
+
+```js
+const hit = h.findByPosition([px, py])
+// { voxel, face } | null
+//   voxel — the hit voxel object
+//   face  — the specific projected face that was hit (includes face.type, face.style, etc.)
+```
+
+Coordinates are in the same raw pixel space as `getFaces()`. When working from mouse events on a rendered SVG, use the SVG coordinate transform to convert client coordinates:
+
+```js
+svgEl.addEventListener('mousemove', e => {
+  const pt = svgEl.createSVGPoint()
+  pt.x = e.clientX
+  pt.y = e.clientY
+  const { x, y } = pt.matrixTransform(svgEl.getScreenCTM().inverse())
+
+  const hit = h.findByPosition([x, y])
+  if (hit) {
+    console.log(hit.voxel.x, hit.voxel.y, hit.voxel.z)
+    console.log(hit.face.type) // 'top', 'front', 'left', …
+  }
+})
+```
+
+If you have mouse coordinates relative to the SVG element (not the viewport), pass the viewBox origin as an offset:
+
+```js
+const bounds = h.getBounds(padding)
+const hit = h.findByPosition([elX, elY], { offset: [bounds.x, bounds.y] })
+```
+
+Combine with `getVoxelInfo` for the full interactivity loop — hit test, then retrieve projected position:
+
+```js
+const hit = h.findByPosition([x, y])
+if (hit) {
+  const { center2D, bounds2D, normalizedCenter2D } = h.getVoxelInfo(hit.voxel)
+}
+```
+
 ## Serialization
 
 ```js
