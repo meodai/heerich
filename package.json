@@ -1,6 +1,6 @@
 {
   "name": "heerich",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "description": "A tiny engine for 3D voxel scenes rendered to SVG",
   "type": "module",
   "main": "./dist/heerich.umd.cjs",
