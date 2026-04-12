@@ -583,6 +583,24 @@ export class Heerich {
   }
 
   /**
+   * Find all voxels matching a predicate.
+   * @param {function(Voxel): boolean} predicate
+   * @returns {Voxel[]}
+   * @example
+   * // Find by meta ID
+   * engine.findVoxels(v => v.meta?.id === 'tower')
+   * // Find all voxels at a specific Y level
+   * engine.findVoxels(v => v.y === 0)
+   */
+  findVoxels(predicate) {
+    const results = [];
+    for (const voxel of this.voxels.values()) {
+      if (predicate(voxel)) results.push(voxel);
+    }
+    return results;
+  }
+
+  /**
    * Iterate over all voxels. Supports `for (const voxel of heerich)`.
    * @returns {Iterator<Object>}
    */

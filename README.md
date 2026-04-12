@@ -608,6 +608,27 @@ h.getNeighbors([2, 3, 1])   // { top, bottom, left, right, front, back }
 for (const voxel of h) { /* voxel.x, voxel.y, voxel.z, voxel.styles, ... */ }
 ```
 
+### `findVoxels(predicate)`
+
+Returns all voxels matching a predicate function. The predicate receives each voxel object and should return `true` to include it.
+
+```js
+// Find by meta ID (set at add time via the meta option)
+h.addGeometry({ type: 'box', position: [0, 0, 0], size: 3, meta: { id: 'tower' } })
+const tower = h.findVoxels(v => v.meta?.id === 'tower')
+
+// Find all voxels at ground level
+const ground = h.findVoxels(v => v.y === 0)
+
+// Find voxels in a coordinate range
+const slab = h.findVoxels(v => v.x >= 2 && v.x <= 5 && v.z >= 2 && v.z <= 5)
+
+// Find by style property
+const redVoxels = h.findVoxels(v => v.styles?.default?.fill === '#ff0000')
+```
+
+Returns a plain array of voxel objects. Each voxel has `x`, `y`, `z`, `styles`, and optionally `meta`, `scale`, `scaleOrigin`, `content`, and `opaque`. The returned references are live — mutations to them affect the scene (call `h.batch(() => {})` or trigger `applyStyle` to rerender after manual mutations).
+
 ## Serialization
 
 ```js
