@@ -1111,13 +1111,28 @@ setupDemo("demo-find-by-pos", () => {
     if (hit) {
       const { center2D, bounds2D, normalizedCenter2D } =
         _posQueryEngine.getVoxelInfo(hit.voxel);
-      overlay.innerHTML = bounds2D
-        ? `<rect x="${bounds2D.x}" y="${bounds2D.y}" width="${bounds2D.w}" height="${bounds2D.h}"
-                fill="none" stroke="var(--stroke-c)" stroke-width="1" vector-effect="non-scaling-stroke"/>
-           <line x1="${center2D.x - 2.5}" y1="${center2D.y - 2.5}" x2="${center2D.x + 2.5}" y2="${center2D.y + 2.5}" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke"/>
-           <line x1="${center2D.x + 2.5}" y1="${center2D.y - 2.5}" x2="${center2D.x - 2.5}" y2="${center2D.y + 2.5}" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke"/>`
-        : `<line x1="${center2D.x - 2.5}" y1="${center2D.y - 2.5}" x2="${center2D.x + 2.5}" y2="${center2D.y + 2.5}" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke"/>
-           <line x1="${center2D.x + 2.5}" y1="${center2D.y - 2.5}" x2="${center2D.x - 2.5}" y2="${center2D.y + 2.5}" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke"/>`;
+      const allFaces = _posQueryEngine.getFaces();
+      let svg_parts = "";
+      for (const face of allFaces) {
+        if (face.voxel !== hit.voxel || face === hit.face) continue;
+        const fd = face.points.data;
+        const pts = [];
+        for (let i = 0; i < fd.length; i += 2)
+          pts.push(`${fd[i]},${fd[i + 1]}`);
+        svg_parts += `<polygon points="${pts.join(" ")}" fill="none" stroke="var(--stroke-c)" stroke-width="1" vector-effect="non-scaling-stroke"/>`;
+      }
+      const d = hit.face.points.data;
+      const hitPts = [];
+      for (let i = 0; i < d.length; i += 2) hitPts.push(`${d[i]},${d[i + 1]}`);
+      svg_parts += `<polygon points="${hitPts.join(" ")}" fill="var(--stroke-c)" stroke="var(--stroke-c)" stroke-width="1" vector-effect="non-scaling-stroke"/>`;
+      if (bounds2D) {
+        svg_parts += `<rect x="${bounds2D.x}" y="${bounds2D.y}" width="${bounds2D.w}" height="${bounds2D.h}" fill="none" stroke="var(--stroke-c)" stroke-width="1" stroke-dasharray="3 2" vector-effect="non-scaling-stroke"/>`;
+      }
+      svg_parts += `<line x1="${center2D.x - 3}" y1="${center2D.y - 3}" x2="${center2D.x + 3}" y2="${center2D.y + 3}" stroke="var(--fill)" stroke-width="2" vector-effect="non-scaling-stroke"/>`;
+      svg_parts += `<line x1="${center2D.x + 3}" y1="${center2D.y - 3}" x2="${center2D.x - 3}" y2="${center2D.y + 3}" stroke="var(--fill)" stroke-width="2" vector-effect="non-scaling-stroke"/>`;
+      svg_parts += `<line x1="${center2D.x - 2.5}" y1="${center2D.y - 2.5}" x2="${center2D.x + 2.5}" y2="${center2D.y + 2.5}" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke"/>`;
+      svg_parts += `<line x1="${center2D.x + 2.5}" y1="${center2D.y - 2.5}" x2="${center2D.x - 2.5}" y2="${center2D.y + 2.5}" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke"/>`;
+      overlay.innerHTML = svg_parts;
 
       if (infoEl) {
         const nc = normalizedCenter2D;
