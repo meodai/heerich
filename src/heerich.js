@@ -1005,6 +1005,7 @@ export class Heerich {
       const sc = voxel.scale;
       const so = voxel.scaleOrigin;
       const gp = voxel.gap;
+      const gs = gp ? 1 - 2 * gp : 1;
 
       const scaleAround = (c, ox, oy, oz, sx, sy, sz) => [
         ox + (c[0] - ox) * sx,
@@ -1026,20 +1027,18 @@ export class Heerich {
             sc[2],
           );
         if (gp) {
-          const s = 1 - 2 * gp;
-          c = scaleAround(c, x + 0.5, y + 0.5, z + 0.5, s, s, s);
+          c = scaleAround(c, x + 0.5, y + 0.5, z + 0.5, gs, gs, gs);
         }
         let verts = sc
           ? Heerich._scaleVertices(vertices, x, y, z, sc, so)
           : vertices;
         if (gp) {
-          const s = 1 - 2 * gp;
           verts = Heerich._scaleVertices(
             verts,
             x,
             y,
             z,
-            [s, s, s],
+            [gs, gs, gs],
             [0.5, 0.5, 0.5],
           );
         }
@@ -1269,6 +1268,7 @@ export class Heerich {
             // Neighbor test — just call the test function directly (it handles its own bounds)
             if (isOblique) {
               const getDepth = (cx, cy, cz) => cz - cx * dx_norm - cy * dy_norm;
+              const gs = gp ? [1 - 2 * gp, 1 - 2 * gp, 1 - 2 * gp] : null;
               const addFace = (type, vertices, cx, cy, cz) => {
                 const verts = gp
                   ? Heerich._scaleVertices(
@@ -1276,7 +1276,7 @@ export class Heerich {
                       x,
                       y,
                       z,
-                      [1 - 2 * gp, 1 - 2 * gp, 1 - 2 * gp],
+                      gs,
                       [0.5, 0.5, 0.5],
                     )
                   : vertices;
@@ -1356,26 +1356,29 @@ export class Heerich {
                 );
               // In Oblique projection, the 'back' face is always completely hidden
             } else {
+              const gs = gp ? 1 - 2 * gp : 1;
+              const gScale = gp ? [gs, gs, gs] : null;
+              const gOrigin = [0.5, 0.5, 0.5];
+              const gox = x + 0.5,
+                goy = y + 0.5,
+                goz = z + 0.5;
+
               const addFace = (type, vertices, n, c) => {
                 let verts = vertices;
                 let center = c;
                 if (gp) {
-                  const s = 1 - 2 * gp;
                   verts = Heerich._scaleVertices(
                     vertices,
                     x,
                     y,
                     z,
-                    [s, s, s],
-                    [0.5, 0.5, 0.5],
+                    gScale,
+                    gOrigin,
                   );
-                  const gox = x + 0.5,
-                    goy = y + 0.5,
-                    goz = z + 0.5;
                   center = [
-                    gox + (c[0] - gox) * s,
-                    goy + (c[1] - goy) * s,
-                    goz + (c[2] - goz) * s,
+                    gox + (c[0] - gox) * gs,
+                    goy + (c[1] - goy) * gs,
+                    goz + (c[2] - goz) * gs,
                   ];
                 }
                 faces3D.push({
