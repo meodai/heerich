@@ -5,6 +5,7 @@ export function initHero(
   getCamera,
   getReservedZone = null,
   getSvgOpts = null,
+  getGap = () => 0,
 ) {
   let animationId = 0;
   let scene = null;
@@ -44,6 +45,7 @@ export function initHero(
     const e = new Heerich({
       tile: gridSize,
       camera: cam,
+      gap: getGap(),
       style: {
         fill: "var(--fill)",
         stroke: "var(--stroke-c)",

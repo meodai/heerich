@@ -88,6 +88,7 @@ const camStrokeColor = document.getElementById("cam-stroke-color");
 const camFill = document.getElementById("cam-fill");
 const camOutline = document.getElementById("cam-outline");
 const camOutlineColor = document.getElementById("cam-outline-color");
+const camGap = document.getElementById("cam-gap");
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -213,6 +214,7 @@ const hero = initHero(
   getCamera,
   getReservedZone,
   getSvgOpts,
+  getGap,
 );
 
 // Repaint hero on resize to recalculate reserved zone
@@ -334,6 +336,10 @@ document.getElementById("btn-randomize-style").addEventListener("click", () => {
 });
 
 // ─── Helper: wire up a demo's controls and render loop ───
+function getGap() {
+  return parseFloat(camGap.value) || 0;
+}
+
 const baseStyle = {
   fill: "var(--fill)",
   stroke: "var(--stroke-c)",
@@ -425,6 +431,7 @@ camOutline.addEventListener("input", () => {
   debouncedRerenderAll();
 });
 camOutlineColor.addEventListener("input", () => debouncedRerenderAll());
+camGap.addEventListener("input", () => debouncedRerenderAll());
 syncStyleVars();
 
 function setupDemo(id, buildFn) {
@@ -472,6 +479,7 @@ setupDemo("demo-box", (v) => {
     tile: 30,
     camera: getCamera(),
     style: baseStyle,
+    gap: getGap(),
   });
   e.applyGeometry({ type: "box", position: [0, 0, 0], size: [v.w, v.h, v.d] });
   return e.toSVG(getSvgOpts());
@@ -483,6 +491,7 @@ setupDemo("demo-align", (v) => {
     tile: 26,
     camera: getCamera(),
     style: baseStyle,
+    gap: getGap(),
   });
   const big = [6, 6, 6];
   const small = [2, 2, 2];
@@ -520,6 +529,7 @@ setupDemo("demo-sphere", (v) => {
     tile: 28,
     camera: getCamera(),
     style: baseStyle,
+    gap: getGap(),
   });
   e.applyGeometry({ type: "sphere", center: [r, r, r], radius: r });
   return e.toSVG(getSvgOpts());
@@ -530,11 +540,8 @@ setupDemo("demo-line", (v) => {
   const e = new Heerich({
     tile: 26,
     camera: getCamera(),
-    style: {
-      fill: "var(--fill)",
-      stroke: "var(--stroke-c)",
-      strokeWidth: "var(--stroke-w)",
-    },
+    style: baseStyle,
+    gap: getGap(),
   });
   e.applyGeometry({
     type: "line",
@@ -553,6 +560,7 @@ setupDemo("demo-custom-shape", (v) => {
     tile: 28,
     camera: getCamera(),
     style: baseStyle,
+    gap: getGap(),
   });
   e.applyGeometry({
     type: "fill",
@@ -575,6 +583,7 @@ setupDemo("demo-boolean", (v) => {
     tile: 26,
     camera: getCamera(),
     style: baseStyle,
+    gap: getGap(),
   });
   e.applyGeometry({ type: "box", position: [0, 0, 0], size: [6, 6, 6] });
   e.applyGeometry({
@@ -593,6 +602,7 @@ setupDemo("demo-rotation", (v) => {
     tile: 26,
     camera: getCamera(),
     style: baseStyle,
+    gap: getGap(),
   });
   e.applyGeometry({ type: "box", position: [0, 0, 0], size: [2, 6, 2] });
   e.applyGeometry({ type: "box", position: [0, 0, 0], size: [6, 2, 2] });
@@ -608,6 +618,7 @@ setupDemo("demo-group", (v) => {
     tile: 26,
     camera: getCamera(),
     style: baseStyle,
+    gap: getGap(),
   });
   const gs = v.gs;
 
@@ -637,11 +648,8 @@ setupDemo("demo-style", (v) => {
   const e = new Heerich({
     tile: 30,
     camera: getCamera(),
-    style: {
-      fill: "var(--fill)",
-      stroke: "var(--stroke-c)",
-      strokeWidth: "var(--stroke-w)",
-    },
+    style: baseStyle,
+    gap: getGap(),
   });
   e.applyGeometry({
     type: "box",
@@ -668,6 +676,7 @@ setupDemo("demo-decals", (v) => {
       stroke: sc,
       strokeWidth: s,
     },
+    gap: getGap(),
   });
 
   const ns = 'vector-effect="non-scaling-stroke"';
@@ -717,11 +726,8 @@ setupDemo("demo-hatching", (v) => {
   const e = new Heerich({
     tile: 30,
     camera: getCamera(),
-    style: {
-      fill: "var(--fill)",
-      stroke: "var(--stroke-c)",
-      strokeWidth: "var(--stroke-w)",
-    },
+    style: baseStyle,
+    gap: getGap(),
   });
 
   const hatch = {
@@ -756,6 +762,7 @@ setupDemo("demo-svg-styles", (v) => {
     tile: 28,
     camera: getCamera(),
     style: baseStyle,
+    gap: getGap(),
   });
   e.applyGeometry({
     type: "box",
@@ -788,11 +795,8 @@ setupDemo("demo-functional", (v) => {
   const e = new Heerich({
     tile: 28,
     camera: getCamera(),
-    style: {
-      fill: "var(--fill)",
-      stroke: "var(--stroke-c)",
-      strokeWidth: "var(--stroke-w)",
-    },
+    style: baseStyle,
+    gap: getGap(),
   });
   e.applyGeometry({
     type: "box",
@@ -819,6 +823,7 @@ setupDemo("demo-scale", (v) => {
     tile: 30,
     camera: getCamera(),
     style: baseStyle,
+    gap: getGap(),
   });
 
   // Spiral staircase around a 2x2 hole
@@ -870,6 +875,7 @@ setupDemo("demo-functional-scale", (v) => {
     tile: 28,
     camera: getCamera(),
     style: baseStyle,
+    gap: getGap(),
   });
   e.applyGeometry({
     type: "box",
@@ -902,11 +908,8 @@ setupDemo("demo-functional-scale", (v) => {
     const e = new Heerich({
       tile: 22,
       camera: getCamera(),
-      style: {
-        fill: "var(--fill)",
-        stroke: "var(--stroke-c)",
-        strokeWidth: "var(--stroke-w)",
-      },
+      style: baseStyle,
+      gap: getGap(),
     });
 
     let i = 0;
@@ -944,6 +947,7 @@ setupDemo("demo-functional-scale", (v) => {
       tile: 24,
       camera: getCamera(),
       style: baseStyle,
+      gap: getGap(),
     });
 
     // Wireframe cage — fill none, opaque false
@@ -976,6 +980,7 @@ setupDemo("demo-queries", (v) => {
     tile: 24,
     camera: getCamera(),
     style: baseStyle,
+    gap: getGap(),
   });
   e.applyGeometry({ type: "box", position: [0, 0, 0], size: [6, 6, 6] });
   e.removeGeometry({ type: "sphere", center: [3, 3, 6], radius: 2.5 });
@@ -1012,7 +1017,12 @@ setupDemo("demo-queries", (v) => {
 
 // ─── 18. findVoxels ──────────────────
 setupDemo("demo-find-voxels", (v) => {
-  const e = new Heerich({ tile: 22, camera: getCamera(), style: baseStyle });
+  const e = new Heerich({
+    tile: 22,
+    camera: getCamera(),
+    style: baseStyle,
+    gap: getGap(),
+  });
 
   e.addGeometry({
     type: "box",
@@ -1062,6 +1072,7 @@ setupDemo("demo-find-by-pos", () => {
     tile: 24,
     camera: getCamera(),
     style: baseStyle,
+    gap: getGap(),
   });
   _posQueryEngine.addGeometry({
     type: "box",
@@ -1219,6 +1230,7 @@ function animateHoles({
       tile: 26,
       camera: getCamera(),
       style: baseStyle,
+      gap: getGap(),
     });
     e.applyGeometry({ type: "box", position: [0, 0, 0], size: [10, 8, 6] });
     holes.forEach((h, i) => {
@@ -1358,11 +1370,8 @@ function animateHoles({
     const e = new Heerich({
       tile: gridSize,
       camera: getCamera(),
-      style: {
-        fill: "var(--fill)",
-        stroke: "var(--stroke-c)",
-        strokeWidth: "var(--stroke-w)",
-      },
+      style: baseStyle,
+      gap: getGap(),
     });
 
     e.applyGeometry({
@@ -1549,11 +1558,8 @@ galleryDemo("demo-heerich-cross", () => {
   const e = new Heerich({
     tile: 22,
     camera: getCamera(),
-    style: {
-      fill: "var(--fill)",
-      stroke: "var(--stroke-c)",
-      strokeWidth: "var(--stroke-w)",
-    },
+    style: baseStyle,
+    gap: getGap(),
   });
   const arm = 3,
     len = 11,
@@ -1645,11 +1651,8 @@ galleryDemo("demo-heerich-checker", () => {
   const e = new Heerich({
     tile: 26,
     camera: getCamera(),
-    style: {
-      fill: "var(--fill)",
-      stroke: "var(--stroke-c)",
-      strokeWidth: "var(--stroke-w)",
-    },
+    style: baseStyle,
+    gap: getGap(),
   });
   const s = 3;
   for (let y = 0; y < 3; y++) {
@@ -1673,11 +1676,8 @@ galleryDemo("demo-heerich-stepped", () => {
   const e = new Heerich({
     tile: 32,
     camera: getCamera(),
-    style: {
-      fill: "var(--fill)",
-      stroke: "var(--stroke-c)",
-      strokeWidth: "var(--stroke-w)",
-    },
+    style: baseStyle,
+    gap: getGap(),
   });
 
   e.applyGeometry({ type: "box", position: [-4, -4, -4], size: [8, 8, 8] });
@@ -1697,11 +1697,8 @@ galleryDemo("demo-heerich-stepped", () => {
     const e = new Heerich({
       tile: 52,
       camera: getCamera(),
-      style: {
-        fill: "var(--fill)",
-        stroke: "var(--stroke-c)",
-        strokeWidth: "var(--stroke-w)",
-      },
+      style: baseStyle,
+      gap: getGap(),
     });
 
     const s = 4;

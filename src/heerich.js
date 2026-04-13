@@ -180,6 +180,9 @@ export class Heerich {
       cameraDistance: 10,
     };
 
+    /** @type {number} Default gap between voxels (0–<0.5) */
+    this.defaultGap = options.gap || 0;
+
     this.setCamera(cam);
     /** @type {Map<number, Voxel>} */
     this.voxels = new Map();
@@ -422,8 +425,19 @@ export class Heerich {
    * @param {Object} [meta] - Arbitrary key-value pairs for data-* attributes
    * @param {[number,number,number]|function(number,number,number): [number,number,number]} [scale] - Per-axis scale 0-1
    * @param {[number,number,number]|function(number,number,number): [number,number,number]} [scaleOrigin] - Scale origin within voxel
+   * @param {number} [gap] - Per-geometry gap override (undefined = use defaultGap)
    */
-  _applyOp(coords, mode, style, content, opaque, meta, scale, scaleOrigin) {
+  _applyOp(
+    coords,
+    mode,
+    style,
+    content,
+    opaque,
+    meta,
+    scale,
+    scaleOrigin,
+    gap,
+  ) {
     if (mode === "intersect") {
       // Collect shape coords, then delete everything not in the set
       const keep = new Set();
@@ -476,6 +490,9 @@ export class Heerich {
             voxel.opaque = false;
           }
           if (meta) voxel.meta = meta;
+          const g = gap !== undefined ? gap : this.defaultGap;
+          if (g) voxel.gap = g;
+          else if (gap === 0) voxel.gap = 0;
           this.voxels.set(key, voxel);
         } else if (mode === "subtract") {
           if (this.voxels.delete(key) && style) {
@@ -526,6 +543,8 @@ export class Heerich {
               voxel.opaque = false;
             }
             if (meta) voxel.meta = meta;
+            const g = gap !== undefined ? gap : this.defaultGap;
+            if (g) voxel.gap = g;
             this.voxels.set(key, voxel);
           }
         }
@@ -660,6 +679,7 @@ export class Heerich {
       if (voxel.meta) entry.meta = voxel.meta;
       if (voxel.scale) entry.scale = voxel.scale;
       if (voxel.scaleOrigin) entry.scaleOrigin = voxel.scaleOrigin;
+      if (voxel.gap !== undefined) entry.gap = voxel.gap;
       voxelData.push(entry);
     }
 
@@ -685,6 +705,7 @@ export class Heerich {
               distance: this.renderOptions.cameraDistance,
             },
       style: { ...this.defaultStyle },
+      gap: this.defaultGap || undefined,
       voxels: voxelData,
       decals:
         this.decals.size > 0
@@ -703,6 +724,7 @@ export class Heerich {
       tile: data.tile,
       camera: data.camera,
       style: data.style,
+      gap: data.gap,
     });
 
     for (const v of data.voxels) {
@@ -712,6 +734,7 @@ export class Heerich {
       if (v.meta) voxel.meta = v.meta;
       if (v.scale) voxel.scale = v.scale;
       if (v.scaleOrigin) voxel.scaleOrigin = v.scaleOrigin;
+      if (v.gap) voxel.gap = v.gap;
       engine.voxels.set(engine._k(v.x, v.y, v.z), voxel);
     }
 
@@ -799,6 +822,7 @@ export class Heerich {
    * @param {RotateOptions} [opts.rotate] - Rotate coordinates before placement
    * @param {[number,number,number]|function(number,number,number): [number,number,number]} [opts.scale] - Per-axis scale 0-1
    * @param {[number,number,number]|function(number,number,number): [number,number,number]} [opts.scaleOrigin=[0.5,0,0.5]] - Scale origin
+   * @param {number} [opts.gap] - Gap between voxels (0–<0.5). Overrides constructor default.
    *
    * Box params: position, size
    * Sphere params: center, radius
@@ -817,6 +841,7 @@ export class Heerich {
       opts.meta,
       opts.scale,
       opts.scaleOrigin,
+      opts.gap,
     );
   }
 
@@ -945,6 +970,7 @@ export class Heerich {
 
       if (
         !voxel.scale &&
+        !voxel.gap &&
         hasVoxel(x - 1, y, z) &&
         hasVoxel(x + 1, y, z) &&
         hasVoxel(x, y - 1, z) &&
@@ -978,26 +1004,49 @@ export class Heerich {
 
       const sc = voxel.scale;
       const so = voxel.scaleOrigin;
+      const gp = voxel.gap;
+
+      const scaleAround = (c, ox, oy, oz, sx, sy, sz) => [
+        ox + (c[0] - ox) * sx,
+        oy + (c[1] - oy) * sy,
+        oz + (c[2] - oz) * sz,
+      ];
 
       const addFace = (type, vertices, n, cx, cy, cz) => {
         if (cullTypes && cullTypes.has(type)) return;
         let c = [cx, cy, cz];
-        if (sc) {
-          const ox = x + so[0],
-            oy = y + so[1],
-            oz = z + so[2];
-          c = [
-            ox + (cx - ox) * sc[0],
-            oy + (cy - oy) * sc[1],
-            oz + (cz - oz) * sc[2],
-          ];
+        if (sc)
+          c = scaleAround(
+            c,
+            x + so[0],
+            y + so[1],
+            z + so[2],
+            sc[0],
+            sc[1],
+            sc[2],
+          );
+        if (gp) {
+          const s = 1 - 2 * gp;
+          c = scaleAround(c, x + 0.5, y + 0.5, z + 0.5, s, s, s);
+        }
+        let verts = sc
+          ? Heerich._scaleVertices(vertices, x, y, z, sc, so)
+          : vertices;
+        if (gp) {
+          const s = 1 - 2 * gp;
+          verts = Heerich._scaleVertices(
+            verts,
+            x,
+            y,
+            z,
+            [s, s, s],
+            [0.5, 0.5, 0.5],
+          );
         }
         faces3D.push({
           type,
           voxel,
-          vertices: sc
-            ? Heerich._scaleVertices(vertices, x, y, z, sc, so)
-            : vertices,
+          vertices: verts,
           n,
           c,
           style: getStyle(type),
@@ -1007,7 +1056,7 @@ export class Heerich {
       // Emit up to 5 neighbor-exposed faces (back is always omitted — see JSDoc).
       // Camera-direction filtering for oblique is applied via cullTypes; other
       // projections filter in _projectAndSort via dot-product backface culling.
-      if (sc || !hasVoxel(x, y - 1, z))
+      if (sc || gp || !hasVoxel(x, y - 1, z))
         addFace(
           "top",
           [
@@ -1021,7 +1070,7 @@ export class Heerich {
           y,
           z + 0.5,
         );
-      if (sc || !hasVoxel(x, y + 1, z))
+      if (sc || gp || !hasVoxel(x, y + 1, z))
         addFace(
           "bottom",
           [
@@ -1035,7 +1084,7 @@ export class Heerich {
           y + 1,
           z + 0.5,
         );
-      if (sc || !hasVoxel(x - 1, y, z))
+      if (sc || gp || !hasVoxel(x - 1, y, z))
         addFace(
           "left",
           [
@@ -1049,7 +1098,7 @@ export class Heerich {
           y + 0.5,
           z + 0.5,
         );
-      if (sc || !hasVoxel(x + 1, y, z))
+      if (sc || gp || !hasVoxel(x + 1, y, z))
         addFace(
           "right",
           [
@@ -1063,7 +1112,7 @@ export class Heerich {
           y + 0.5,
           z + 0.5,
         );
-      if (sc || !hasVoxel(x, y, z - 1))
+      if (sc || gp || !hasVoxel(x, y, z - 1))
         addFace(
           "front",
           [
@@ -1077,7 +1126,7 @@ export class Heerich {
           y + 0.5,
           z,
         );
-      if (sc || !hasVoxel(x, y, z + 1))
+      if (sc || gp || !hasVoxel(x, y, z + 1))
         addFace(
           "back",
           [
@@ -1158,11 +1207,13 @@ export class Heerich {
    * @param {Array<[[number,number,number],[number,number,number]]>} [opts.regions] - Multiple scan regions (auto-deduped)
    * @param {function(number,number,number): boolean} opts.test - Inclusion test
    * @param {StyleParam|function(number,number,number,string): StyleObject} [opts.style] - Style per voxel or per face
+   * @param {number} [opts.gap] - Gap override (defaults to constructor gap)
    * @returns {Face[]}
    */
   renderTest(opts) {
     const regions = opts.regions || [opts.bounds];
     const test = opts.test;
+    const gp = opts.gap !== undefined ? opts.gap : this.defaultGap;
     const styleFn = typeof opts.style === "function" ? opts.style : null;
     const styleObj = /** @type {FaceStyleMap|null} */ (
       !styleFn ? opts.style || null : null
@@ -1219,10 +1270,20 @@ export class Heerich {
             if (isOblique) {
               const getDepth = (cx, cy, cz) => cz - cx * dx_norm - cy * dy_norm;
               const addFace = (type, vertices, cx, cy, cz) => {
+                const verts = gp
+                  ? Heerich._scaleVertices(
+                      vertices,
+                      x,
+                      y,
+                      z,
+                      [1 - 2 * gp, 1 - 2 * gp, 1 - 2 * gp],
+                      [0.5, 0.5, 0.5],
+                    )
+                  : vertices;
                 faces3D.push({
                   type,
                   voxel,
-                  vertices,
+                  vertices: verts,
                   depth: getDepth(cx, cy, cz),
                   style: getStyles(type),
                 });
@@ -1296,12 +1357,33 @@ export class Heerich {
               // In Oblique projection, the 'back' face is always completely hidden
             } else {
               const addFace = (type, vertices, n, c) => {
+                let verts = vertices;
+                let center = c;
+                if (gp) {
+                  const s = 1 - 2 * gp;
+                  verts = Heerich._scaleVertices(
+                    vertices,
+                    x,
+                    y,
+                    z,
+                    [s, s, s],
+                    [0.5, 0.5, 0.5],
+                  );
+                  const gox = x + 0.5,
+                    goy = y + 0.5,
+                    goz = z + 0.5;
+                  center = [
+                    gox + (c[0] - gox) * s,
+                    goy + (c[1] - goy) * s,
+                    goz + (c[2] - goz) * s,
+                  ];
+                }
                 faces3D.push({
                   type,
                   voxel,
-                  vertices,
+                  vertices: verts,
                   n,
-                  c,
+                  c: center,
                   style: getStyles(type),
                 });
               };

@@ -97,6 +97,7 @@ All shape methods accept a common set of options:
 | `rotate`  | object | Rotate coordinates before placement (see [Rotation](#rotation)) |
 | `scale`   | `[x, y, z]` or `(x, y, z) => [sx, sy, sz]` | Per-axis scale 0–1 (auto-sets `opaque: false`) |
 | `scaleOrigin` | `[x, y, z]` or `(x, y, z) => [ox, oy, oz]` | Scale anchor within the voxel cell (default: `[0.5, 0, 0.5]`) |
+| `gap`   | number | Gap between voxels, 0–0.5 (overrides constructor default) |
 
 #### Convenience methods
 
@@ -383,6 +384,21 @@ h.applyGeometry({
 ```
 
 The `scaleOrigin` sets where scaling anchors within the voxel cell (0–1 per axis). `[0.5, 1, 0.5]` pins to the bottom-center (floor), `[0.5, 0, 0.5]` pins to the top-center (ceiling). Both `scale` and `scaleOrigin` accept functions of `(x, y, z)` for per-voxel control. Return `null` from a scale function to leave that voxel at full size.
+
+## Gap
+
+Add uniform spacing between voxels. Set a global default in the constructor, or override per-geometry.
+
+```js
+// Global gap — applies to all voxels
+const h = new Heerich({ tile: 40, gap: 0.05 })
+
+// Per-geometry override
+h.addGeometry({ type: 'box', position: [0, 0, 0], size: 3, gap: 0.1 })
+h.addGeometry({ type: 'box', position: [4, 0, 0], size: 3, gap: 0 }) // no gap
+```
+
+Gap shrinks each voxel toward its center by the specified amount on each side. A gap of `0.05` means each voxel is 10% smaller overall. Gap is applied after `scale` and is independent of it — a scaled voxel with a gap will shrink first, then have spacing applied.
 
 ## Rotation
 
