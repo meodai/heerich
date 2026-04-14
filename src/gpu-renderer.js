@@ -4,12 +4,12 @@
  * @type {Record<string, [number,number,number]>}
  */
 const FACE_NORMALS = {
-  top:    [ 0, -1,  0],
-  bottom: [ 0,  1,  0],
-  left:   [-1,  0,  0],
-  right:  [ 1,  0,  0],
-  front:  [ 0,  0, -1],
-  back:   [ 0,  0,  1],
+  top: [0, -1, 0],
+  bottom: [0, 1, 0],
+  left: [-1, 0, 0],
+  right: [1, 0, 0],
+  front: [0, 0, -1],
+  back: [0, 0, 1],
 };
 
 /**
@@ -152,13 +152,13 @@ export class GPURenderer {
     }
 
     const vertexCount = faceCount * 4; // 4 verts per quad
-    const indexCount  = faceCount * 6; // 6 indices per quad (2 triangles)
+    const indexCount = faceCount * 6; // 6 indices per quad (2 triangles)
 
     const position = new Float32Array(vertexCount * 3);
-    const normal   = new Float32Array(vertexCount * 3);
-    const uv       = new Float32Array(vertexCount * 2);
-    const index    = new Uint32Array(indexCount);
-    const color    = wantColor ? new Float32Array(vertexCount * 3) : null;
+    const normal = new Float32Array(vertexCount * 3);
+    const uv = new Float32Array(vertexCount * 2);
+    const index = new Uint32Array(indexCount);
+    const color = wantColor ? new Float32Array(vertexCount * 3) : null;
 
     let vi = 0; // next vertex slot
     let ii = 0; // next index slot
@@ -171,10 +171,16 @@ export class GPURenderer {
       const n = face.n ?? FACE_NORMALS[face.type] ?? [0, 0, 0];
 
       // Resolve face colour once, shared across all 4 vertices
-      let cr = defaultColor[0], cg = defaultColor[1], cb = defaultColor[2];
+      let cr = defaultColor[0],
+        cg = defaultColor[1],
+        cb = defaultColor[2];
       if (wantColor && face.style) {
         const parsed = parseCSSColor(face.style.fill);
-        if (parsed) { cr = parsed[0]; cg = parsed[1]; cb = parsed[2]; }
+        if (parsed) {
+          cr = parsed[0];
+          cg = parsed[1];
+          cb = parsed[2];
+        }
       }
 
       const baseVertex = vi;
@@ -183,20 +189,20 @@ export class GPURenderer {
         const v = verts[i];
         const p = vi * 3;
 
-        position[p]     = v[0] * scale;
+        position[p] = v[0] * scale;
         position[p + 1] = v[1] * scale * ySign;
         position[p + 2] = v[2] * scale * zSign;
 
-        normal[p]     = n[0];
+        normal[p] = n[0];
         normal[p + 1] = n[1] * ySign;
         normal[p + 2] = n[2] * zSign;
 
         const u = vi * 2;
-        uv[u]     = QUAD_UVS[i * 2];
+        uv[u] = QUAD_UVS[i * 2];
         uv[u + 1] = QUAD_UVS[i * 2 + 1];
 
         if (color) {
-          color[p]     = cr;
+          color[p] = cr;
           color[p + 1] = cg;
           color[p + 2] = cb;
         }
@@ -208,9 +214,15 @@ export class GPURenderer {
       // Left and right faces are CW in Heerich's vertex ordering — flip those.
       // This check uses the original (un-transformed) vertices; the result is
       // identical after the yUp transform because det(diag(1,-1,-1)) = +1.
-      const v0 = verts[0], v1 = verts[1], v2 = verts[2];
-      const e1x = v1[0] - v0[0], e1y = v1[1] - v0[1], e1z = v1[2] - v0[2];
-      const e2x = v2[0] - v0[0], e2y = v2[1] - v0[1], e2z = v2[2] - v0[2];
+      const v0 = verts[0],
+        v1 = verts[1],
+        v2 = verts[2];
+      const e1x = v1[0] - v0[0],
+        e1y = v1[1] - v0[1],
+        e1z = v1[2] - v0[2];
+      const e2x = v2[0] - v0[0],
+        e2y = v2[1] - v0[1],
+        e2z = v2[2] - v0[2];
       const crossDotN =
         (e1y * e2z - e1z * e2y) * n[0] +
         (e1z * e2x - e1x * e2z) * n[1] +

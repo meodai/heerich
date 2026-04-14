@@ -20,7 +20,10 @@ export const camera = new THREE.PerspectiveCamera(
 );
 camera.position.set(-20, 40, 50);
 
-export const sunLight = new THREE.DirectionalLight(0xfff4e0, PARAMS.sunIntensity);
+export const sunLight = new THREE.DirectionalLight(
+  0xfff4e0,
+  PARAMS.sunIntensity,
+);
 sunLight.position.set(60, 120, 80);
 sunLight.castShadow = true;
 sunLight.shadow.mapSize.set(4096, 4096);

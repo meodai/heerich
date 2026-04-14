@@ -612,18 +612,6 @@ button:hover {
   flex-direction: column;
 }
 
-.control-hint {
-  margin: 0;
-  padding: 0 0.8rem 0.5rem;
-  font-size: 0.7rem;
-  display: none;
-  max-width: 35ch;
-}
-
-.settings-fields:has(#occlusion-toggle:checked) .control-hint {
-  display: block;
-}
-
 .settings-panel .settings-grid-panel {
   padding: 0.7rem 0.8rem 0.8rem;
   border-top: 1px solid var(--line);

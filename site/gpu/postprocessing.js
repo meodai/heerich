@@ -10,12 +10,17 @@ import {
   bloom,
   dof,
 } from "./three.js";
-import { PARAMS, focusDistUniform, focalRangeUniform, bokehUniform } from "./params.js";
+import {
+  PARAMS,
+  focusDistUniform,
+  focalRangeUniform,
+  bokehUniform,
+} from "./params.js";
 import { scene, camera } from "./scene.js";
 import { renderer } from "./renderer.js";
 
 // Exported as live bindings — populated after setupPostProcessing() runs
-export let gtaoPass  = null;
+export let gtaoPass = null;
 export let bloomPass = null;
 
 export function setupPostProcessing() {
@@ -30,9 +35,9 @@ export function setupPostProcessing() {
     }),
   );
 
-  const sceneColor     = scenePass.getTextureNode("output");
-  const sceneNormal    = scenePass.getTextureNode("normal");
-  const sceneDepth     = scenePass.getTextureNode("depth");
+  const sceneColor = scenePass.getTextureNode("output");
+  const sceneNormal = scenePass.getTextureNode("normal");
+  const sceneDepth = scenePass.getTextureNode("depth");
   const emissiveBuffer = scenePass.getTextureNode("emissive");
 
   gtaoPass = ao(sceneDepth, sceneNormal, camera);

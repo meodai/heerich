@@ -38,6 +38,6 @@ export const PARAMS = {
 };
 
 // TSL uniforms — kept here so pane.js and postprocessing.js share the same instances
-export const focusDistUniform  = uniform(PARAMS.dofFocusDist);
+export const focusDistUniform = uniform(PARAMS.dofFocusDist);
 export const focalRangeUniform = uniform(PARAMS.dofFocalRange);
-export const bokehUniform      = uniform(PARAMS.dofBokeh);
+export const bokehUniform = uniform(PARAMS.dofBokeh);
