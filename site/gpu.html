@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Heerich — GPU Renderer WebGL Demo</title>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #080810;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        touch-action: none;
+      }
+      #label {
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: rgba(255, 255, 255, 0.28);
+        font:
+          300 12px/1 system-ui,
+          sans-serif;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        pointer-events: none;
+        white-space: nowrap;
+      }
+      #stats {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        color: rgba(255, 255, 255, 0.25);
+        font:
+          300 11px/1.6 ui-monospace,
+          monospace;
+        letter-spacing: 0.05em;
+        pointer-events: none;
+        text-align: right;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="canvas" />
+    <div id="label">drag to orbit &nbsp;·&nbsp; heerich gpu renderer</div>
+    <div id="stats"></div>
+
+    <script type="module" src="./gpu/main.js"></script>
+  </body>
+</html>

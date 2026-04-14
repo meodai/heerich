@@ -553,6 +553,51 @@ for (const face of faces) {
 }
 ```
 
+### `GPURenderer`
+
+Convert voxel faces into typed arrays ready to upload to a WebGL or WebGPU buffer (e.g. Three.js `BufferGeometry`). Each visible quad face is triangulated into two CCW triangles.
+
+```js
+import { Heerich, GPURenderer } from 'heerich'
+import * as THREE from 'three'
+
+const engine = new Heerich()
+engine.addGeometry({ type: 'box', position: [0, 0, 0], size: [4, 4, 4] })
+
+const { position, normal, uv, index } = new GPURenderer().render(
+  engine.getFaces({ raw: true }), // all neighbour-exposed faces, no camera culling
+  { yUp: true },                  // convert to Three.js coordinate space
+)
+
+const geo = new THREE.BufferGeometry()
+geo.setAttribute('position', new THREE.BufferAttribute(position, 3))
+geo.setAttribute('normal',   new THREE.BufferAttribute(normal,   3))
+geo.setAttribute('uv',       new THREE.BufferAttribute(uv,       2))
+geo.setIndex(new THREE.BufferAttribute(index, 1))
+scene.add(new THREE.Mesh(geo, new THREE.MeshStandardMaterial()))
+```
+
+`render(faces, options?)` options:
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `yUp` | boolean | `false` | Convert from Heerich's Y-down/Z-into-screen space to Three.js Y-up/Z-toward-viewer by negating Y and Z. Winding is preserved (determinant +1). Without this, apply `mesh.rotation.x = Math.PI` in Three.js — do **not** use `scale.y = -1`, which changes handedness and breaks winding. |
+| `scale` | number | `1` | Uniform scale applied to vertex positions. Useful for converting voxel grid units to world-space metres. |
+| `color` | boolean | `false` | Parse `face.style.fill` and include a `color` Float32Array with RGB floats (0–1) per vertex. |
+| `defaultColor` | `[r,g,b]` | `[1,1,1]` | Fallback colour when `color` is true and a face has no parseable fill. Handles `#rgb`, `#rrggbb`, `rgb()`, and `rgba()`. |
+
+Returns a `GPUGeometry` object:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `position` | `Float32Array` | XYZ vertex positions (3 floats/vertex) |
+| `normal` | `Float32Array` | XYZ face normals, flat-shaded (3 floats/vertex) |
+| `uv` | `Float32Array` | UV texture coordinates (2 floats/vertex) |
+| `index` | `Uint32Array` | Triangle indices (3 indices/triangle) |
+| `color` | `Float32Array` | RGB vertex colours (3 floats/vertex) — present when `options.color` is true |
+| `faceCount` | number | Number of quad faces encoded |
+| `vertexCount` | number | Total vertices (`faceCount × 4`) |
+
 ### `getBounds(padding?, faces?)`
 
 Compute the 2D bounding box of the rendered geometry:
