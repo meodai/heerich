@@ -20,6 +20,30 @@ const AXIS_FACES = {
 };
 
 /**
+ * Perspective near-plane denominator threshold. A vertex projects through
+ * `cameraDistance / (z + cameraDistance)`; faces with a vertex whose denominator
+ * drops below this are culled (they'd project to infinity / behind the eye). The
+ * eye sits at `z = -cameraDistance`, so the near plane is `z = -cameraDistance +
+ * PERSPECTIVE_NEAR_DENOM`. Shared by the cull in `_projectAndSort` and the cap
+ * generation in `_buildNearCaps` so the two stay consistent.
+ * @type {number}
+ */
+const PERSPECTIVE_NEAR_DENOM = 0.01;
+
+/**
+ * Near-plane clamp ratio for non-opaque (gapped/scaled) voxels. Their faces are
+ * not culled at the eye plane — instead each vertex's denominator is clamped to
+ * `cameraDistance * NEAR_CLAMP_RATIO`, so faces that cross behind the eye keep
+ * rendering (ballooned) rather than blinking out. The ratio bounds the blow-up
+ * to `scale ≤ 1 / NEAR_CLAMP_RATIO` (≈100×) and, being relative to
+ * `cameraDistance`, keeps that extreme look consistent as the distance changes.
+ * Opaque solids instead cull + cap (see `_buildNearCaps`), which reads cleaner
+ * than a giant ballooned wall.
+ * @type {number}
+ */
+const NEAR_CLAMP_RATIO = 0.01;
+
+/**
  * @typedef {Object} StyleObject
  * @property {string} [fill] - Fill color
  * @property {string} [stroke] - Stroke color
@@ -1180,6 +1204,62 @@ export class Heerich {
   }
 
   /**
+   * Generate near-plane cap faces for perspective. When the camera pushes into
+   * the scene, `_projectAndSort` culls voxels behind the eye plane — but the
+   * front faces those culled voxels used to hide were never generated (they were
+   * internal to the solid), leaving the geometry looking hollow. This emits
+   * those exposed `front` (−z) faces so the solid stays solid at extreme angles.
+   *
+   * A cap is emitted for an opaque, ungapped, unscaled voxel when its camera-side
+   * (−z) neighbour is solid (so the shared front face was internal) but sits
+   * behind the near plane (so it's culled, exposing the boundary). Only the
+   * boundary layer qualifies, so this adds at most one sheet of faces.
+   *
+   * @returns {Object[]} Cap face objects in `_buildFaces3D` shape (empty unless
+   *   the camera is close enough to clip into the geometry)
+   */
+  _buildNearCaps() {
+    const { cameraDistance } = this.renderOptions;
+    const caps = [];
+    for (const voxel of this.voxels.values()) {
+      if (voxel.opaque === false || voxel.content || voxel.gap || voxel.scale)
+        continue;
+      const { x, y, z } = voxel;
+      // Only the single voxel layer straddling the near plane can need a cap, so
+      // filter on the two cheap z-checks before any neighbour Map lookup (this
+      // keeps normal, non-clipping scenes lookup-free).
+      // The voxel's own front face must be in front of the near plane…
+      if (z + cameraDistance < PERSPECTIVE_NEAR_DENOM) continue;
+      // …and its camera-side neighbour must be behind it (so it's culled).
+      if (z - 1 + cameraDistance >= PERSPECTIVE_NEAR_DENOM) continue;
+      // That neighbour must be solid, so the shared front face was internal and
+      // never generated — that's the hole we're capping.
+      const nbr = this.voxels.get(this._k(x, y, z - 1));
+      if (!nbr || nbr.opaque === false || nbr.gap || nbr.scale) continue;
+
+      const styles = voxel.styles;
+      const base = styles.default
+        ? { ...this.defaultStyle, ...styles.default }
+        : this.defaultStyle;
+      const style = styles.front ? { ...base, ...styles.front } : base;
+      caps.push({
+        type: "front",
+        voxel,
+        vertices: [
+          [x, y, z],
+          [x, y + 1, z],
+          [x + 1, y + 1, z],
+          [x + 1, y, z],
+        ],
+        n: [0, 0, -1],
+        c: [x + 0.5, y + 0.5, z],
+        style,
+      });
+    }
+    return caps;
+  }
+
+  /**
    * Generate faces from stored voxels.
    *
    * By default returns projected, depth-sorted 2D faces for SVG rendering.
@@ -1223,7 +1303,14 @@ export class Heerich {
       if (depthOffsetX <= 0) cullTypes.add("right");
     }
 
-    const result = this._projectAndSort(this._buildFaces3D(cullTypes));
+    let faces3D = this._buildFaces3D(cullTypes);
+    // Perspective: cap the exposed boundary when the camera clips into the scene
+    // so it doesn't look hollow at extreme angles. No-op at normal distances.
+    if (this.renderOptions.projection === "perspective") {
+      const caps = this._buildNearCaps();
+      if (caps.length) faces3D = faces3D.concat(caps);
+    }
+    const result = this._projectAndSort(faces3D);
     this._cachedFaces = result;
     this._cachedEpoch = this._epoch;
     return result;
@@ -1815,13 +1902,25 @@ export class Heerich {
           viewVec[2] * face.n[2];
         if (dot >= 0) continue;
 
-        const minDenom = 0.01;
-        if (face.vertices.some((v) => v[2] + cameraDistance < minDenom))
+        // Opaque solids: cull faces crossing the eye plane (the exposed surface
+        // is rebuilt by _buildNearCaps so the solid stays solid). Non-opaque
+        // (gapped/scaled) voxels instead clamp the denominator, so their faces
+        // keep rendering — ballooned — as the camera pushes through them, rather
+        // than the front blinking out at extreme angles.
+        const vox = face.voxel;
+        const clampNear = vox.gap || vox.scale || vox.opaque === false;
+        if (
+          !clampNear &&
+          face.vertices.some(
+            (v) => v[2] + cameraDistance < PERSPECTIVE_NEAR_DENOM,
+          )
+        )
           continue;
 
+        const minDenom = clampNear ? cameraDistance * NEAR_CLAMP_RATIO : 0;
         const flat = [];
         for (const v of face.vertices) {
-          const t = cameraDistance / (v[2] + cameraDistance);
+          const t = cameraDistance / Math.max(v[2] + cameraDistance, minDenom);
           flat.push(
             truncate((Cx + (v[0] - Cx) * t) * tileW),
             truncate((Cy + (v[1] - Cy) * t) * tileH),
