@@ -735,6 +735,7 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
                 <select class="control-select" data-bind="mode">
                   <option value="plain">Plain</option>
                   <option value="gradient">Gradient</option>
+                  <option value="voxel">Per-voxel</option>
                 </select>
               </label>
               <label class="control-label"
@@ -755,17 +756,20 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
             The engine tracks styles on a strict per-face basis:
             <code>top</code>, <code>front</code>, <code>left</code>,
             <code>right</code>, <code>bottom</code>, and <code>back</code>,
-            alongside a <code>default</code> fallback. You can inject these
-            styles during shape creation, or explicitly overwrite existing
-            regions later using <code>applyStyle()</code>.
+            alongside a <code>default</code> fallback. The axis shorthands
+            <code>x</code> (left + right), <code>y</code> (top + bottom) and
+            <code>z</code> (front + back) paint both faces of an axis at once —
+            an explicit face still overrides them. You can inject these styles
+            during shape creation, or explicitly overwrite existing regions
+            later using <code>applyStyle()</code>.
           </p>
           <pre><code >heerich.applyGeometry({
   type: 'box', position: [0, 0, 0], size: 4,
   style: {
     default: { fill: '#eee', stroke: '#333' },
-    top:   { fill: '#ff6666' },
-    front: { fill: '#6666ff' },
-    right: { fill: '#66ff66' }
+    x: { fill: '#66ff66' }, // left + right
+    y: { fill: '#ff6666' }, // top + bottom
+    z: { fill: '#6666ff' }  // front + back
   }
 })</code></pre>
           <p>

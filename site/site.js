@@ -621,6 +621,16 @@ const STYLE_FACES = {
   right: { axis: "x", a: [5, 0, 2.5], b: [5, 5, 2.5] },
 };
 
+// Stable pseudo-random angle (0..2π) hashed from a voxel's coords + face, so
+// per-voxel gradient directions stay fixed as the camera moves (no flicker).
+function hashAngle(x, y, z, face) {
+  let k = 0;
+  for (let i = 0; i < face.length; i++) k += face.charCodeAt(i) * (i + 1);
+  const n =
+    Math.sin(x * 12.9898 + y * 78.233 + z * 37.719 + k * 0.137) * 43758.5453;
+  return (n - Math.floor(n)) * Math.PI * 2;
+}
+
 setupDemo("demo-style", (v) => {
   const e = new Heerich({
     tile: 30,
@@ -660,6 +670,50 @@ setupDemo("demo-style", (v) => {
 
     const opts = getSvgOpts();
     // Concatenate onto any existing prepend (e.g. the cel-shading outline defs).
+    opts.prepend = `<defs>${defs.join("")}</defs>` + (opts.prepend || "");
+    return e.toSVG(opts);
+  }
+
+  if (v.mode === "voxel") {
+    // Per-voxel gradients: every *visible* face gets its own gradient, coloured
+    // by its axis (x/y/z) and pointed in a per-voxel random direction. These use
+    // the default objectBoundingBox units, so each gradient maps to its own
+    // polygon automatically — no projection needed. We render off getFaces() so
+    // only on-screen faces get a def (no bloat from hidden interior voxels).
+    e.applyGeometry({ type: "box", position: [0, 0, 0], size: [5, 5, 5] });
+    const faces = e.getFaces();
+    const defs = [];
+    const fills = new Map();
+    for (const f of faces) {
+      const cfg = STYLE_FACES[f.type];
+      if (!cfg) continue;
+      const { x, y, z } = f.voxel;
+      const color = v[cfg.axis];
+      const ang = hashAngle(x, y, z, f.type);
+      const dx = Math.cos(ang) * 0.5;
+      const dy = Math.sin(ang) * 0.5;
+      const id = `voxel-grad-${x}-${y}-${z}-${f.type}`;
+      defs.push(
+        `<linearGradient id="${id}" ` +
+          `x1="${(0.5 - dx).toFixed(3)}" y1="${(0.5 - dy).toFixed(3)}" ` +
+          `x2="${(0.5 + dx).toFixed(3)}" y2="${(0.5 + dy).toFixed(3)}">` +
+          `<stop offset="0" stop-color="${color}"/>` +
+          `<stop offset="1" style="stop-color:color-mix(in oklab, ${color}, var(--bg) 60%)"/>` +
+          `</linearGradient>`,
+      );
+      fills.set(`${x},${y},${z},${f.type}`, `url(#${id})`);
+    }
+
+    const opts = getSvgOpts();
+    const baseAttrs = opts.faceAttributes;
+    opts.faces = faces;
+    opts.faceAttributes = (f) => {
+      const extra = baseAttrs ? baseAttrs(f) : null;
+      const fill = fills.get(
+        `${f.voxel.x},${f.voxel.y},${f.voxel.z},${f.type}`,
+      );
+      return fill ? { ...extra, fill } : extra;
+    };
     opts.prepend = `<defs>${defs.join("")}</defs>` + (opts.prepend || "");
     return e.toSVG(opts);
   }

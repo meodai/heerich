@@ -288,6 +288,7 @@ a {
 
 .control-select {
   flex: 1;
+  min-width: 0;
   border: none;
   background: transparent;
   color: var(--text);
