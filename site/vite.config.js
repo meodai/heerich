@@ -16,7 +16,6 @@ export default defineConfig({
         minesweeper: fileURLToPath(
           new URL("./minesweeper.html", import.meta.url),
         ),
-        figma: fileURLToPath(new URL("./figma.html", import.meta.url)),
       },
     },
   },
