@@ -718,6 +718,49 @@ setupDemo("demo-style", (v) => {
     return e.toSVG(opts);
   }
 
+  if (v.mode === "plane") {
+    // Float a solid plane off each face. We lift the face's 3D vertices along
+    // its normal and project all four directly into a polygon — exact under any
+    // perspective. (faceTransform()'s affine matrix is great for gradients and
+    // patterns, but its parallelogram can't match a strongly foreshortened
+    // trapezoid, so a solid quad uses the real projected corners instead.) The
+    // base box is tinted so the lifted planes read clearly.
+    e.applyGeometry({
+      type: "box",
+      position: [0, 0, 0],
+      size: [5, 5, 5],
+      style: {
+        x: { fill: `color-mix(in oklab, ${v.x}, var(--bg) 78%)` },
+        y: { fill: `color-mix(in oklab, ${v.y}, var(--bg) 78%)` },
+        z: { fill: `color-mix(in oklab, ${v.z}, var(--bg) 78%)` },
+      },
+    });
+    const faces = e.getFaces();
+    const D = 0.2; // world units the plane floats off its face
+    const planes = [];
+    for (const f of faces) {
+      const cfg = STYLE_FACES[f.type];
+      if (!cfg || !f.vertices) continue;
+      const n = f.n;
+      const pts = f.vertices
+        .map(([x, y, z]) => {
+          const p = e.project([x + n[0] * D, y + n[1] * D, z + n[2] * D]);
+          return `${p.x.toFixed(2)},${p.y.toFixed(2)}`;
+        })
+        .join(" ");
+      planes.push(
+        `<polygon points="${pts}" fill="${v[cfg.axis]}" ` +
+          `stroke="var(--bg)" stroke-width="1.5" stroke-linejoin="round" ` +
+          `vector-effect="non-scaling-stroke"/>`,
+      );
+    }
+
+    const opts = getSvgOpts();
+    opts.faces = faces;
+    opts.append = (opts.append || "") + `<g>${planes.join("")}</g>`;
+    return e.toSVG(opts);
+  }
+
   // Plain mode showcases the axis shorthand: x/y/z each paint both faces.
   e.applyGeometry({
     type: "box",

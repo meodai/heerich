@@ -1532,6 +1532,75 @@ export class Heerich {
   }
 
   /**
+   * Build the affine transform that maps the unit square `[0,1]²` onto a face's
+   * projected quad, returned as an SVG `matrix(a b c d e f)` string. Drop it on
+   * a gradient or pattern as `gradientTransform` / `patternTransform` (with
+   * `gradientUnits="userSpaceOnUse"` and coordinates defined in 0–1 space) to
+   * align that fill to the face — no per-endpoint projection needed.
+   *
+   * Where `project()` maps a single point (handy for a linear gradient between
+   * two anchors), `faceTransform()` maps the whole quad, so it also covers
+   * radial gradients, diagonal axes and patterns. It uses corners 0/1/3 of the
+   * quad as origin / +U / +V, an affine (parallelogram) approximation of the
+   * projected face — exact for oblique/orthographic, a close fit under
+   * perspective.
+   *
+   * Pass `offset` (a 3D world-space vector) to lift the quad off the surface
+   * before projecting — e.g. the face normal times a small distance to float a
+   * plane, label or sticker just above the face. The lift happens in 3D, so it
+   * foreshortens correctly under perspective (unlike nudging the result in
+   * screen space). This requires the face's 3D `vertices` (present on faces from
+   * `getFaces()`); without `offset` the cheaper projected-`points` path is used.
+   *
+   * @example
+   * // one gradient defined in unit space, transformed per face
+   * const faces = h.getFaces();
+   * const defs = faces.map((f, i) =>
+   *   `<linearGradient id="g${i}" gradientUnits="userSpaceOnUse"
+   *      x1="0" y1="0" x2="1" y2="0" gradientTransform="${h.faceTransform(f)}">
+   *      <stop offset="0" stop-color="#f70"/><stop offset="1" stop-color="#70f"/>
+   *    </linearGradient>`);
+   * h.toSVG({
+   *   faces,
+   *   faceAttributes: (f) => ({ fill: `url(#g${faces.indexOf(f)})` }),
+   *   prepend: `<defs>${defs.join("")}</defs>`,
+   * });
+   *
+   * @example
+   * // float a plane 0.2 units off each face, along its normal
+   * const m = h.faceTransform(f, [f.n[0] * 0.2, f.n[1] * 0.2, f.n[2] * 0.2]);
+   *
+   * @param {Face} face - A face from `getFaces()` (must carry a 4-point quad)
+   * @param {[number, number, number]} [offset] - World-space lift applied to the
+   *   face's 3D vertices before projecting (requires `face.vertices`)
+   * @returns {string} SVG transform string `matrix(a b c d e f)`
+   */
+  faceTransform(face, offset) {
+    const t = (v) => Math.round(v * 1e4) / 1e4;
+    let p;
+    if (offset) {
+      const verts = face.vertices;
+      p = [];
+      for (let i = 0; i < 4; i++) {
+        const q = this._projectPoint(
+          verts[i][0] + offset[0],
+          verts[i][1] + offset[1],
+          verts[i][2] + offset[2],
+        );
+        p.push(q.x, q.y);
+      }
+    } else {
+      p = face.points.data;
+    }
+    // matrix(a b c d e f): corner 0 = origin (e,f), corner 1 = +U, corner 3 = +V
+    const a = t(p[2] - p[0]);
+    const b = t(p[3] - p[1]);
+    const c = t(p[6] - p[0]);
+    const d = t(p[7] - p[1]);
+    return `matrix(${a} ${b} ${c} ${d} ${t(p[0])} ${t(p[1])})`;
+  }
+
+  /**
    * Project a single 3D point to 2D pixel space using the current camera.
    * @param {number} x
    * @param {number} y

@@ -414,6 +414,44 @@ Under perspective the projection is non-linear — there is no single constant
 above) rather than projecting a direction vector; the same code then stays
 correct for oblique, orthographic, isometric, and perspective cameras.
 
+### Aligning fills to a face — `faceTransform()`
+
+Where `project()` maps a single point, `faceTransform(face)` maps a whole face:
+it returns an SVG `matrix(a b c d e f)` that maps the unit square `[0,1]²` onto
+that face's projected quad. Define a gradient (or pattern) once in 0–1 space and
+drop the matrix on as `gradientTransform` — it now follows the face. This covers
+what endpoint projection can't: radial gradients, diagonal axes, and patterns.
+
+```js
+const faces = h.getFaces();
+const defs = faces.map((f, i) =>
+  `<radialGradient id="g${i}" gradientUnits="userSpaceOnUse"
+     cx="0.5" cy="0.5" r="0.5" gradientTransform="${h.faceTransform(f)}">
+     <stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#70f"/>
+   </radialGradient>`);
+
+h.toSVG({
+  faces, // reuse the same faces we transformed
+  faceAttributes: (f) => ({ fill: `url(#g${faces.indexOf(f)})` }),
+  prepend: `<defs>${defs.join('')}</defs>`,
+});
+```
+
+The mapping uses the quad's `0/1/3` corners as origin / +U / +V — an affine
+(parallelogram) fit, exact for oblique/orthographic and a close approximation
+under perspective.
+
+Pass a second argument to **lift the quad off the surface in 3D** before
+projecting — e.g. the face normal times a small distance — to float a plane,
+label or sticker just above the face. Because the lift happens in 3D it
+foreshortens correctly under perspective (nudging the result in screen space
+does not):
+
+```js
+// float content 0.2 units off each face, along its normal
+const m = h.faceTransform(f, [f.n[0] * 0.2, f.n[1] * 0.2, f.n[2] * 0.2]);
+```
+
 ## Voxel Scaling
 
 Shrink individual voxels along any axis. Scaled voxels automatically become non-opaque, revealing neighbors behind them.
