@@ -730,14 +730,21 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
           <div class="demo" id="demo-style">
             <div class="demo-canvas"></div>
             <div class="demo-controls">
+              <label class="control-label">
+                <span>Fill</span>
+                <select class="control-select" data-bind="mode">
+                  <option value="plain">Plain</option>
+                  <option value="gradient">Gradient</option>
+                </select>
+              </label>
               <label class="control-label"
-                >Top <input type="color" value="#f1a03c" data-bind="top"
+                >X <input type="color" value="#e2d058" data-bind="x"
               /></label>
               <label class="control-label"
-                >Front <input type="color" value="#0e0e0e" data-bind="front"
+                >Y <input type="color" value="#f1a03c" data-bind="y"
               /></label>
               <label class="control-label"
-                >Right <input type="color" value="#e2d058" data-bind="right"
+                >Z <input type="color" value="#0e0e0e" data-bind="z"
               /></label>
             </div>
           </div>

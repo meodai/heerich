@@ -315,6 +315,28 @@ h.applyGeometry({
 })
 ```
 
+### Axis shorthand
+
+Besides the six face names, a style object accepts the axis shorthands `x`
+(`left` + `right`), `y` (`top` + `bottom`) and `z` (`front` + `back`) to paint
+both faces of an axis at once. Precedence is `default` < axis < explicit face,
+so an explicit face always overrides the axis shorthand regardless of key order:
+
+```js
+h.applyGeometry({
+  type: 'box',
+  position: [0, 0, 0],
+  size: 3,
+  style: {
+    default: { fill: '#eee', stroke: '#333' },
+    x: { fill: '#e2d058' }, // left + right
+    y: { fill: '#f1a03c' }, // top + bottom
+    z: { fill: '#0e0e0e' }, // front + back
+    right: { fill: '#c0392b' }, // overrides x on the right face only
+  }
+})
+```
+
 ### Dynamic styles
 
 Style values can be functions of `(x, y, z)`:
@@ -358,6 +380,39 @@ h.applyStyle({
   style: { default: { fill: 'blue' } }
 })
 ```
+
+### Gradients & projected coordinates
+
+Face styles pass `fill` through verbatim, so an SVG gradient works as a fill —
+`fill: 'url(#myGradient)'` — as long as you inject the gradient's `<defs>` via
+`toSVG({ prepend })`.
+
+To make a gradient flow along a wall you need its `x1,y1,x2,y2` in the rendered
+2D space. Use `project([x, y, z])` to convert a 3D point into that space, then
+feed a `<linearGradient>` with `gradientUnits="userSpaceOnUse"`:
+
+```js
+const a = h.project([0, 0, 5]); // top of wall    → {x, y}
+const b = h.project([0, 8, 5]); // bottom of wall → {x, y}
+
+h.applyStyle({ type: 'box', position: [0, 0, 0], size: 8, style: { right: { fill: 'url(#wall)' } } });
+
+h.toSVG({ prepend:
+  `<defs><linearGradient id="wall" gradientUnits="userSpaceOnUse"
+     x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}">
+     <stop offset="0" stop-color="#f70"/>
+     <stop offset="1" stop-color="#70f"/>
+   </linearGradient></defs>` });
+```
+
+`project()` returns coordinates that match the rendered polygon points (before
+the translate `toSVG` applies), which is exactly what `userSpaceOnUse` gradients
+need. It reflects the current camera, so call it after `setCamera()`.
+
+Under perspective the projection is non-linear — there is no single constant
+"gradient direction". Always project the wall's **two actual endpoints** (as
+above) rather than projecting a direction vector; the same code then stays
+correct for oblique, orthographic, isometric, and perspective cameras.
 
 ## Voxel Scaling
 

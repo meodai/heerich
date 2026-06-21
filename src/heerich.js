@@ -8,6 +8,18 @@ export { SVGRenderer } from "./svg-renderer.js";
 export { GPURenderer } from "./gpu-renderer.js";
 
 /**
+ * Axis style shorthands → the two faces they paint. Used by `_resolveStyles`
+ * so a style object can target both faces of an axis at once (e.g. `x` paints
+ * `left` + `right`).
+ * @type {Record<'x'|'y'|'z', string[]>}
+ */
+const AXIS_FACES = {
+  x: ["left", "right"],
+  y: ["top", "bottom"],
+  z: ["front", "back"],
+};
+
+/**
  * @typedef {Object} StyleObject
  * @property {string} [fill] - Fill color
  * @property {string} [stroke] - Stroke color
@@ -562,6 +574,11 @@ export class Heerich {
    * @param {number} z
    * @param {Object|null} [existingStyles] - Existing per-face styles to merge into
    * @returns {Object} Resolved per-face style map (keys: 'default', 'top', etc.)
+   *
+   * Style objects may key faces individually (`top`, `front`, `left`, …) or use
+   * the axis shorthands `x` (left+right), `y` (top+bottom) and `z` (front+back).
+   * Precedence is `default` < axis < explicit face, so an explicit face key
+   * always overrides the axis shorthand regardless of key order.
    */
   _resolveStyles(styleParam, x, y, z, existingStyles = null) {
     if (!styleParam) {
@@ -574,13 +591,26 @@ export class Heerich {
       typeof styleParam === "function" ? styleParam(x, y, z) : styleParam;
     const baseStyles = existingStyles ? { ...existingStyles } : {};
 
-    for (const [face, val] of Object.entries(evaluatedParam)) {
-      const evaluatedFace = typeof val === "function" ? val(x, y, z) : val;
+    const mergeFace = (face, val) => {
+      const evaluated = typeof val === "function" ? val(x, y, z) : val;
       if (baseStyles[face]) {
-        Object.assign(baseStyles[face], evaluatedFace);
+        Object.assign(baseStyles[face], evaluated);
       } else {
-        baseStyles[face] = { ...evaluatedFace };
+        baseStyles[face] = { ...evaluated };
       }
+    };
+
+    // Pass 1: expand axis shorthands (x/y/z) onto their two faces.
+    for (const [key, val] of Object.entries(evaluatedParam)) {
+      const faces = AXIS_FACES[key];
+      if (!faces) continue;
+      const evaluated = typeof val === "function" ? val(x, y, z) : val;
+      for (const face of faces) mergeFace(face, evaluated);
+    }
+    // Pass 2: explicit face keys (and `default`) merge on top, so they win.
+    for (const [key, val] of Object.entries(evaluatedParam)) {
+      if (AXIS_FACES[key]) continue;
+      mergeFace(key, val);
     }
 
     return baseStyles;
@@ -1471,6 +1501,34 @@ export class Heerich {
     }
 
     return this._projectAndSort(faces3D);
+  }
+
+  /**
+   * Project a 3D point into the 2D coordinate space of the rendered SVG using
+   * the current camera. The returned point matches the rendered polygon points
+   * (i.e. *before* the `<g transform="translate(offset)">` applied by `toSVG`),
+   * so it is the correct space for a `<linearGradient>`/`<radialGradient>` with
+   * `gradientUnits="userSpaceOnUse"`.
+   *
+   * Projection reflects the current camera (set in the constructor or via
+   * `setCamera`). Under perspective the projection is non-linear, so to aim a
+   * gradient along a wall project the wall's two actual 3D endpoints rather than
+   * a direction vector.
+   *
+   * @example
+   * const a = h.project([0, 0, 5]); // {x, y}
+   * const b = h.project([0, 8, 5]);
+   * h.toSVG({ prepend:
+   *   `<defs><linearGradient id="wall" gradientUnits="userSpaceOnUse"
+   *      x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}">
+   *      <stop offset="0" stop-color="#f70"/><stop offset="1" stop-color="#70f"/>
+   *    </linearGradient></defs>` });
+   *
+   * @param {[number, number, number]} point - 3D point `[x, y, z]` in voxel/world coords
+   * @returns {{x: number, y: number}} Projected 2D point
+   */
+  project(point) {
+    return this._projectPoint(point[0], point[1], point[2]);
   }
 
   /**

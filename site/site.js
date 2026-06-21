@@ -608,6 +608,19 @@ setupDemo("demo-group", (v) => {
 });
 
 // ─── 9. Styles ───────────────────────
+// Each face is coloured by the axis it faces, so opposite faces (top/bottom,
+// front/back, left/right) share a colour. `a`/`b` are the two 3D endpoints of
+// the gradient axis; `flat` faces (top/bottom) have no vertical extent, so
+// their projected axis is pinned vertical to avoid reading as a diagonal.
+const STYLE_FACES = {
+  top: { axis: "y", a: [2.5, 0, 0], b: [2.5, 0, 5], flat: true },
+  bottom: { axis: "y", a: [2.5, 5, 0], b: [2.5, 5, 5], flat: true },
+  front: { axis: "z", a: [2.5, 0, 0], b: [2.5, 5, 0] },
+  back: { axis: "z", a: [2.5, 0, 5], b: [2.5, 5, 5] },
+  left: { axis: "x", a: [0, 0, 2.5], b: [0, 5, 2.5] },
+  right: { axis: "x", a: [5, 0, 2.5], b: [5, 5, 2.5] },
+};
+
 setupDemo("demo-style", (v) => {
   const e = new Heerich({
     tile: 30,
@@ -615,14 +628,51 @@ setupDemo("demo-style", (v) => {
     style: baseStyle,
     gap: getGap(),
   });
+
+  if (v.mode === "gradient") {
+    // The box spans 0..5 on each axis; y increases downward (y=0 is the top).
+    // For each face we project the two real 3D endpoints of its gradient axis
+    // and aim a userSpaceOnUse gradient between them — project() handles the
+    // perspective divide, so this stays correct across every camera.
+    const defs = [];
+    const style = {};
+    for (const [face, cfg] of Object.entries(STYLE_FACES)) {
+      const color = v[cfg.axis];
+      const a = e.project(cfg.a);
+      const b = e.project(cfg.b);
+      const x2 = cfg.flat ? a.x : b.x;
+      const id = `style-grad-${face}`;
+      defs.push(
+        `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" ` +
+          `x1="${a.x}" y1="${a.y}" x2="${x2}" y2="${b.y}">` +
+          `<stop offset="0" stop-color="${color}"/>` +
+          `<stop offset="1" style="stop-color:color-mix(in oklab, ${color}, var(--bg) 60%)"/>` +
+          `</linearGradient>`,
+      );
+      style[face] = { fill: `url(#${id})` };
+    }
+    e.applyGeometry({
+      type: "box",
+      position: [0, 0, 0],
+      size: [5, 5, 5],
+      style,
+    });
+
+    const opts = getSvgOpts();
+    // Concatenate onto any existing prepend (e.g. the cel-shading outline defs).
+    opts.prepend = `<defs>${defs.join("")}</defs>` + (opts.prepend || "");
+    return e.toSVG(opts);
+  }
+
+  // Plain mode showcases the axis shorthand: x/y/z each paint both faces.
   e.applyGeometry({
     type: "box",
     position: [0, 0, 0],
     size: [5, 5, 5],
     style: {
-      top: { fill: v.top },
-      front: { fill: v.front },
-      right: { fill: v.right },
+      x: { fill: v.x },
+      y: { fill: v.y },
+      z: { fill: v.z },
     },
   });
   return e.toSVG(getSvgOpts());
