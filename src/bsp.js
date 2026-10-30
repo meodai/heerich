@@ -48,14 +48,12 @@ export class OccluderIndex {
         seen.add(idx);
         const occ = this.nodes[idx];
         // Exact AABB overlap test (narrow phase after grid broad phase)
-        if (
-          !(
-            maxX < occ.bounds.minX ||
-            minX > occ.bounds.maxX ||
-            maxY < occ.bounds.minY ||
-            minY > occ.bounds.maxY
-          )
-        ) {
+        if (!(
+          maxX < occ.bounds.minX ||
+          minX > occ.bounds.maxX ||
+          maxY < occ.bounds.minY ||
+          minY > occ.bounds.maxY
+        )) {
           overlapping.push(occ.poly);
         }
       }

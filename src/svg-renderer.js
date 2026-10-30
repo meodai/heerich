@@ -20,8 +20,8 @@ export class SVGRenderer {
    * @param {string} [options.prepend] - Raw SVG to insert before faces
    * @param {string} [options.append] - Raw SVG to insert after faces
    * @param {boolean} [options.occlusion=false] - Enable built-in occlusion culling (no external dependency needed)
-   * @param {function(number[][], number[][][]): string|null} [options.resolveOcclusion] - Custom occlusion resolver (overrides built-in). Providing this implicitly enables occlusion.
-   * @param {function(import('./heerich.js').Face): Object|null} [options.faceAttributes] - Per-face attribute callback
+   * @param {(polygon: number[][], occluders: number[][][]) => string|null} [options.resolveOcclusion] - Custom occlusion resolver (overrides built-in). Providing this implicitly enables occlusion.
+   * @param {(face: import('./heerich.js').Face) => Object|null} [options.faceAttributes] - Per-face attribute callback
    * @param {number} [options.tileW] - Voxel tile pixel width (for content face transforms)
    * @param {Map<string, import('./heerich.js').DecalDef>} [options.decals] - Registered decal definitions
    * @returns {string} SVG markup

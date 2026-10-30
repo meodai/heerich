@@ -96,7 +96,7 @@ export function* lineCoords(from, to, radius, shape) {
 /**
  * Iterate coordinates within bounds where test returns true.
  * @param {[[number,number,number],[number,number,number]]} bounds - [min, max] corners
- * @param {function(number,number,number): boolean} test
+ * @param {(x: number, y: number, z: number) => boolean} test
  * @returns {Generator<number[], void, unknown>}
  */
 export function* fillCoords(bounds, test) {
