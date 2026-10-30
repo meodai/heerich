@@ -48,17 +48,17 @@ const AXIS_FACES = {
 
 /**
  * @typedef {Object} FaceStyleMap
- * @property {StyleObject | function(number,number,number): StyleObject} [default]
- * @property {StyleObject | function(number,number,number): StyleObject} [top]
- * @property {StyleObject | function(number,number,number): StyleObject} [bottom]
- * @property {StyleObject | function(number,number,number): StyleObject} [left]
- * @property {StyleObject | function(number,number,number): StyleObject} [right]
- * @property {StyleObject | function(number,number,number): StyleObject} [front]
- * @property {StyleObject | function(number,number,number): StyleObject} [back]
+ * @property {StyleObject | ((x: number, y: number, z: number) => StyleObject)} [default]
+ * @property {StyleObject | ((x: number, y: number, z: number) => StyleObject)} [top]
+ * @property {StyleObject | ((x: number, y: number, z: number) => StyleObject)} [bottom]
+ * @property {StyleObject | ((x: number, y: number, z: number) => StyleObject)} [left]
+ * @property {StyleObject | ((x: number, y: number, z: number) => StyleObject)} [right]
+ * @property {StyleObject | ((x: number, y: number, z: number) => StyleObject)} [front]
+ * @property {StyleObject | ((x: number, y: number, z: number) => StyleObject)} [back]
  */
 
 /**
- * @typedef {FaceStyleMap | function(number,number,number): FaceStyleMap} StyleParam
+ * @typedef {FaceStyleMap | ((x: number, y: number, z: number) => FaceStyleMap)} StyleParam
  * Per-face style map or a function that returns one.
  * Values can be StyleObjects or `(x,y,z) => StyleObject` callbacks.
  */
@@ -306,7 +306,7 @@ export class Heerich {
 
   /**
    * Batch multiple operations so face recomputation is deferred until the end.
-   * @param {function(): void} fn - Operations to batch
+   * @param {() => void} fn - Operations to batch
    */
   batch(fn) {
     this._batching = true;
@@ -322,7 +322,7 @@ export class Heerich {
   /**
    * Compute bounding-box center of an iterable of items.
    * @param {Iterable<*>} items - Items to compute bounds for
-   * @param {function(*): [number,number,number]} get - Extracts [x,y,z] from each item
+   * @param {(item: any) => [number,number,number]} get - Extracts [x,y,z] from each item
    * @returns {[number,number,number]} Center of the bounding box
    */
   static _bboxCenter(items, get) {
@@ -436,8 +436,8 @@ export class Heerich {
    * @param {string} [content] - SVG content to embed in voxel
    * @param {boolean} [opaque] - Whether voxels occlude neighbors (default true)
    * @param {Object} [meta] - Arbitrary key-value pairs for data-* attributes
-   * @param {[number,number,number]|function(number,number,number): [number,number,number]} [scale] - Per-axis scale 0-1
-   * @param {[number,number,number]|function(number,number,number): [number,number,number]} [scaleOrigin] - Scale origin within voxel
+   * @param {[number,number,number]|((x: number, y: number, z: number) => [number,number,number])} [scale] - Per-axis scale 0-1
+   * @param {[number,number,number]|((x: number, y: number, z: number) => [number,number,number])} [scaleOrigin] - Scale origin within voxel
    * @param {number} [gap] - Per-geometry gap override (undefined = use defaultGap)
    */
   _applyOp(
@@ -660,7 +660,7 @@ export class Heerich {
 
   /**
    * Find all voxels matching a predicate.
-   * @param {function(Voxel): boolean} predicate
+   * @param {(voxel: Voxel) => boolean} predicate
    * @returns {Voxel[]}
    * @example
    * // Find by meta ID
@@ -851,8 +851,8 @@ export class Heerich {
    * @param {boolean} [opts.opaque=true] - Whether voxels occlude neighbors
    * @param {Object} [opts.meta] - Key/value pairs emitted as data-* attributes
    * @param {RotateOptions} [opts.rotate] - Rotate coordinates before placement
-   * @param {[number,number,number]|function(number,number,number): [number,number,number]} [opts.scale] - Per-axis scale 0-1
-   * @param {[number,number,number]|function(number,number,number): [number,number,number]} [opts.scaleOrigin=[0.5,0,0.5]] - Scale origin
+   * @param {[number,number,number]|((x: number, y: number, z: number) => [number,number,number])} [opts.scale] - Per-axis scale 0-1
+   * @param {[number,number,number]|((x: number, y: number, z: number) => [number,number,number])} [opts.scaleOrigin=[0.5,0,0.5]] - Scale origin
    * @param {number} [opts.gap] - Gap between voxels (0–<0.5). Overrides constructor default.
    *
    * Box params: position, size
@@ -1235,8 +1235,8 @@ export class Heerich {
    * @param {Object} opts
    * @param {[[number,number,number],[number,number,number]]} [opts.bounds] - Single scan region
    * @param {Array<[[number,number,number],[number,number,number]]>} [opts.regions] - Multiple scan regions (auto-deduped)
-   * @param {function(number,number,number): boolean} opts.test - Inclusion test
-   * @param {StyleParam|function(number,number,number,string): StyleObject} [opts.style] - Style per voxel or per face
+   * @param {(x: number, y: number, z: number) => boolean} opts.test - Inclusion test
+   * @param {StyleParam|((x: number, y: number, z: number, face: string) => StyleObject)} [opts.style] - Style per voxel or per face
    * @param {number} [opts.gap] - Gap override (defaults to constructor gap)
    * @returns {Face[]}
    */
@@ -2006,9 +2006,9 @@ export class Heerich {
    * @param {[number,number]} [options.offset=[0,0]] - Translate all geometry
    * @param {string} [options.prepend] - Raw SVG to insert before faces
    * @param {string} [options.append] - Raw SVG to insert after faces
-   * @param {function(Face): Object|null} [options.faceAttributes] - Per-face attribute callback
+   * @param {(face: Face) => Object|null} [options.faceAttributes] - Per-face attribute callback
    * @param {boolean} [options.occlusion=false] - Enable built-in occlusion culling
-   * @param {function(number[][], number[][][]): string|null} [options.resolveOcclusion] - Custom occlusion resolver (overrides built-in). Providing this implicitly enables occlusion.
+   * @param {(polygon: number[][], occluders: number[][][]) => string|null} [options.resolveOcclusion] - Custom occlusion resolver (overrides built-in). Providing this implicitly enables occlusion.
    * @returns {string} SVG markup
    */
   toSVG(options = {}) {
