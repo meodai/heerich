@@ -1298,8 +1298,6 @@ export class Heerich {
 
     const { projection, depthOffsetX, depthOffsetY, tileW, tileH } =
       this.renderOptions;
-    const dx_norm = projection === "oblique" ? depthOffsetX / tileW : 0;
-    const dy_norm = projection === "oblique" ? depthOffsetY / tileH : 0;
     const isOblique = projection === "oblique";
 
     const faces3D = [];
@@ -1342,30 +1340,43 @@ export class Heerich {
                     : base;
                 };
 
+            const gs = gp ? 1 - 2 * gp : 1;
+            const gScale = gp ? [gs, gs, gs] : null;
+            const gOrigin = [0.5, 0.5, 0.5];
+            const gox = x + 0.5,
+              goy = y + 0.5,
+              goz = z + 0.5;
+
+            const addFace = (type, vertices, n, c) => {
+              let verts = vertices;
+              let center = c;
+              if (gp) {
+                verts = Heerich._scaleVertices(
+                  vertices,
+                  x,
+                  y,
+                  z,
+                  gScale,
+                  gOrigin,
+                );
+                center = [
+                  gox + (c[0] - gox) * gs,
+                  goy + (c[1] - goy) * gs,
+                  goz + (c[2] - goz) * gs,
+                ];
+              }
+              faces3D.push({
+                type,
+                voxel,
+                vertices: verts,
+                n,
+                c: center,
+                style: getStyles(type),
+              });
+            };
+
             // Neighbor test — just call the test function directly (it handles its own bounds)
             if (isOblique) {
-              const getDepth = (cx, cy, cz) => cz - cx * dx_norm - cy * dy_norm;
-              const gs = gp ? [1 - 2 * gp, 1 - 2 * gp, 1 - 2 * gp] : null;
-              const addFace = (type, vertices, cx, cy, cz) => {
-                const verts = gp
-                  ? Heerich._scaleVertices(
-                      vertices,
-                      x,
-                      y,
-                      z,
-                      gs,
-                      [0.5, 0.5, 0.5],
-                    )
-                  : vertices;
-                faces3D.push({
-                  type,
-                  voxel,
-                  vertices: verts,
-                  depth: getDepth(cx, cy, cz),
-                  style: getStyles(type),
-                });
-              };
-
               if (depthOffsetY < 0 && !test(x, y - 1, z))
                 addFace(
                   "top",
@@ -1375,9 +1386,8 @@ export class Heerich {
                     [x + 1, y, z + 1],
                     [x, y, z + 1],
                   ],
-                  x + 0.5,
-                  y,
-                  z + 0.5,
+                  [0, -1, 0],
+                  [x + 0.5, y, z + 0.5],
                 );
               if (depthOffsetY > 0 && !test(x, y + 1, z))
                 addFace(
@@ -1388,9 +1398,8 @@ export class Heerich {
                     [x + 1, y + 1, z],
                     [x, y + 1, z],
                   ],
-                  x + 0.5,
-                  y + 1,
-                  z + 0.5,
+                  [0, 1, 0],
+                  [x + 0.5, y + 1, z + 0.5],
                 );
               if (depthOffsetX < 0 && !test(x - 1, y, z))
                 addFace(
@@ -1401,9 +1410,8 @@ export class Heerich {
                     [x, y + 1, z],
                     [x, y + 1, z + 1],
                   ],
-                  x,
-                  y + 0.5,
-                  z + 0.5,
+                  [-1, 0, 0],
+                  [x, y + 0.5, z + 0.5],
                 );
               if (depthOffsetX > 0 && !test(x + 1, y, z))
                 addFace(
@@ -1414,9 +1422,8 @@ export class Heerich {
                     [x + 1, y + 1, z + 1],
                     [x + 1, y + 1, z],
                   ],
-                  x + 1,
-                  y + 0.5,
-                  z + 0.5,
+                  [1, 0, 0],
+                  [x + 1, y + 0.5, z + 0.5],
                 );
               if (!test(x, y, z - 1))
                 addFace(
@@ -1427,47 +1434,11 @@ export class Heerich {
                     [x + 1, y + 1, z],
                     [x + 1, y, z],
                   ],
-                  x + 0.5,
-                  y + 0.5,
-                  z,
+                  [0, 0, -1],
+                  [x + 0.5, y + 0.5, z],
                 );
               // In Oblique projection, the 'back' face is always completely hidden
             } else {
-              const gs = gp ? 1 - 2 * gp : 1;
-              const gScale = gp ? [gs, gs, gs] : null;
-              const gOrigin = [0.5, 0.5, 0.5];
-              const gox = x + 0.5,
-                goy = y + 0.5,
-                goz = z + 0.5;
-
-              const addFace = (type, vertices, n, c) => {
-                let verts = vertices;
-                let center = c;
-                if (gp) {
-                  verts = Heerich._scaleVertices(
-                    vertices,
-                    x,
-                    y,
-                    z,
-                    gScale,
-                    gOrigin,
-                  );
-                  center = [
-                    gox + (c[0] - gox) * gs,
-                    goy + (c[1] - goy) * gs,
-                    goz + (c[2] - goz) * gs,
-                  ];
-                }
-                faces3D.push({
-                  type,
-                  voxel,
-                  vertices: verts,
-                  n,
-                  c: center,
-                  style: getStyles(type),
-                });
-              };
-
               if (!test(x, y - 1, z))
                 addFace(
                   "top",

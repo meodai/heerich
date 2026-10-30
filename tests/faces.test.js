@@ -3,6 +3,7 @@
 //     same faces as a fresh instance built from the same operations.
 //  2. Perspective walls: the visible set must match one derived directly from
 //     the voxels, so a wrongly culled wall can't hide behind check 1.
+//  3. renderTest() must produce the same faces as storing the same voxels.
 // Run directly: node tests/faces.test.js
 
 import { Heerich } from "../src/heerich.js";
@@ -122,12 +123,13 @@ function apply(h, op) {
 
 const faceId = (f) => `${f.type}@${f.voxel.x},${f.voxel.y},${f.voxel.z}`;
 
-function fingerprint(h) {
-  return h
-    .getFaces()
+function fingerprintFaces(faces) {
+  return faces
     .map((f) => `${faceId(f)}:${f.points.data.join()}|${f.style?.fill}`)
     .join(";");
 }
+
+const fingerprint = (h) => fingerprintFaces(h.getFaces());
 
 const FACE_GEOMETRY = [
   // [type, normal, center, vertex z offsets]
@@ -224,7 +226,77 @@ for (const cam of CAMERAS) {
   }
 }
 
-console.log(`${checks} edit checks, ${wallChecks} perspective wall checks`);
+let renderTestChecks = 0;
+const inSphere = (x, y, z) => x * x + y * y + z * z <= 25;
+const inShell = (x, y, z) => inSphere(x, y, z) && (x + y + z) % 3 !== 0;
+const BOUNDS = [
+  [-6, -6, -6],
+  [7, 7, 7],
+];
+const FACE_STYLES = { default: { fill: "#abc" }, top: { fill: "#def" } };
+
+for (const cam of CAMERAS) {
+  for (const test of [inSphere, inShell]) {
+    const stored = new Heerich({ camera: cam });
+    stored.applyGeometry({
+      type: "fill",
+      bounds: BOUNDS,
+      test,
+      style: FACE_STYLES,
+    });
+    const scene = new Heerich({ camera: cam });
+
+    renderTestChecks++;
+    const faces = scene.renderTest({
+      bounds: BOUNDS,
+      test,
+      style: FACE_STYLES,
+    });
+    if (fingerprintFaces(faces) !== fingerprint(stored)) {
+      failures.push(`renderTest != stored: ${JSON.stringify(cam)}`);
+    }
+
+    // A gap keeps internal faces when stored, so only compare what renderTest emits
+    const gapped = new Heerich({ camera: cam });
+    gapped.applyGeometry({ type: "fill", bounds: BOUNDS, test, gap: 0.1 });
+    const byId = new Map(gapped.getFaces().map((f) => [faceId(f), f]));
+    renderTestChecks++;
+    for (const f of scene.renderTest({ bounds: BOUNDS, test, gap: 0.1 })) {
+      const match = byId.get(faceId(f));
+      if (
+        !match ||
+        match.depth !== f.depth ||
+        match.points.data.join() !== f.points.data.join()
+      ) {
+        failures.push(
+          `gapped renderTest != stored: ${JSON.stringify(cam)} ${faceId(f)}`,
+        );
+        break;
+      }
+    }
+
+    // Per-face style callback, multiple regions, and the SVG path end to end
+    renderTestChecks++;
+    const svg = scene.toSVG({
+      faces: scene.renderTest({
+        regions: [BOUNDS, BOUNDS],
+        test,
+        style: (x, y, z, face) => ({ fill: face === "top" ? "#fff" : "#ccc" }),
+      }),
+    });
+    if (
+      !svg.includes("<polygon") ||
+      svg.includes("undefined") ||
+      svg.includes("NaN")
+    ) {
+      failures.push(`renderTest SVG: ${JSON.stringify(cam)}`);
+    }
+  }
+}
+
+console.log(
+  `${checks} edit checks, ${wallChecks} perspective wall checks, ${renderTestChecks} renderTest checks`,
+);
 if (failures.length) {
   console.error(`${failures.length} failures, first 5:`);
   for (const f of failures.slice(0, 5)) console.error(`  ${f}`);
