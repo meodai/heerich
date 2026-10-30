@@ -153,6 +153,9 @@ const ADJ = [
   [0, 0, 1, "front"],
 ];
 
+/** Cache entry for voxels that emit no faces, so they aren't re-tested. */
+const NO_FACES = [];
+
 /**
  * A tiny engine for 3D voxel scenes rendered to SVG.
  */
@@ -220,6 +223,14 @@ export class Heerich {
     this._dirtyKeys = new Set();
     /** @type {Map<number, Object[]>} Cached 3D faces per voxel key */
     this._faceCache3D = new Map();
+    /** @type {Set<number>} Same as _dirtyKeys, for _culledFaceCache */
+    this._culledDirtyKeys = new Set();
+    /** @type {Map<number, Object[]>} Same as _faceCache3D, holding only the faces the oblique camera can see */
+    this._culledFaceCache = new Map();
+    /** @type {boolean} Whether faces have been built at least once */
+    this._facesBuilt = false;
+    /** @type {boolean} Set by the first edit after a build; static scenes never pay for caching */
+    this._cachingFaces = false;
   }
 
   /**
@@ -253,7 +264,7 @@ export class Heerich {
         opts.distance !== undefined ? opts.distance : 10;
     }
 
-    if (this._faceCache3D) this._faceCache3D.clear();
+    if (this._faceCache3D) this._clearFaceCaches();
     this._invalidate();
   }
 
@@ -289,10 +300,44 @@ export class Heerich {
    * @param {number} z
    */
   _markDirty(x, y, z) {
-    this._dirtyKeys.add(this._k(x, y, z));
-    for (const [dx, dy, dz] of ADJ) {
-      this._dirtyKeys.add(this._k(x + dx, y + dy, z + dz));
-    }
+    if (this._facesBuilt) this._cachingFaces = true;
+    // An empty cache has nothing to invalidate
+    if (this._faceCache3D.size > 0) this._addDirty(this._dirtyKeys, x, y, z);
+    if (this._culledFaceCache.size > 0)
+      this._addDirty(this._culledDirtyKeys, x, y, z);
+  }
+
+  /**
+   * Add a voxel and its 6 neighbors to a dirty set.
+   * @param {Set<number>} keys
+   * @param {number} x
+   * @param {number} y
+   * @param {number} z
+   */
+  _addDirty(keys, x, y, z) {
+    keys.add(this._k(x, y, z));
+    keys.add(this._k(x, y - 1, z));
+    keys.add(this._k(x, y + 1, z));
+    keys.add(this._k(x - 1, y, z));
+    keys.add(this._k(x + 1, y, z));
+    keys.add(this._k(x, y, z - 1));
+    keys.add(this._k(x, y, z + 1));
+  }
+
+  /**
+   * Mark a single voxel whose styles changed. Its faces carry resolved styles,
+   * but its geometry and its neighbors are unaffected.
+   * @param {number} key
+   */
+  _markRestyled(key) {
+    this._dirtyKeys.add(key);
+    this._culledDirtyKeys.add(key);
+  }
+
+  /** Drop all cached per-voxel faces. */
+  _clearFaceCaches() {
+    this._faceCache3D.clear();
+    this._culledFaceCache.clear();
   }
 
   /**
@@ -411,7 +456,7 @@ export class Heerich {
       opts.center || Heerich._bboxCenter(entries, (v) => [v.x, v.y, v.z]);
 
     this.voxels.clear();
-    this._faceCache3D.clear();
+    this._clearFaceCaches();
     for (const v of entries) {
       const [nx, ny, nz] = Heerich._rot90(
         v.x,
@@ -468,7 +513,8 @@ export class Heerich {
       if (style) {
         for (const key of keep) {
           const voxel = this.voxels.get(key);
-          if (voxel)
+          if (voxel) {
+            this._markRestyled(key);
             voxel.styles = this._resolveStyles(
               style,
               voxel.x,
@@ -476,6 +522,7 @@ export class Heerich {
               voxel.z,
               voxel.styles,
             );
+          }
         }
       }
     } else {
@@ -619,7 +666,7 @@ export class Heerich {
   /** Remove all voxels. */
   clear() {
     this.voxels.clear();
-    this._faceCache3D.clear();
+    this._clearFaceCaches();
     this._invalidate();
   }
 
@@ -907,7 +954,8 @@ export class Heerich {
     if (!opts.style) throw new Error("applyStyle requires a style parameter");
     if (!opts.type) {
       // Style all existing voxels
-      for (const [key, voxel] of this.voxels.entries()) {
+      this._clearFaceCaches();
+      for (const voxel of this.voxels.values()) {
         voxel.styles = this._resolveStyles(
           opts.style,
           voxel.x,
@@ -924,6 +972,7 @@ export class Heerich {
       const key = this._k(x, y, z);
       const voxel = this.voxels.get(key);
       if (voxel) {
+        this._markRestyled(key);
         voxel.styles = this._resolveStyles(opts.style, x, y, z, voxel.styles);
       }
     }
@@ -961,9 +1010,9 @@ export class Heerich {
    * can do backface culling and depth computation without extra lookups.
    *
    * @param {Set<string>|null} [cullTypes] - Optional set of face type strings to
-   *   skip at generation time (e.g. oblique direction cull). When provided the
-   *   per-voxel incremental cache is bypassed so that the cache always stores
-   *   the full unculled set.
+   *   skip at generation time (e.g. oblique direction cull). Culled faces go to
+   *   their own per-voxel cache so that `_faceCache3D` always stores the full
+   *   unculled set. `setCamera` clears both, so the cull set can't go stale.
    * @returns {Object[]} Raw 3D face objects
    */
   _buildFaces3D(cullTypes = null) {
@@ -972,17 +1021,14 @@ export class Heerich {
       return v && v.opaque !== false;
     };
 
-    const dirtyKeys = this._dirtyKeys;
-    // Bypass the per-voxel cache when direction culling is active: the cache
-    // stores the full unculled set, so mixing culled and unculled entries would
-    // corrupt it. The epoch-level cache in getFaces() still avoids redundant
-    // work for static scenes.
-    const useIncremental =
-      !cullTypes && dirtyKeys.size > 0 && this._faceCache3D.size > 0;
+    const cache = cullTypes ? this._culledFaceCache : this._faceCache3D;
+    const dirtyKeys = cullTypes ? this._culledDirtyKeys : this._dirtyKeys;
+    const caching = this._cachingFaces;
+    const useIncremental = cache.size > 0;
 
     if (useIncremental) {
       for (const dk of dirtyKeys) {
-        this._faceCache3D.delete(dk);
+        cache.delete(dk);
       }
     }
 
@@ -990,7 +1036,7 @@ export class Heerich {
 
     for (const [key, voxel] of this.voxels.entries()) {
       if (useIncremental && !dirtyKeys.has(key)) {
-        const cached = this._faceCache3D.get(key);
+        const cached = cache.get(key);
         if (cached) {
           for (let i = 0; i < cached.length; i++) faces3D.push(cached[i]);
           continue;
@@ -1009,6 +1055,7 @@ export class Heerich {
         hasVoxel(x, y, z - 1) &&
         hasVoxel(x, y, z + 1)
       ) {
+        if (caching) cache.set(key, NO_FACES);
         continue;
       }
 
@@ -1021,7 +1068,7 @@ export class Heerich {
           content: voxel.content,
           _pos: [x, y, z],
         });
-        if (!cullTypes) this._faceCache3D.set(key, faces3D.slice(faceStart));
+        if (caching) cache.set(key, faces3D.slice(faceStart));
         continue;
       }
 
@@ -1170,12 +1217,11 @@ export class Heerich {
           y + 0.5,
           z + 1,
         );
-      if (!cullTypes && faces3D.length > faceStart) {
-        this._faceCache3D.set(key, faces3D.slice(faceStart));
-      }
+      if (caching) cache.set(key, faces3D.slice(faceStart));
     }
 
-    this._dirtyKeys.clear();
+    dirtyKeys.clear();
+    this._facesBuilt = true;
     return faces3D;
   }
 
@@ -1209,9 +1255,9 @@ export class Heerich {
     }
 
     // For oblique projection, cull invisible faces at generation time so the
-    // hot rebuild path never allocates them. Other projections rely on the
-    // dot-product backface check in _projectAndSort and benefit from the
-    // per-voxel incremental cache, so cullTypes stays null for them.
+    // hot rebuild path never allocates them. Other projections must rely on the
+    // per-face dot-product backface check in _projectAndSort, because what they
+    // can see depends on where a face is, so cullTypes stays null for them.
     let cullTypes = null;
     if (this.renderOptions.projection === "oblique") {
       const { depthOffsetX, depthOffsetY } = this.renderOptions;
@@ -1669,7 +1715,16 @@ export class Heerich {
     const dx_norm = projection === "oblique" ? depthOffsetX / tileW : 0;
     const dy_norm = projection === "oblique" ? depthOffsetY / tileH : 0;
 
-    const { cameraDistance } = this.renderOptions;
+    const { cameraDistance, angle = 0, pitch = 0 } = this.renderOptions;
+    const cosT = Math.cos(angle),
+      sinT = Math.sin(angle);
+    const cosP = Math.cos(pitch),
+      sinP = Math.sin(pitch);
+    // View vector is Z-axis inversely transformed
+    // We know Z extends backward, so we adjust accordingly
+    const orthoViewX = sinT * cosP,
+      orthoViewY = sinP,
+      orthoViewZ = cosT * cosP;
 
     for (const face of faces3D) {
       if (face.type === "content") {
@@ -1684,11 +1739,6 @@ export class Heerich {
           projection === "orthographic" ||
           projection === "isometric"
         ) {
-          const { angle = 0, pitch = 0 } = this.renderOptions;
-          const cosT = Math.cos(angle),
-            sinT = Math.sin(angle);
-          const cosP = Math.cos(pitch),
-            sinP = Math.sin(pitch);
           const x1 = (cx + 0.5) * cosT - (cz + 0.5) * sinT;
           const y1 =
             (cy + 0.5) * cosP - ((cx + 0.5) * sinT + (cz + 0.5) * cosT) * sinP;
@@ -1727,11 +1777,6 @@ export class Heerich {
           projection === "isometric"
         ) {
           const flat = [];
-          const { angle = 0, pitch = 0 } = this.renderOptions;
-          const cosT = Math.cos(angle),
-            sinT = Math.sin(angle);
-          const cosP = Math.cos(pitch),
-            sinP = Math.sin(pitch);
           for (const [vx, vy, vz] of corners) {
             const x1 = vx * cosT - vz * sinT;
             const y1 = vy * cosP - (vx * sinT + vz * cosT) * sinP;
@@ -1770,37 +1815,38 @@ export class Heerich {
           continue;
 
         face.depth = face.c[2] - face.c[0] * dx_norm - face.c[1] * dy_norm;
-        const flat = [];
-        for (const v of face.vertices) {
-          flat.push(
-            truncate(v[0] * tileW + v[2] * depthOffsetX),
-            truncate(v[1] * tileH + v[2] * depthOffsetY),
-          );
-        }
-        face.points = new Points(flat);
+        const [v0, v1, v2, v3] = face.vertices;
+        face.points = Points.quad(
+          truncate(v0[0] * tileW + v0[2] * depthOffsetX),
+          truncate(v0[1] * tileH + v0[2] * depthOffsetY),
+          truncate(v1[0] * tileW + v1[2] * depthOffsetX),
+          truncate(v1[1] * tileH + v1[2] * depthOffsetY),
+          truncate(v2[0] * tileW + v2[2] * depthOffsetX),
+          truncate(v2[1] * tileH + v2[2] * depthOffsetY),
+          truncate(v3[0] * tileW + v3[2] * depthOffsetX),
+          truncate(v3[1] * tileH + v3[2] * depthOffsetY),
+        );
       } else if (projection === "orthographic" || projection === "isometric") {
-        const { angle = 0, pitch = 0 } = this.renderOptions;
-        const cosT = Math.cos(angle),
-          sinT = Math.sin(angle);
-        const cosP = Math.cos(pitch),
-          sinP = Math.sin(pitch);
-
-        // View vector is Z-axis inversely transformed
-        // We know Z extends backward, so we adjust accordingly
-        const viewVec = [sinT * cosP, sinP, cosT * cosP];
         const dot =
-          viewVec[0] * face.n[0] +
-          viewVec[1] * face.n[1] +
-          viewVec[2] * face.n[2];
+          orthoViewX * face.n[0] +
+          orthoViewY * face.n[1] +
+          orthoViewZ * face.n[2];
         if (dot >= 0) continue;
 
-        const flat = [];
-        for (const v of face.vertices) {
-          const x1 = v[0] * cosT - v[2] * sinT;
-          const y1 = v[1] * cosP - (v[0] * sinT + v[2] * cosT) * sinP;
-          flat.push(truncate((x1 + 5) * tileW), truncate((y1 + 5) * tileH));
-        }
-        face.points = new Points(flat);
+        const [v0, v1, v2, v3] = face.vertices;
+        const projX = (v) => (v[0] * cosT - v[2] * sinT + 5) * tileW;
+        const projY = (v) =>
+          (v[1] * cosP - (v[0] * sinT + v[2] * cosT) * sinP + 5) * tileH;
+        face.points = Points.quad(
+          truncate(projX(v0)),
+          truncate(projY(v0)),
+          truncate(projX(v1)),
+          truncate(projY(v1)),
+          truncate(projX(v2)),
+          truncate(projY(v2)),
+          truncate(projX(v3)),
+          truncate(projY(v3)),
+        );
         face.depth =
           face.c[1] * sinP + (face.c[0] * sinT + face.c[2] * cosT) * cosP;
       } else if (projection === "perspective") {
@@ -1808,31 +1854,37 @@ export class Heerich {
         const Cy = cameraY;
         const Cz = -cameraDistance;
 
-        const viewVec = [face.c[0] - Cx, face.c[1] - Cy, face.c[2] - Cz];
-        const dot =
-          viewVec[0] * face.n[0] +
-          viewVec[1] * face.n[1] +
-          viewVec[2] * face.n[2];
+        const viewX = face.c[0] - Cx,
+          viewY = face.c[1] - Cy,
+          viewZ = face.c[2] - Cz;
+        const dot = viewX * face.n[0] + viewY * face.n[1] + viewZ * face.n[2];
         if (dot >= 0) continue;
 
         const minDenom = 0.01;
-        if (face.vertices.some((v) => v[2] + cameraDistance < minDenom))
+        const [v0, v1, v2, v3] = face.vertices;
+        const d0 = v0[2] + cameraDistance,
+          d1 = v1[2] + cameraDistance,
+          d2 = v2[2] + cameraDistance,
+          d3 = v3[2] + cameraDistance;
+        if (d0 < minDenom || d1 < minDenom || d2 < minDenom || d3 < minDenom)
           continue;
 
-        const flat = [];
-        for (const v of face.vertices) {
-          const t = cameraDistance / (v[2] + cameraDistance);
-          flat.push(
-            truncate((Cx + (v[0] - Cx) * t) * tileW),
-            truncate((Cy + (v[1] - Cy) * t) * tileH),
-          );
-        }
-        face.points = new Points(flat);
+        const t0 = cameraDistance / d0,
+          t1 = cameraDistance / d1,
+          t2 = cameraDistance / d2,
+          t3 = cameraDistance / d3;
+        face.points = Points.quad(
+          truncate((Cx + (v0[0] - Cx) * t0) * tileW),
+          truncate((Cy + (v0[1] - Cy) * t0) * tileH),
+          truncate((Cx + (v1[0] - Cx) * t1) * tileW),
+          truncate((Cy + (v1[1] - Cy) * t1) * tileH),
+          truncate((Cx + (v2[0] - Cx) * t2) * tileW),
+          truncate((Cy + (v2[1] - Cy) * t2) * tileH),
+          truncate((Cx + (v3[0] - Cx) * t3) * tileW),
+          truncate((Cy + (v3[1] - Cy) * t3) * tileH),
+        );
 
-        face.depth =
-          viewVec[0] * viewVec[0] +
-          viewVec[1] * viewVec[1] +
-          viewVec[2] * viewVec[2];
+        face.depth = viewX * viewX + viewY * viewY + viewZ * viewZ;
       }
 
       projectedFaces.push(face);
@@ -1844,7 +1896,7 @@ export class Heerich {
         a.voxel.x - b.voxel.x ||
         a.voxel.y - b.voxel.y ||
         a.voxel.z - b.voxel.z ||
-        a.type.localeCompare(b.type),
+        (a.type < b.type ? -1 : a.type > b.type ? 1 : 0),
     );
     return projectedFaces;
   }

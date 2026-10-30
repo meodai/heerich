@@ -1,5 +1,5 @@
 // Benchmark the incremental update path: mutate one voxel on a large scene,
-// then call getFaces(). Exercises _dirtyKeys + _faceCache3D.
+// then call getFaces(). Exercises _culledDirtyKeys + _culledFaceCache.
 // Run directly: node tests/incremental.bench.js
 
 import { Heerich } from "../src/heerich.js";

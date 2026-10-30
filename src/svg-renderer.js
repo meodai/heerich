@@ -65,13 +65,16 @@ export class SVGRenderer {
         if (overlapping.length > 0) {
           if (options.resolveOcclusion) {
             // User-provided clipping (e.g. polygon-clipping library)
-            pathD = options.resolveOcclusion(poly, overlapping);
+            pathD = options.resolveOcclusion(
+              poly,
+              overlapping.map((idx) => bsp.nodes[idx].poly),
+            );
             if (!pathD) {
               isVisible = false;
             }
           } else {
             // Built-in convex polygon subtraction
-            const fragments = bsp.clip(poly);
+            const fragments = bsp.clip(poly, overlapping);
             if (fragments.length === 0) {
               isVisible = false; // Fully occluded
             } else {

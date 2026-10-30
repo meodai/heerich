@@ -1,15 +1,15 @@
 // Diagnostic: is the incremental cache actually being hit?
-// Instruments _faceCache3D via a Proxy to count hits/misses on getFaces().
+// Instruments _culledFaceCache (the default oblique camera's cache) via a Proxy to count hits/misses on getFaces().
 
 import { Heerich } from "../src/heerich.js";
 
 function instrument(h) {
-  const real = h._faceCache3D;
+  const real = h._culledFaceCache;
   let gets = 0,
     hits = 0,
     sets = 0,
     deletes = 0;
-  h._faceCache3D = new Proxy(real, {
+  h._culledFaceCache = new Proxy(real, {
     get(target, prop) {
       if (prop === "get") {
         return (k) => {
@@ -72,7 +72,7 @@ function scene(size) {
     position: [0, 0, 0],
     size: [1, 1, 1],
   });
-  console.log(`  dirty keys after 1-voxel subtract: ${h._dirtyKeys.size}`);
+  console.log(`  dirty keys after 1-voxel subtract: ${h._culledDirtyKeys.size}`);
   h.getFaces();
   const s = stats();
   console.log(

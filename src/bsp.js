@@ -27,12 +27,12 @@ export class OccluderIndex {
   }
 
   /**
-   * Find all previously inserted occluders whose bounding boxes overlap with the given face bounds.
+   * Find the indices of all previously inserted occluders whose bounding boxes overlap with the given face bounds.
    * @param {number} minX - Minimum x of query AABB
    * @param {number} minY - Minimum y of query AABB
    * @param {number} maxX - Maximum x of query AABB
    * @param {number} maxY - Maximum y of query AABB
-   * @returns {number[][][]} Array of overlapping occluder polygons (each polygon is an array of [x,y] pairs)
+   * @returns {number[]} Indices into `nodes` of the overlapping occluders
    */
   getOverlapping(minX, minY, maxX, maxY) {
     const overlapping = [];
@@ -54,7 +54,7 @@ export class OccluderIndex {
           maxY < occ.bounds.minY ||
           minY > occ.bounds.maxY
         )) {
-          overlapping.push(occ.poly);
+          overlapping.push(idx);
         }
       }
     }
@@ -62,13 +62,19 @@ export class OccluderIndex {
   }
 
   /**
-   * Clip a polygon against all previously inserted occluders.
+   * Clip a polygon against a set of previously inserted occluders.
    * Returns an array of visible polygon fragments.
+   * @param {number[][]} poly - Polygon as array of [x,y] pairs
+   * @param {number[]} indices - Occluders overlapping `poly`, from `getOverlapping`
+   * @returns {number[][][]} Visible polygon fragments
    */
-  clip(poly) {
+  clip(poly, indices) {
     let result = [poly];
+    // Clip in insertion order so fragments don't depend on grid bucket order
+    const ordered = [...indices].sort((a, b) => a - b);
 
-    for (const occluderObj of this.nodes) {
+    for (let oi = 0; oi < ordered.length; oi++) {
+      const occluderObj = this.nodes[ordered[oi]];
       if (result.length === 0) return [];
       const nextResult = [];
       const occluder = occluderObj.poly;
