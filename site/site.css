@@ -13,7 +13,7 @@
     --bg: #0e0e0e;
     --text: #fbf4ea;
     --line: color-mix(in oklab, var(--text) 12%, var(--bg));
-    --code-bg: color-mix(in oklab, var(--bg) 97%, var(--text));
+    --code-bg: color-mix(in oklab, var(--bg) 92%, var(--text));
     --accent: #fbf4ea;
     --selection-bg: color-mix(in oklab, var(--text) 82%, var(--bg));
     --selection-text: var(--bg);
