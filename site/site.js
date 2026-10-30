@@ -1,10 +1,11 @@
 import { Heerich } from "../src/heerich.js";
 import { version } from "../package.json";
 import { initHero } from "./hero.js";
-import { highlight } from "https://esm.sh/sugar-high";
+import { parse, render } from "sugar-high/core";
+import * as javascript from "sugar-high/lang/javascript";
 
 document.querySelectorAll("pre code").forEach((el) => {
-  el.innerHTML = highlight(el.textContent);
+  el.innerHTML = render(parse(el.textContent, javascript));
 });
 
 document.querySelector("h1 .version").textContent = version;
