@@ -455,6 +455,12 @@ code {
   font-size: 1em;
 }
 
+pre code {
+  display: block;
+  width: max-content;
+  min-width: 100%;
+}
+
 /* Sugar-high syntax highlighting tokens */
 :root {
   --sh-class: #8d85ff;
@@ -480,6 +486,35 @@ code {
     --sh-jsxliterals: #d9a0d4;
     --sh-sign: #a3b0bd;
   }
+}
+
+.sh__line--highlighted {
+  display: inline-block;
+  width: calc(100% + 2rem);
+  margin: -1px 0 -1px -2rem;
+  padding-left: 2rem;
+  border: 1px dashed var(--line);
+  border-left: 0;
+  /* Tile divides the line height, so stripes stay continuous across lines */
+  background: linear-gradient(
+      -45deg,
+      var(--code-bg) 25%,
+      var(--bg) 25% 50%,
+      var(--code-bg) 50% 75%,
+      var(--bg) 75%
+    )
+    0 0 / calc(1lh / 6) calc(1lh / 6);
+}
+
+/* Merge consecutive lines into one outlined group */
+.sh__line--highlighted + .sh__line--highlighted {
+  margin-top: 0;
+  border-top: 0;
+}
+
+.sh__line--highlighted:has(+ .sh__line--highlighted) {
+  margin-bottom: 0;
+  border-bottom: 0;
 }
 
 p code {

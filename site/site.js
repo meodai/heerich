@@ -4,8 +4,25 @@ import { initHero } from "./hero.js";
 import { parse, render } from "sugar-high/core";
 import * as javascript from "sugar-high/lang/javascript";
 
+// data-highlight="2,5-7" lists one-based lines to emphasize
+const parseLines = (spec = "") =>
+  new Set(
+    spec
+      .split(",")
+      .filter(Boolean)
+      .flatMap((range) => {
+        const [from, to = from] = range.split("-").map(Number);
+        return Array.from({ length: to - from + 1 }, (_, i) => from + i);
+      }),
+  );
+
 document.querySelectorAll("pre code").forEach((el) => {
-  el.innerHTML = render(parse(el.textContent, javascript));
+  const lines = parseLines(el.dataset.highlight);
+  el.innerHTML = render(parse(el.textContent, javascript), {
+    markLine(line) {
+      if (lines.has(line.index + 1)) line.className += " sh__line--highlighted";
+    },
+  });
 });
 
 document.querySelector("h1 .version").textContent = version;
