@@ -713,7 +713,9 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
           </p>
           <pre><code >heerich.applyGeometry({
   type: 'box', position: [0, 0, 0], size: 4,
-  style: { default: { fill: '#0e0e0e', stroke: '#0e0e0e' } }
+  style: {
+    default: { fill: '#0e0e0e', stroke: '#0e0e0e' }
+  }
 })</code></pre>
           <p>
             Untouched structural voxels retain their outlines, naturally
@@ -803,7 +805,12 @@ heerich.rotate({ axis: 'y', turns: 2 })</code></pre>
             correctly with both oblique and perspective cameras.
           </p>
           <pre><code>scene.defineDecal('cross', {
-  content: '&lt;path d="M0 0 L1 1 M1 0 L0 1" stroke="#333" fill="none" vector-effect="non-scaling-stroke"/&gt;'
+  content: `&lt;path
+    d="M0 0 L1 1 M1 0 L0 1"
+    stroke="#333"
+    fill="none"
+    vector-effect="non-scaling-stroke"
+  /&gt;`
 });
 
 scene.addGeometry({
@@ -882,9 +889,18 @@ scene.addGeometry({
           <pre><code>heerich.addGeometry({
   type: 'box', position: [0, 0, 0], size: 4,
   style: {
-    top:   { fill: '#eee', hatch: { angle: 45, period: 5 } },
-    front: { fill: '#ccc', hatch: { angle: 90, period: 8, stroke: '#666' } },
-    right: { fill: '#ddd', hatch: { angle: 0,  period: 6, strokeWidth: 2 } }
+    top: {
+      fill: '#eee',
+      hatch: { angle: 45, period: 5 }
+    },
+    front: {
+      fill: '#ccc',
+      hatch: { angle: 90, period: 8, stroke: '#666' }
+    },
+    right: {
+      fill: '#ddd',
+      hatch: { angle: 0, period: 6, strokeWidth: 2 }
+    }
   }
 });</code></pre>
           <p>
@@ -1249,7 +1265,9 @@ heerich.applyGeometry({
           </p>
           <pre><code >// Color voxels by how exposed they are
 for (const voxel of heerich) {
-  const n = heerich.getNeighbors([voxel.x, voxel.y, voxel.z])
+  const n = heerich.getNeighbors(
+    [voxel.x, voxel.y, voxel.z]
+  )
   const exposed = Object.values(n)
     .filter(v => !v).length
   // exposed = number of open faces (0–6)
@@ -1298,10 +1316,14 @@ const copy = Heerich.fromJSON(json)</code></pre>
             <code>true</code>. The most common pattern is tagging groups at add
             time with a <code>meta</code> id, then querying by that id later.
           </p>
-          <pre><code>h.addGeometry({ type: 'box', position: [0, 4, 0], size: [7, 2, 7],
-  meta: { id: 'base' } })
-h.addGeometry({ type: 'box', position: [2, 1, 2], size: [3, 3, 3],
-  meta: { id: 'tower' } })
+          <pre><code>h.addGeometry({
+  type: 'box', position: [0, 4, 0], size: [7, 2, 7],
+  meta: { id: 'base' }
+})
+h.addGeometry({
+  type: 'box', position: [2, 1, 2], size: [3, 3, 3],
+  meta: { id: 'tower' }
+})
 
 // Retrieve a named group
 const tower = h.findVoxels(v => v.meta?.id === 'tower')
@@ -1309,7 +1331,8 @@ const tower = h.findVoxels(v => v.meta?.id === 'tower')
 // Restyle the result
 for (const voxel of tower) {
   h.applyStyle({
-    type: 'box', position: [voxel.x, voxel.y, voxel.z], size: 1,
+    type: 'box', size: 1,
+    position: [voxel.x, voxel.y, voxel.z],
     style: { default: { fill: '#e05252' } }
   })
 }</code></pre>
@@ -1351,12 +1374,14 @@ h.findVoxels(v =&gt; v.x &gt;= 2 &amp;&amp; v.x &lt;= 5)</code></pre>
           <pre><code>svgEl.addEventListener('mousemove', e => {
   const pt = svgEl.createSVGPoint()
   pt.x = e.clientX; pt.y = e.clientY
-  const { x, y } = pt.matrixTransform(svgEl.getScreenCTM().inverse())
+  const { x, y } = pt.matrixTransform(
+    svgEl.getScreenCTM().inverse()
+  )
 
   const hit = h.findByPosition([x, y])
   if (hit) {
     console.log(hit.voxel.x, hit.voxel.y, hit.voxel.z)
-    console.log(hit.face.type) // 'top', 'front', 'left', …
+    console.log(hit.face.type) // 'top', 'front', …
   }
 })</code></pre>
           <p>
@@ -1368,9 +1393,9 @@ h.findVoxels(v =&gt; v.x &gt;= 2 &amp;&amp; v.x &lt;= 5)</code></pre>
           <pre><code>const { center2D, bounds2D, normalizedCenter2D } =
   h.getVoxelInfo(hit.voxel)
 
-// center2D   — { x, y } in pixel space
-// bounds2D   — { x, y, w, h } pixel bounding box of visible faces
-// normalizedCenter2D — { x, y } in 0–1 relative to scene bounds</code></pre>
+// center2D — { x, y } in pixels
+// bounds2D — { x, y, w, h } of visible faces, in pixels
+// normalizedCenter2D — { x, y }, 0–1 in scene bounds</code></pre>
         </div>
       </div>
 
