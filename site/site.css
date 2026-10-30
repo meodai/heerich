@@ -3,6 +3,7 @@
   --text: #0e0e0e;
   --line: color-mix(in oklab, var(--text) 10%, var(--bg));
   --code-bg: color-mix(in oklab, var(--bg) 97%, var(--text));
+  --code-hatch: color-mix(in oklab, var(--bg) 94%, var(--text));
   --accent: #0e0e0e;
   --selection-bg: var(--text);
   --selection-text: var(--bg);
@@ -14,6 +15,7 @@
     --text: #fbf4ea;
     --line: color-mix(in oklab, var(--text) 12%, var(--bg));
     --code-bg: color-mix(in oklab, var(--bg) 92%, var(--text));
+    --code-hatch: var(--code-bg);
     --accent: #fbf4ea;
     --selection-bg: color-mix(in oklab, var(--text) 82%, var(--bg));
     --selection-text: var(--bg);
@@ -491,30 +493,17 @@ pre code {
 .sh__line--highlighted {
   display: inline-block;
   width: calc(100% + 2rem);
-  margin: -1px 0 -1px -2rem;
+  margin-left: -2rem;
   padding-left: 2rem;
-  border: 1px dashed var(--line);
-  border-left: 0;
   /* Tile divides the line height, so stripes stay continuous across lines */
   background: linear-gradient(
       -45deg,
-      var(--code-bg) 25%,
+      var(--code-hatch) 25%,
       var(--bg) 25% 50%,
-      var(--code-bg) 50% 75%,
+      var(--code-hatch) 50% 75%,
       var(--bg) 75%
     )
     0 0 / calc(1lh / 6) calc(1lh / 6);
-}
-
-/* Merge consecutive lines into one outlined group */
-.sh__line--highlighted + .sh__line--highlighted {
-  margin-top: 0;
-  border-top: 0;
-}
-
-.sh__line--highlighted:has(+ .sh__line--highlighted) {
-  margin-bottom: 0;
-  border-bottom: 0;
 }
 
 p code {
