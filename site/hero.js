@@ -1,4 +1,5 @@
 import { Heerich } from "../src/heerich.js";
+import { draw } from "./draw.js";
 
 export function initHero(
   container,
@@ -76,7 +77,7 @@ export function initHero(
     return e;
   }
 
-  function buildScene(depths, towerHeights = null) {
+  function drawScene(depths, towerHeights = null) {
     const layout = getGridLayout();
     const maxDepth = Math.max(...depths.map((d) => Math.round(d)), 1);
 
@@ -187,7 +188,9 @@ export function initHero(
       });
     }
 
-    return e.toSVG(
+    draw(
+      container,
+      e,
       getSvgOpts
         ? getSvgOpts()
         : {
@@ -319,7 +322,7 @@ export function initHero(
         return target * ease(elapsed / towerDuration);
       });
 
-      container.innerHTML = buildScene(depths, towerHeights);
+      drawScene(depths, towerHeights);
       if (!allDone) requestAnimationFrame(step);
     }
 
@@ -336,7 +339,7 @@ export function initHero(
     cachedBase = null; // camera changed, need to rebuild base
     const depths = scene.holes.map((h) => h.targetDepth);
     const towerHeights = scene.towers.map((t) => t.targetHeight);
-    container.innerHTML = buildScene(depths, towerHeights);
+    drawScene(depths, towerHeights);
   }
 
   function repaint() {
@@ -344,7 +347,7 @@ export function initHero(
     cachedBase = null; // style vars changed, need fresh render
     const depths = scene.holes.map((h) => h.targetDepth);
     const towerHeights = scene.towers.map((t) => t.targetHeight);
-    container.innerHTML = buildScene(depths, towerHeights);
+    drawScene(depths, towerHeights);
   }
 
   container.addEventListener("click", () => init());

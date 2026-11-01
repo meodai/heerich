@@ -4,6 +4,7 @@
 //  2. Perspective walls: the visible set must match one derived directly from
 //     the voxels, so a wrongly culled wall can't hide behind check 1.
 //  3. renderTest() must produce the same faces as storing the same voxels.
+//  4. renderTest({ nearZ }) must move only the camera-facing side of a voxel.
 // Run directly: node tests/faces.test.js
 
 import { Heerich } from "../src/heerich.js";
@@ -294,8 +295,86 @@ for (const cam of CAMERAS) {
   }
 }
 
+// nearZ: a voxel's camera-facing side sits at a fractional z
+let nearZChecks = 0;
+const NEAR_TEST = (x, y, z) => x >= 0 && x < 4 && y >= 0 && y < 4 && z >= 2;
+const NEAR_BOUNDS = [
+  [-1, -1, 0],
+  [5, 5, 5],
+];
+for (const cam of CAMERAS) {
+  const scene = new Heerich({ camera: cam });
+  const plain = scene.renderTest({ bounds: NEAR_BOUNDS, test: inShell });
+
+  nearZChecks++;
+  const identity = scene.renderTest({
+    bounds: NEAR_BOUNDS,
+    test: inShell,
+    nearZ: (x, y, z) => z,
+  });
+  if (fingerprintFaces(identity) !== fingerprintFaces(plain)) {
+    failures.push(`nearZ identity != plain: ${JSON.stringify(cam)}`);
+  }
+
+  const near = 1.25;
+  const pull = (x, y, z) => (z === 2 ? near : z);
+  const faces = scene.renderTest({
+    bounds: NEAR_BOUNDS,
+    test: NEAR_TEST,
+    nearZ: pull,
+  });
+  const reference = scene.renderTest({ bounds: NEAR_BOUNDS, test: NEAR_TEST });
+  const untouched = new Map(reference.map((f) => [faceId(f), f]));
+
+  for (const f of faces) {
+    nearZChecks++;
+    const { x, y, z } = f.voxel;
+    const zn = pull(x, y, z);
+    const expected = untouched
+      .get(faceId(f))
+      ?.vertices.map(([vx, vy, vz]) => scene.project([vx, vy, vz === z ? zn : vz]))
+      .flatMap((p) => [p.x, p.y]);
+    if (f.type !== "back" && expected?.join() !== f.points.data.join()) {
+      failures.push(`nearZ points: ${JSON.stringify(cam)} ${faceId(f)}`);
+      break;
+    }
+    if (f.type === "front" && f.c[2] !== zn) {
+      failures.push(`nearZ center: ${JSON.stringify(cam)} ${faceId(f)}`);
+      break;
+    }
+  }
+  for (let i = 1; i < faces.length; i++) {
+    if (faces[i - 1].depth < faces[i].depth) {
+      failures.push(`nearZ sort: ${JSON.stringify(cam)}`);
+      break;
+    }
+  }
+}
+
+// Sides that can't face a perspective camera never reach the neighbour test
+{
+  const scene = new Heerich({
+    camera: { type: "perspective", position: [0, 0], distance: 10 },
+  });
+  let calls = 0;
+  const faces = scene.renderTest({
+    bounds: [
+      [5, 5, 5],
+      [6, 6, 6],
+    ],
+    test: (x, y, z) => {
+      calls++;
+      return x === 5 && y === 5 && z === 5;
+    },
+  });
+  nearZChecks++;
+  if (calls !== 4) failures.push(`culled tests: ${calls} calls, expected 4`);
+  const seen = faces.map((f) => f.type).sort().join();
+  if (seen !== "front,left,top") failures.push(`culled faces: ${seen}`);
+}
+
 console.log(
-  `${checks} edit checks, ${wallChecks} perspective wall checks, ${renderTestChecks} renderTest checks`,
+  `${checks} edit checks, ${wallChecks} perspective wall checks, ${renderTestChecks} renderTest checks, ${nearZChecks} nearZ checks`,
 );
 if (failures.length) {
   console.error(`${failures.length} failures, first 5:`);

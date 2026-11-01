@@ -1434,6 +1434,13 @@ h.findVoxels(v =&gt; v.x &gt;= 2 &amp;&amp; v.x &lt;= 5)</code></pre>
                 />
                 <span class="control-value">150</span>ms</label
               >
+              <label class="control-label"
+                >Floor
+                <select class="control-select" data-bind="mode">
+                  <option value="stepped">Stepped</option>
+                  <option value="smooth">Smooth</option>
+                </select></label
+              >
             </div>
           </div>
         </div>
@@ -1462,14 +1469,33 @@ function frame(now) {
       size: [3, 3, Math.round(t * h.targetDepth)]
     })
   })
-  container.innerHTML = heerich.toSVG()
+  heerich.updateSVG(svg)
   if (!done) requestAnimationFrame(frame)
 }</code></pre>
+          <p>
+            Each frame ends with <code>updateSVG</code> rather than
+            <code>toSVG</code>. It keeps the elements from the last frame and
+            only writes the attributes that changed, so nothing gets rebuilt
+            from scratch.
+          </p>
           <p>
             Applying a stagger offset means each hole strictly starts animating
             instantly after the previous one, rendering a beautifully cascading
             reveal.
           </p>
+          <p>
+            Rounding the depth is what makes each hole step one layer at a time.
+            For a floor that glides instead, set the demo to
+            <em>Smooth</em>. <code>renderTest</code> takes a
+            <code>nearZ</code> function, which places a voxel's camera-facing
+            side at a fractional depth and stretches its walls to meet it.
+          </p>
+          <pre><code data-highlight="4">const faces = heerich.renderTest({
+  bounds: [[0, 0, 0], [10, 8, 7]],
+  test: (x, y, z) => !inHole(x, y) || z >= Math.ceil(depth),
+  nearZ: (x, y, z) => inHole(x, y) && z === Math.ceil(depth) ? depth : z,
+})
+heerich.updateSVG(svg, { faces })</code></pre>
         </div>
       </div>
 

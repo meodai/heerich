@@ -14,12 +14,11 @@ Named after Erwin Heerich, the German sculptor known for geometric cardboard scu
 - `npm run build` — Build the library to `dist/` (UMD + ESM via Vite library mode)
 - `npm run build:site` — Build the demo/docs page to `dist-site/`
 - `npm run preview` — Preview the built site
-
-No test framework is configured.
+- `npm test` — Run the consistency tests in `tests/` (plain Node scripts, no test framework), then the benchmarks
 
 ## Architecture
 
-The entire library is a single file: `src/heerich.js`, exporting the `Heerich` class.
+The main entry is `src/heerich.js`, exporting the `Heerich` class. Rendering, decals, hatching, occlusion and shape generators live in the other modules in `src/`.
 
 ### Core data model
 - Voxels stored in a `Map` keyed by packed integer coords (`_k(x,y,z)` — 10-bit per axis, range -512 to 511)
@@ -43,6 +42,7 @@ The entire library is a single file: `src/heerich.js`, exporting the `Heerich` c
 1. `getFaces()` — iterates voxels, culls hidden faces (neighbor check + backface culling for perspective/orthographic), produces 3D face objects
 2. `_projectAndSort()` — projects 3D faces to 2D points, depth-sorts back-to-front
 3. `toSVG()` — converts projected faces to SVG polygon elements with data attributes
+4. `updateSVG()` — alternative to `toSVG()` that writes into a live DOM element, reusing elements and skipping unchanged attributes (`SVGRenderer.update`)
 
 ### Occlusion culling (optional)
 - `OccluderIndex` (`src/bsp.js`) — grid-based spatial index for 2D polygon occlusion
@@ -58,6 +58,7 @@ The entire library is a single file: `src/heerich.js`, exporting the `Heerich` c
 
 ### Stateless rendering
 - `renderTest()` — renders from a test function without storing voxels (zero Map allocations). Useful for procedural/infinite scenes.
+- Culls sides by camera position before calling the neighbour test. `nearZ` places a voxel's camera-facing side at a fractional z.
 
 ### Two build targets
 - **Library build** (`vite.config.js`): builds `src/heerich.js` as UMD+ESM to `dist/`

@@ -539,6 +539,27 @@ Options:
 | `occlusion` | boolean | Enable built-in occlusion culling (no external dependency) |
 | `resolveOcclusion` | function | Custom occlusion resolver (overrides built-in). Providing this implicitly enables occlusion. Input `(subjectCoords, overlappingCoords[])`, return `pathString` or `null` |
 
+### `updateSVG(target, options?)`
+
+Render into an existing `<svg>` or `<g>` instead of building a string. Elements are reused between calls and only changed attributes are written, so use this when rendering repeatedly, such as in an animation:
+
+```js
+const svg = document.querySelector('svg')
+
+function frame(t) {
+  const faces = h.renderTest({ bounds, test: makeTest(t) })
+  h.updateSVG(svg, {
+    faces,
+    faceAttributes: (f) => ({ fill: colorFor(f, t) }),
+  })
+  requestAnimationFrame(frame)
+}
+```
+
+It needs a DOM, so use `toSVG()` on a server. It takes the same options as `toSVG()`, except `prepend` and `append`: add those elements to `target` yourself. To wrap the faces, such as in a filter, pass that `<g>` as the target and set the `viewBox` on its `<svg>`. The faces go in a `<g>` appended to `target` on the first call, and everything else in `target` is left alone. An `<svg>` target also gets its `viewBox` set; a `<g>` target doesn't. Faces with content, decals, hatching or occlusion clipping work too, but each is rewritten as markup when it changes, so plain polygons are the fastest.
+
+Reuse is tracked per `target`, so building a new `Heerich` every frame is fine. Clearing the target, or setting its `innerHTML`, starts over with new elements.
+
 #### Occlusion Culling for Pen Plotters
 By default, the engine relies on the browser's Paint Algorithm (back-to-front rendering). For zero overlapping vectors (perfect for plotters), enable built-in occlusion culling:
 
@@ -614,6 +635,19 @@ const faces = h.renderTest({
 
 // Render pre-computed faces
 const svg = h.toSVG({ faces })
+```
+
+`renderTest` only runs `test` on neighbours whose shared side could face the camera, so don't rely on it being called for every neighbour.
+
+Pass `nearZ` to place a voxel's camera-facing side at a fractional depth. Its front face moves there and its side faces stretch to meet it, so a surface can slide smoothly between layers. It's only available on `renderTest`, not on stored voxels:
+
+```js
+// Animate a floor from layer 3 to layer 4 (depth goes 3 → 4)
+const faces = h.renderTest({
+  bounds: [[0, 0, 0], [10, 10, 6]],
+  test: (x, y, z) => z >= Math.ceil(depth),
+  nearZ: (x, y, z) => (z === Math.ceil(depth) ? depth : z),
+})
 ```
 
 Pass `{ raw: true }` to get all neighbour-exposed 3D faces without camera-dependent culling or projection. Raw faces keep their original 3D coordinates — useful for GPU renderers that handle their own backface culling and projection.

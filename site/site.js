@@ -1,6 +1,7 @@
 import { Heerich } from "../src/heerich.js";
 import { version } from "../package.json";
 import { initHero } from "./hero.js";
+import { draw } from "./draw.js";
 import { parse, render } from "sugar-high/core";
 import * as javascript from "sugar-high/lang/javascript";
 
@@ -369,7 +370,8 @@ function getSvgOpts() {
   };
 
   if (r > 0) {
-    opts.prepend = `<defs><filter id="cel"><feMorphology in="SourceAlpha" operator="dilate" radius="${r}" result="thick"/><feFlood flood-color="${camOutlineColor.value}"/><feComposite in2="thick" operator="in" result="border"/><feMerge><feMergeNode in="border"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><g filter="url(#cel)">`;
+    opts.outlineFilter = `<filter id="cel"><feMorphology in="SourceAlpha" operator="dilate" radius="${r}" result="thick"/><feFlood flood-color="${camOutlineColor.value}"/><feComposite in2="thick" operator="in" result="border"/><feMerge><feMergeNode in="border"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`;
+    opts.prepend = `<defs>${opts.outlineFilter}</defs><g filter="url(#cel)">`;
     opts.append = `</g>`;
   }
 
@@ -1305,14 +1307,7 @@ function easeInOutCubic(t) {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
 
-function animateHoles({
-  canvas,
-  holes,
-  buildScene,
-  duration,
-  stagger,
-  onDone,
-}) {
+function animateHoles({ canvas, holes, drawHoles, duration, stagger, onDone }) {
   let id = (canvas._animId = (canvas._animId || 0) + 1);
   const startTime = performance.now();
 
@@ -1331,7 +1326,7 @@ function animateHoles({
       return h.targetDepth * easeInOutCubic(elapsed / duration);
     });
 
-    canvas.innerHTML = buildScene(depths);
+    drawHoles(depths);
     if (!allDone) requestAnimationFrame(step);
     else if (onDone) onDone();
   }
@@ -1347,6 +1342,7 @@ function animateHoles({
   const btnReset = root.querySelector('[data-bind="reset"]');
   const durInput = root.querySelector('[data-bind="dur"]');
   const staggerInput = root.querySelector('[data-bind="stagger"]');
+  const modeInput = root.querySelector('[data-bind="mode"]');
 
   const holes = [
     { x: 1, y: 1, w: 3, h: 4, targetDepth: 6 },
@@ -1354,14 +1350,20 @@ function animateHoles({
     { x: 2, y: 5, w: 4, h: 3, targetDepth: 4 },
   ];
 
-  function buildScene(depths) {
+  const holeAt = (x, y) =>
+    holes.findIndex(
+      (h) => x >= h.x && x < h.x + h.w && y >= h.y && y < h.y + h.h,
+    );
+
+  // Stepped: round each hole to whole layers and carve stored voxels
+  function drawStepped(depths) {
     const e = new Heerich({
       tile: 26,
       camera: getCamera(),
       style: baseStyle,
       gap: getGap(),
     });
-    e.applyGeometry({ type: "box", position: [0, 0, 0], size: [10, 8, 6] });
+    e.applyGeometry({ type: "box", position: [0, 0, 0], size: [10, 8, 7] });
     holes.forEach((h, i) => {
       const d = Math.round(depths[i]);
       if (d > 0)
@@ -1371,22 +1373,54 @@ function animateHoles({
           size: [h.w, h.h, d],
         });
     });
-    return e.toSVG(getSvgOpts());
+    draw(canvas, e, getSvgOpts());
+  }
+
+  // Smooth: keep the fractional depth and let nearZ place the floor there.
+  // A gap needs whole voxels, so this mode ignores it.
+  function drawSmooth(depths) {
+    const e = new Heerich({ tile: 26, camera: getCamera(), style: baseStyle });
+    const opts = getSvgOpts();
+    opts.faces = e.renderTest({
+      bounds: [
+        [0, 0, 0],
+        [10, 8, 7],
+      ],
+      test: (x, y, z) => {
+        if (x < 0 || x >= 10 || y < 0 || y >= 8 || z < 0 || z >= 7)
+          return false;
+        const i = holeAt(x, y);
+        return i < 0 || z >= Math.ceil(depths[i]);
+      },
+      nearZ: (x, y, z) => {
+        const i = holeAt(x, y);
+        return i >= 0 && z === Math.ceil(depths[i]) ? depths[i] : z;
+      },
+    });
+    draw(canvas, e, opts);
+  }
+
+  function drawHoles(depths) {
+    if (modeInput.value === "smooth") drawSmooth(depths);
+    else drawStepped(depths);
   }
 
   function drawStatic() {
-    canvas.innerHTML = buildScene(holes.map(() => 0));
+    drawHoles(holes.map(() => 0));
   }
 
-  btnPlay.addEventListener("click", () => {
+  function play() {
     animateHoles({
       canvas,
       holes,
-      buildScene,
+      drawHoles,
       duration: parseFloat(durInput.value),
       stagger: parseFloat(staggerInput.value),
     });
-  });
+  }
+
+  btnPlay.addEventListener("click", play);
+  modeInput.addEventListener("change", play);
 
   btnReset.addEventListener("click", () => {
     canvas._animId = (canvas._animId || 0) + 1;
@@ -1492,7 +1526,7 @@ function animateHoles({
     scene = { gridSize, cols, rows, holes, towers, color, carves };
   }
 
-  function buildScene(depths, towerHeights, carveRadii) {
+  function drawScene(depths, towerHeights, carveRadii) {
     const { gridSize, cols, rows, holes, towers, color, carves } = scene;
     const maxDepth = Math.max(...holes.map((h) => h.targetDepth), 1);
 
@@ -1584,7 +1618,7 @@ function animateHoles({
       });
     }
 
-    return e.toSVG(getSvgOpts());
+    draw(canvas, e, getSvgOpts());
   }
 
   function animateIn() {
@@ -1646,7 +1680,7 @@ function animateHoles({
         return target * ease(elapsed / carveDur);
       });
 
-      canvas.innerHTML = buildScene(depths, towerHeights, carveRadii);
+      drawScene(depths, towerHeights, carveRadii);
       if (!allDone) requestAnimationFrame(step);
     }
 
@@ -1662,7 +1696,7 @@ function animateHoles({
   init();
   demos.push(() => {
     randomizeScene();
-    canvas.innerHTML = buildScene(
+    drawScene(
       scene.holes.map((h) => h.targetDepth),
       scene.towers.map((t) => t.targetHeight),
       scene.carves.map((c) => c.targetR),

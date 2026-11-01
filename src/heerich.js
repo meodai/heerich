@@ -1284,6 +1284,7 @@ export class Heerich {
    * @param {(x: number, y: number, z: number) => boolean} opts.test - Inclusion test
    * @param {StyleParam|((x: number, y: number, z: number, face: string) => StyleObject)} [opts.style] - Style per voxel or per face
    * @param {number} [opts.gap] - Gap override (defaults to constructor gap)
+   * @param {(x: number, y: number, z: number) => number} [opts.nearZ] - Fractional z of a voxel's camera-facing side (default `z`). Moves its front face and stretches its side faces, so a surface can animate smoothly between layers.
    * @returns {Face[]}
    */
   renderTest(opts) {
@@ -1296,18 +1297,99 @@ export class Heerich {
     );
     const defaultStyle = this.defaultStyle;
 
-    const { projection, depthOffsetX, depthOffsetY, tileW, tileH } =
-      this.renderOptions;
+    const {
+      projection,
+      depthOffsetX,
+      depthOffsetY,
+      cameraX,
+      cameraY,
+      cameraDistance,
+    } = this.renderOptions;
     const isOblique = projection === "oblique";
+    const isPerspective = projection === "perspective";
+    const nearZ = opts.nearZ || null;
 
     const faces3D = [];
     const scanned = regions.length > 1 ? new Set() : null;
     const noStyle = !styleFn && !styleObj;
 
+    const gs = gp ? 1 - 2 * gp : 1;
+    const gScale = gp ? [gs, gs, gs] : null;
+    const gOrigin = [0.5, 0.5, 0.5];
+    // Which sides can face the camera is known from position alone, so the
+    // (possibly expensive) neighbour test only runs for sides that could show.
+    // The margin keeps exact ties for the dot-product check in _projectAndSort.
+    const inset = (gp || 0) + 1e-9;
+
+    let x = 0,
+      y = 0,
+      z = 0;
+    let voxel = null;
+
+    const getStyle = (faceName) => {
+      if (noStyle) return defaultStyle; // no allocation
+      if (styleFn) return { ...defaultStyle, ...styleFn(x, y, z, faceName) };
+      const sd = styleObj.default;
+      const base = sd
+        ? {
+            ...defaultStyle,
+            ...(typeof sd === "function" ? sd(x, y, z) : sd),
+          }
+        : defaultStyle;
+      const fs = styleObj[faceName];
+      return fs
+        ? {
+            ...base,
+            ...(typeof fs === "function" ? fs(x, y, z) : fs),
+          }
+        : base;
+    };
+
+    const addFace = (type, vertices, n, c) => {
+      if (!voxel) voxel = { x, y, z };
+      let verts = vertices;
+      let center = c;
+      if (gp) {
+        verts = Heerich._scaleVertices(vertices, x, y, z, gScale, gOrigin);
+        const gox = x + 0.5,
+          goy = y + 0.5,
+          goz = z + 0.5;
+        center = [
+          gox + (c[0] - gox) * gs,
+          goy + (c[1] - goy) * gs,
+          goz + (c[2] - goz) * gs,
+        ];
+      }
+      faces3D.push({
+        type,
+        voxel,
+        vertices: verts,
+        n,
+        c: center,
+        style: getStyle(type),
+      });
+    };
+
     for (const [[minX, minY, minZ], [maxX, maxY, maxZ]] of regions) {
-      for (let z = minZ; z < maxZ; z++) {
-        for (let y = minY; y < maxY; y++) {
-          for (let x = minX; x < maxX; x++) {
+      for (z = minZ; z < maxZ; z++) {
+        const seeFront = isPerspective
+          ? nearZ !== null || z + inset + cameraDistance > 0
+          : true;
+        const seeBack = isOblique
+          ? false
+          : isPerspective
+            ? z + 1 - inset + cameraDistance < 0
+            : true;
+
+        for (y = minY; y < maxY; y++) {
+          const seeTop = isOblique
+            ? depthOffsetY < 0
+            : !isPerspective || y + inset > cameraY;
+          const seeBottom = isOblique
+            ? depthOffsetY > 0
+            : !isPerspective || y + 1 - inset < cameraY;
+
+          for (x = minX; x < maxX; x++) {
             if (scanned) {
               const k = ((x + 512) << 20) | ((y + 512) << 10) | (z + 512);
               if (scanned.has(k)) continue;
@@ -1316,202 +1398,96 @@ export class Heerich {
 
             if (!test(x, y, z)) continue;
 
-            const voxel = { x, y, z };
+            const seeLeft = isOblique
+              ? depthOffsetX < 0
+              : !isPerspective || x + inset > cameraX;
+            const seeRight = isOblique
+              ? depthOffsetX > 0
+              : !isPerspective || x + 1 - inset < cameraX;
 
-            // Fast path: no custom style — just return defaultStyle (no allocation)
-            const getStyles = noStyle
-              ? () => defaultStyle
-              : (faceName) => {
-                  if (styleFn)
-                    return { ...defaultStyle, ...styleFn(x, y, z, faceName) };
-                  const sd = styleObj.default;
-                  const base = sd
-                    ? {
-                        ...defaultStyle,
-                        ...(typeof sd === "function" ? sd(x, y, z) : sd),
-                      }
-                    : defaultStyle;
-                  const fs = styleObj[faceName];
-                  return fs
-                    ? {
-                        ...base,
-                        ...(typeof fs === "function" ? fs(x, y, z) : fs),
-                      }
-                    : base;
-                };
+            const top = seeTop && !test(x, y - 1, z);
+            const bottom = seeBottom && !test(x, y + 1, z);
+            const left = seeLeft && !test(x - 1, y, z);
+            const right = seeRight && !test(x + 1, y, z);
+            const front = seeFront && !test(x, y, z - 1);
+            const back = seeBack && !test(x, y, z + 1);
+            if (!(top || bottom || left || right || front || back)) continue;
 
-            const gs = gp ? 1 - 2 * gp : 1;
-            const gScale = gp ? [gs, gs, gs] : null;
-            const gOrigin = [0.5, 0.5, 0.5];
-            const gox = x + 0.5,
-              goy = y + 0.5,
-              goz = z + 0.5;
+            voxel = null;
+            const zn = nearZ ? nearZ(x, y, z) : z;
 
-            const addFace = (type, vertices, n, c) => {
-              let verts = vertices;
-              let center = c;
-              if (gp) {
-                verts = Heerich._scaleVertices(
-                  vertices,
-                  x,
-                  y,
-                  z,
-                  gScale,
-                  gOrigin,
-                );
-                center = [
-                  gox + (c[0] - gox) * gs,
-                  goy + (c[1] - goy) * gs,
-                  goz + (c[2] - goz) * gs,
-                ];
-              }
-              faces3D.push({
-                type,
-                voxel,
-                vertices: verts,
-                n,
-                c: center,
-                style: getStyles(type),
-              });
-            };
-
-            // Neighbor test — just call the test function directly (it handles its own bounds)
-            if (isOblique) {
-              if (depthOffsetY < 0 && !test(x, y - 1, z))
-                addFace(
-                  "top",
-                  [
-                    [x, y, z],
-                    [x + 1, y, z],
-                    [x + 1, y, z + 1],
-                    [x, y, z + 1],
-                  ],
-                  [0, -1, 0],
-                  [x + 0.5, y, z + 0.5],
-                );
-              if (depthOffsetY > 0 && !test(x, y + 1, z))
-                addFace(
-                  "bottom",
-                  [
-                    [x, y + 1, z + 1],
-                    [x + 1, y + 1, z + 1],
-                    [x + 1, y + 1, z],
-                    [x, y + 1, z],
-                  ],
-                  [0, 1, 0],
-                  [x + 0.5, y + 1, z + 0.5],
-                );
-              if (depthOffsetX < 0 && !test(x - 1, y, z))
-                addFace(
-                  "left",
-                  [
-                    [x, y, z + 1],
-                    [x, y, z],
-                    [x, y + 1, z],
-                    [x, y + 1, z + 1],
-                  ],
-                  [-1, 0, 0],
-                  [x, y + 0.5, z + 0.5],
-                );
-              if (depthOffsetX > 0 && !test(x + 1, y, z))
-                addFace(
-                  "right",
-                  [
-                    [x + 1, y, z],
-                    [x + 1, y, z + 1],
-                    [x + 1, y + 1, z + 1],
-                    [x + 1, y + 1, z],
-                  ],
-                  [1, 0, 0],
-                  [x + 1, y + 0.5, z + 0.5],
-                );
-              if (!test(x, y, z - 1))
-                addFace(
-                  "front",
-                  [
-                    [x, y, z],
-                    [x, y + 1, z],
-                    [x + 1, y + 1, z],
-                    [x + 1, y, z],
-                  ],
-                  [0, 0, -1],
-                  [x + 0.5, y + 0.5, z],
-                );
-              // In Oblique projection, the 'back' face is always completely hidden
-            } else {
-              if (!test(x, y - 1, z))
-                addFace(
-                  "top",
-                  [
-                    [x, y, z],
-                    [x + 1, y, z],
-                    [x + 1, y, z + 1],
-                    [x, y, z + 1],
-                  ],
-                  [0, -1, 0],
-                  [x + 0.5, y, z + 0.5],
-                );
-              if (!test(x, y + 1, z))
-                addFace(
-                  "bottom",
-                  [
-                    [x, y + 1, z + 1],
-                    [x + 1, y + 1, z + 1],
-                    [x + 1, y + 1, z],
-                    [x, y + 1, z],
-                  ],
-                  [0, 1, 0],
-                  [x + 0.5, y + 1, z + 0.5],
-                );
-              if (!test(x - 1, y, z))
-                addFace(
-                  "left",
-                  [
-                    [x, y, z + 1],
-                    [x, y, z],
-                    [x, y + 1, z],
-                    [x, y + 1, z + 1],
-                  ],
-                  [-1, 0, 0],
-                  [x, y + 0.5, z + 0.5],
-                );
-              if (!test(x + 1, y, z))
-                addFace(
-                  "right",
-                  [
-                    [x + 1, y, z],
-                    [x + 1, y, z + 1],
-                    [x + 1, y + 1, z + 1],
-                    [x + 1, y + 1, z],
-                  ],
-                  [1, 0, 0],
-                  [x + 1, y + 0.5, z + 0.5],
-                );
-              if (!test(x, y, z - 1))
-                addFace(
-                  "front",
-                  [
-                    [x, y, z],
-                    [x, y + 1, z],
-                    [x + 1, y + 1, z],
-                    [x + 1, y, z],
-                  ],
-                  [0, 0, -1],
-                  [x + 0.5, y + 0.5, z],
-                );
-              if (!test(x, y, z + 1))
-                addFace(
-                  "back",
-                  [
-                    [x + 1, y, z + 1],
-                    [x + 1, y + 1, z + 1],
-                    [x, y + 1, z + 1],
-                    [x, y, z + 1],
-                  ],
-                  [0, 0, 1],
-                  [x + 0.5, y + 0.5, z + 1],
-                );
-            }
+            if (top)
+              addFace(
+                "top",
+                [
+                  [x, y, zn],
+                  [x + 1, y, zn],
+                  [x + 1, y, z + 1],
+                  [x, y, z + 1],
+                ],
+                [0, -1, 0],
+                [x + 0.5, y, z + 0.5],
+              );
+            if (bottom)
+              addFace(
+                "bottom",
+                [
+                  [x, y + 1, z + 1],
+                  [x + 1, y + 1, z + 1],
+                  [x + 1, y + 1, zn],
+                  [x, y + 1, zn],
+                ],
+                [0, 1, 0],
+                [x + 0.5, y + 1, z + 0.5],
+              );
+            if (left)
+              addFace(
+                "left",
+                [
+                  [x, y, z + 1],
+                  [x, y, zn],
+                  [x, y + 1, zn],
+                  [x, y + 1, z + 1],
+                ],
+                [-1, 0, 0],
+                [x, y + 0.5, z + 0.5],
+              );
+            if (right)
+              addFace(
+                "right",
+                [
+                  [x + 1, y, zn],
+                  [x + 1, y, z + 1],
+                  [x + 1, y + 1, z + 1],
+                  [x + 1, y + 1, zn],
+                ],
+                [1, 0, 0],
+                [x + 1, y + 0.5, z + 0.5],
+              );
+            if (front)
+              addFace(
+                "front",
+                [
+                  [x, y, zn],
+                  [x, y + 1, zn],
+                  [x + 1, y + 1, zn],
+                  [x + 1, y, zn],
+                ],
+                [0, 0, -1],
+                [x + 0.5, y + 0.5, zn],
+              );
+            if (back)
+              addFace(
+                "back",
+                [
+                  [x + 1, y, z + 1],
+                  [x + 1, y + 1, z + 1],
+                  [x, y + 1, z + 1],
+                  [x, y, z + 1],
+                ],
+                [0, 0, 1],
+                [x + 0.5, y + 0.5, z + 1],
+              );
           }
         }
       }
@@ -2038,6 +2014,28 @@ export class Heerich {
     if (!this._svgRenderer) this._svgRenderer = new SVGRenderer();
     const faces = options.faces || this.getFaces();
     return this._svgRenderer.render(faces, {
+      ...options,
+      tileW: this.renderOptions.tileW,
+      decals: this.decals,
+    });
+  }
+
+  /**
+   * Render the scene into an existing DOM element, reusing its elements between
+   * calls and only writing the attributes that changed. Use this instead of
+   * `toSVG()` when rendering repeatedly, such as in an animation.
+   *
+   * The faces go in a `<g>` appended to `target` on the first call, so anything
+   * else in `target` is left alone.
+   *
+   * @param {Element} target - An `<svg>` or `<g>`. An `<svg>` also gets its `viewBox` set.
+   * @param {Object} [options] - Same as `toSVG()`, without `prepend` and `append`
+   * @returns {Element} The `target`
+   */
+  updateSVG(target, options = {}) {
+    if (!this._svgRenderer) this._svgRenderer = new SVGRenderer();
+    const faces = options.faces || this.getFaces();
+    return this._svgRenderer.update(target, faces, {
       ...options,
       tileW: this.renderOptions.tileW,
       decals: this.decals,
