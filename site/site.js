@@ -105,6 +105,7 @@ const camStrokeColor = document.getElementById("cam-stroke-color");
 const camFill = document.getElementById("cam-fill");
 const camOutline = document.getElementById("cam-outline");
 const camOutlineColor = document.getElementById("cam-outline-color");
+const camFit = document.getElementById("cam-fit");
 const camGap = document.getElementById("cam-gap");
 
 function clamp(value, min, max) {
@@ -368,6 +369,23 @@ function getSvgOpts() {
     padding: r > 0 ? 30 + r * 2 : 30,
     faceAttributes: () => ({ "vector-effect": "non-scaling-stroke" }),
   };
+  // Cover every turn the camera controls can make under the selected camera type,
+  // at the current distance. getCamera() halves it for perspective.
+  if (camFit.checked) {
+    const dist = parseFloat(camDist.value);
+    const distance = camProj.value === "perspective" ? dist / 2 : dist;
+    opts.fit = {
+      cameras: [camProj.value],
+      pitch: [-30, 60],
+      distance: [distance, distance],
+      positions: [
+        [-7, -10],
+        [17, -10],
+        [-7, 20],
+        [17, 20],
+      ],
+    };
+  }
 
   if (r > 0) {
     opts.outlineFilter = `<filter id="cel"><feMorphology in="SourceAlpha" operator="dilate" radius="${r}" result="thick"/><feFlood flood-color="${camOutlineColor.value}"/><feComposite in2="thick" operator="in" result="border"/><feMerge><feMergeNode in="border"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`;
@@ -416,6 +434,7 @@ camOutline.addEventListener("input", () => {
 });
 camOutlineColor.addEventListener("input", () => debouncedRerenderAll());
 camGap.addEventListener("input", () => debouncedRerenderAll());
+camFit.addEventListener("change", () => rerenderAll());
 syncStyleVars();
 
 function setupDemo(id, buildFn) {

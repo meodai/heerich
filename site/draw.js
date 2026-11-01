@@ -26,8 +26,15 @@ export function draw(container, engine, opts) {
   }
 
   const faces = opts.faces || engine.getFaces();
-  const b = engine.getBounds(opts.padding ?? 20, faces);
-  const viewBox = `${b.x} ${b.y} ${b.w} ${b.h}`;
+  let viewBox;
+  if (opts.fit) {
+    viewBox = engine
+      .getFitViewBox(opts.fit, { padding: opts.padding, faces })
+      .join(" ");
+  } else {
+    const b = engine.getBounds(opts.padding ?? 20, faces);
+    viewBox = `${b.x} ${b.y} ${b.w} ${b.h}`;
+  }
   if (live.viewBox !== viewBox) {
     live.viewBox = viewBox;
     live.svg.setAttribute("viewBox", viewBox);

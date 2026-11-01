@@ -532,6 +532,7 @@ Options:
 | `padding` | number | ViewBox padding in px (default: `20`) |
 | `faces` | Face[] | Pre-computed faces (skips internal rendering) |
 | `viewBox` | [x,y,w,h] | Custom viewBox override |
+| `fit` | FitFrame, object or `true` | Keep one frame while the camera moves. See [`getFitFrame()`](#getfitframeoptions). `viewBox` takes priority |
 | `offset` | [x,y] | Translate all geometry |
 | `prepend` | string | Raw SVG inserted before faces |
 | `append` | string | Raw SVG inserted after faces |
@@ -732,6 +733,57 @@ Compute the 2D bounding box of the rendered geometry:
 ```js
 const { x, y, w, h } = h.getBounds()
 const padded = h.getBounds(30)
+```
+
+### `getFitFrame(options?)`
+
+By default the view is fitted to what's drawn. That's what you want most of the time, when you show a shape from one perspective. But if your animation or interaction turns any axis of the camera, the shape's outline changes every frame, so it rescales and wiggles. A fit frame covers that: it measures one frame that holds the shape at every camera setting you plan to use, and the shape turns around one fixed point in the middle of it.
+
+```js
+const frame = h.getFitFrame()
+
+function turn(angle) {
+  h.setCamera({ type: 'isometric', angle })
+  h.updateSVG(svg, { fit: frame })
+}
+```
+
+`toSVG({ fit: frame })` works the same way. Measure again when the voxels change; a moving camera can keep reusing the frame.
+
+If you rebuild the scene on every render anyway, skip the measuring step. `fit` also takes `true`, or the options below, and measures on each render:
+
+```js
+h.toSVG({ fit: true })
+h.toSVG({ fit: { cameras: ['isometric'] } })
+```
+
+Options:
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `cameras` | string[] | Camera types to cover (default: all four) |
+| `angle` | [from,to] | Angle range in degrees (default: `[0, 360]`) |
+| `pitch` | [from,to] | Orthographic pitch range in degrees (default: `[0, 89]`) |
+| `distance` | [from,to] | Oblique and perspective distance range (default: `[1, 40]`) |
+| `positions` | [x,y][] | Perspective camera positions to cover. For a range, pass its corners (default: the current position if the camera is perspective, otherwise the pivot) |
+| `pivot` | [x,y,z] | The point to turn around (default: the voxels' average position) |
+
+It returns `{ pivot, frontZ, width, height }`, with the size in pixels and without padding. An oblique camera holds the shape's front still rather than the pivot, so changing its angle or distance only moves the depth behind it.
+
+A frame that fits every view is bigger than any single view needs, so the shape looks smaller than with the default fit. Only cover the settings you use: narrow ranges give a tighter frame.
+
+```js
+// Only ever turns a little, under one camera
+const frame = h.getFitFrame({ cameras: ['isometric'], angle: [30, 60] })
+```
+
+The frame never crops: a view that reaches past it, like a perspective camera very close to the voxels, grows the frame for that view. It measures stored voxels, so with `renderTest()` faces `fit` falls back to the normal fit.
+
+For a `<g>` target, or to frame only part of a scene, get the `viewBox` yourself:
+
+```js
+const [x, y, w, h] = h.getFitViewBox(frame, { padding: 40, faces: bodyFaces })
+svg.setAttribute('viewBox', `${x} ${y} ${w} ${h}`)
 ```
 
 ## Content Voxels

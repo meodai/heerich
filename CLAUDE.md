@@ -44,6 +44,10 @@ The main entry is `src/heerich.js`, exporting the `Heerich` class. Rendering, de
 3. `toSVG()` — converts projected faces to SVG polygon elements with data attributes
 4. `updateSVG()` — alternative to `toSVG()` that writes into a live DOM element, reusing elements and skipping unchanged attributes (`SVGRenderer.update`)
 
+### Fit frames
+- `getFitFrame()` sweeps the camera ranges over the voxels' corners with `makeProjector()` and returns one frame size plus a pivot. `getFitViewBox()` centres that frame on the projected pivot (under an oblique camera, on the camera-facing plane `frontZ`, so distance and angle only move the depth behind it)
+- `makeProjector()` is the single source for point projection (`project()` uses it too). `_projectAndSort()` still has its own inline copy for speed, so change both together
+
 ### Occlusion culling (optional)
 - `OccluderIndex` (`src/bsp.js`) — grid-based spatial index for 2D polygon occlusion
 - Built-in clipper assumes convex occluders (good for oblique, approximate for perspective); `resolveOcclusion` callback provides exact clipping

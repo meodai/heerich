@@ -306,6 +306,33 @@ for (const camera of [
   check("<g> target: one group", g.children.length === 2);
 }
 
+// fit sets the same viewBox as toSVG, on an <svg> target only
+{
+  const h = new Heerich({ camera: { type: "isometric", angle: 20 } });
+  h.applyGeometry(box());
+  const frame = h.getFitFrame();
+  const svg = new FakeElement(doc, "svg");
+  h.updateSVG(svg, { fit: frame });
+  check("fit: same viewBox as toSVG", h.toSVG({ fit: frame }).includes(`viewBox="${svg.attrs.get("viewBox")}"`));
+  const size = () => svg.attrs.get("viewBox").split(" ").slice(2).join();
+  const before = size();
+  h.setCamera({ type: "isometric", angle: 77 });
+  h.updateSVG(svg, { fit: frame });
+  check("fit: same size after turning", size() === before);
+  const g = new FakeElement(doc, "g");
+  h.updateSVG(g, { fit: frame });
+  check("fit: <g> target gets no viewBox", !g.attrs.has("viewBox"));
+  let measured = 0;
+  const realGetFitFrame = h.getFitFrame;
+  h.getFitFrame = function (options) {
+    measured++;
+    return realGetFitFrame.call(this, options);
+  };
+  h.updateSVG(new FakeElement(doc, "g"), { fit: true });
+  check("fit: <g> target measures nothing", measured === 0);
+  h.getFitFrame = realGetFitFrame;
+}
+
 if (failures.length) {
   console.error(`${failures.length} failures, first 8:`);
   for (const f of failures.slice(0, 8)) console.error(`  ${f}`);

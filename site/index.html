@@ -105,6 +105,13 @@
           <input type="range" id="cam-dist" min="1" max="80" value="10" />
           <span class="control-value">10</span>
         </label>
+        <label
+          class="control-label"
+          title="Keep one frame while the camera turns"
+        >
+          <span>Fixed frame</span>
+          <input type="checkbox" id="cam-fit" />
+        </label>
       </div>
       <div class="settings-section-title">
         Style
@@ -297,6 +304,20 @@ document.body.innerHTML = heerich.toSVG({ padding: 30 })
 
 // Access raw bounds if you need them
 const { x, y, w, h } = heerich.getBounds()</code></pre>
+
+        <p>
+          That's what you want when you show a shape from one perspective. If
+          your animation or interaction turns the camera, the outline changes
+          every frame, so the shape rescales and wiggles.
+          <code>getFitFrame()</code> covers that: it measures one frame that
+          holds the shape at every camera setting, and the shape turns around a
+          fixed point in the middle of it.
+        </p>
+
+        <pre><code >const frame = heerich.getFitFrame()
+
+heerich.setCamera({ type: 'isometric', angle })
+heerich.updateSVG(svg, { fit: frame })</code></pre>
       </div>
 
       <!-- ─── 2. Boxes ──────────────────────────────────── -->

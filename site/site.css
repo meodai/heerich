@@ -584,6 +584,40 @@ button:hover {
   pointer-events: auto;
 }
 
+.settings-panel input[type="checkbox"] {
+  appearance: none;
+  display: grid;
+  place-content: center;
+  flex: none;
+  box-sizing: border-box;
+  width: 13px;
+  height: 13px;
+  margin: 0 0 0 auto;
+  border: 1px solid var(--text);
+  cursor: pointer;
+}
+
+.settings-panel input[type="checkbox"]::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+}
+
+.settings-panel label:hover input[type="checkbox"]::before {
+  box-shadow: inset 0 0 0 1px var(--text);
+}
+
+.settings-panel input[type="checkbox"]:checked::before {
+  width: 9px;
+  height: 9px;
+  background: var(--text);
+}
+
+.settings-panel input[type="checkbox"]:focus-visible {
+  outline: 1px solid var(--text);
+  outline-offset: 2px;
+}
+
 .settings-panel summary.settings-title {
   font-family: "Aboreto", cursive;
   font-size: 0.8rem;

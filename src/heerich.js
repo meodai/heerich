@@ -101,6 +101,14 @@ const AXIS_FACES = {
  */
 
 /**
+ * @typedef {Object} FitFrame
+ * @property {[number,number,number]} pivot - The 3D point the shape turns around
+ * @property {number} frontZ - The depth an oblique camera holds still instead of the pivot's: the camera-facing plane
+ * @property {number} width - Frame width in pixels, without padding
+ * @property {number} height - Frame height in pixels, without padding
+ */
+
+/**
  * @typedef {Object} Face
  * @property {FaceType} type - Face name
  * @property {Voxel} voxel - Source voxel data
@@ -159,6 +167,46 @@ const NO_FACES = [];
 /**
  * A tiny engine for 3D voxel scenes rendered to SVG.
  */
+/**
+ * Builds a function that projects a 3D point with the given render options,
+ * writing [x, y] into `out` so sweeping many points allocates nothing.
+ * @param {Object} ro - Render options
+ * @returns {(x: number, y: number, z: number, out: number[]) => void}
+ */
+function makeProjector(ro) {
+  const { tileW, tileH } = ro;
+  if (ro.projection === "oblique") {
+    const { depthOffsetX, depthOffsetY } = ro;
+    return (x, y, z, out) => {
+      out[0] = x * tileW + z * depthOffsetX;
+      out[1] = y * tileH + z * depthOffsetY;
+    };
+  }
+  if (ro.projection === "orthographic" || ro.projection === "isometric") {
+    const { angle = 0, pitch = 0 } = ro;
+    const cosT = Math.cos(angle),
+      sinT = Math.sin(angle);
+    const cosP = Math.cos(pitch),
+      sinP = Math.sin(pitch);
+    return (x, y, z, out) => {
+      out[0] = (x * cosT - z * sinT + 5) * tileW;
+      out[1] = (y * cosP - (x * sinT + z * cosT) * sinP + 5) * tileH;
+    };
+  }
+  const { cameraX, cameraY, cameraDistance } = ro;
+  return (x, y, z, out) => {
+    const pt = cameraDistance / (z + cameraDistance);
+    out[0] = (cameraX + (x - cameraX) * pt) * tileW;
+    out[1] = (cameraY + (y - cameraY) * pt) * tileH;
+  };
+}
+
+// getFitFrame() samples the camera ranges every this many degrees. A view between
+// two samples can reach slightly further, by at most 1 / cos(step / 2) on each of
+// the two axes it turns around, so the frame is grown by that much.
+const FIT_STEP_DEG = 5;
+const FIT_MARGIN = 1 / Math.cos(((FIT_STEP_DEG / 2) * Math.PI) / 180) ** 2;
+
 export class Heerich {
   /**
    * @param {Object} [options]
@@ -239,33 +287,49 @@ export class Heerich {
    * @param {CameraOptions} [opts]
    */
   setCamera(opts = {}) {
-    const type = opts.type || this.renderOptions.projection;
-    this.renderOptions.projection = type;
+    Object.assign(this.renderOptions, this._cameraSettings(opts));
 
+    if (this._faceCache3D) this._clearFaceCaches();
+    this._invalidate();
+  }
+
+  /**
+   * The render options a camera sets, without applying them.
+   * @param {CameraOptions} opts
+   * @returns {Object}
+   * @private
+   */
+  _cameraSettings(opts) {
+    const type = opts.type || this.renderOptions.projection;
     if (type === "oblique") {
       const angle = opts.angle !== undefined ? opts.angle : 45;
       const distance = opts.distance !== undefined ? opts.distance : 15;
       const rad = angle * (Math.PI / 180);
       const zScale = this.renderOptions.tileZ / this.renderOptions.tileW;
-      this.renderOptions.depthOffsetX = Math.cos(rad) * distance * zScale;
-      this.renderOptions.depthOffsetY = Math.sin(rad) * distance * zScale;
-    } else if (type === "orthographic" || type === "isometric") {
-      this.renderOptions.angle =
-        (opts.angle !== undefined ? opts.angle : 45) * (Math.PI / 180);
-      this.renderOptions.pitch =
-        type === "isometric"
-          ? 35.264 * (Math.PI / 180)
-          : (opts.pitch !== undefined ? opts.pitch : 35.264) * (Math.PI / 180);
-    } else {
-      const pos = opts.position || [5, 5];
-      this.renderOptions.cameraX = pos[0];
-      this.renderOptions.cameraY = pos[1];
-      this.renderOptions.cameraDistance =
-        opts.distance !== undefined ? opts.distance : 10;
+      return {
+        projection: type,
+        depthOffsetX: Math.cos(rad) * distance * zScale,
+        depthOffsetY: Math.sin(rad) * distance * zScale,
+      };
     }
-
-    if (this._faceCache3D) this._clearFaceCaches();
-    this._invalidate();
+    if (type === "orthographic" || type === "isometric") {
+      return {
+        projection: type,
+        angle: (opts.angle !== undefined ? opts.angle : 45) * (Math.PI / 180),
+        pitch:
+          type === "isometric"
+            ? 35.264 * (Math.PI / 180)
+            : (opts.pitch !== undefined ? opts.pitch : 35.264) *
+              (Math.PI / 180),
+      };
+    }
+    const pos = opts.position || [5, 5];
+    return {
+      projection: type,
+      cameraX: pos[0],
+      cameraY: pos[1],
+      cameraDistance: opts.distance !== undefined ? opts.distance : 10,
+    };
   }
 
   /**
@@ -1601,45 +1665,10 @@ export class Heerich {
    * @returns {{x: number, y: number}}
    */
   _projectPoint(x, y, z) {
-    const {
-      projection,
-      tileW,
-      tileH,
-      depthOffsetX,
-      depthOffsetY,
-      cameraX,
-      cameraY,
-      cameraDistance,
-    } = this.renderOptions;
+    const out = [0, 0];
+    makeProjector(this.renderOptions)(x, y, z, out);
     const t = (v) => Math.round(v * 1e4) / 1e4;
-
-    if (projection === "oblique") {
-      return {
-        x: t(x * tileW + z * depthOffsetX),
-        y: t(y * tileH + z * depthOffsetY),
-      };
-    }
-
-    if (projection === "orthographic" || projection === "isometric") {
-      const { angle = 0, pitch = 0 } = this.renderOptions;
-      const cosT = Math.cos(angle),
-        sinT = Math.sin(angle);
-      const cosP = Math.cos(pitch),
-        sinP = Math.sin(pitch);
-      const x1 = x * cosT - z * sinT;
-      const y1 = y * cosP - (x * sinT + z * cosT) * sinP;
-      return {
-        x: t((x1 + 5) * tileW),
-        y: t((y1 + 5) * tileH),
-      };
-    }
-
-    // perspective
-    const pt = cameraDistance / (z + cameraDistance);
-    return {
-      x: t((cameraX + (x - cameraX) * pt) * tileW),
-      y: t((cameraY + (y - cameraY) * pt) * tileH),
-    };
+    return { x: t(out[0]), y: t(out[1]) };
   }
 
   /**
@@ -1867,6 +1896,192 @@ export class Heerich {
   }
 
   /**
+   * Measure one frame size that holds the current voxels across a range of camera
+   * settings, so a shape stays the same size and doesn't wiggle while the camera
+   * turns. Pass the result to `toSVG({ fit })` or `updateSVG(target, { fit })`.
+   *
+   * Measure again when the voxels change; a moving camera can reuse the frame.
+   *
+   * @param {Object} [options]
+   * @param {Array<'oblique'|'orthographic'|'isometric'|'perspective'>} [options.cameras] - Camera types to cover (default: all four)
+   * @param {[number,number]} [options.angle=[0,360]] - Angle range in degrees
+   * @param {[number,number]} [options.pitch=[0,89]] - Orthographic pitch range in degrees
+   * @param {[number,number]} [options.distance=[1,40]] - Oblique and perspective distance range
+   * @param {Array<[number,number]>} [options.positions] - Perspective camera positions to cover. For a range, pass its corners. Defaults to the current position if the camera is perspective, otherwise the pivot.
+   * @param {[number,number,number]} [options.pivot] - The 3D point to turn around. Defaults to the voxels' average position.
+   * @returns {FitFrame}
+   */
+  getFitFrame(options = {}) {
+    const {
+      cameras = ["oblique", "orthographic", "isometric", "perspective"],
+      angle: angleRange = [0, 360],
+      pitch: pitchRange = [0, 89],
+      distance: distanceRange = [1, 40],
+    } = options;
+
+    // A shape's extremes are always voxel corners, because every camera keeps lines
+    // straight. Of those, only each (x, y) column's nearest and farthest z matter.
+    const columns = new Map();
+    let sumX = 0,
+      sumY = 0,
+      sumZ = 0,
+      minZ = Infinity;
+    for (const v of this.voxels.values()) {
+      sumX += v.x + 0.5;
+      sumY += v.y + 0.5;
+      sumZ += v.z + 0.5;
+      if (v.z < minZ) minZ = v.z;
+      for (let dx = 0; dx <= 1; dx++) {
+        for (let dy = 0; dy <= 1; dy++) {
+          const key = (v.x + dx) * 4096 + (v.y + dy);
+          const column = columns.get(key);
+          if (!column) columns.set(key, [v.x + dx, v.y + dy, v.z, v.z + 1]);
+          else {
+            if (v.z < column[2]) column[2] = v.z;
+            if (v.z + 1 > column[3]) column[3] = v.z + 1;
+          }
+        }
+      }
+    }
+    const count = this.voxels.size;
+    const pivot =
+      options.pivot ||
+      (count
+        ? [sumX / count, sumY / count, sumZ / count]
+        : /** @type {[number,number,number]} */ ([0, 0, 0]));
+    // An oblique camera only slides each depth sideways, so any depth it holds still
+    // stays put. Holding the front keeps what you look at from moving with the camera.
+    const frontZ = options.pivot ? pivot[2] : minZ;
+    if (!count) return { pivot, frontZ: pivot[2], width: 0, height: 0 };
+
+    const points = new Float64Array(columns.size * 6);
+    let n = 0;
+    for (const [x, y, z0, z1] of columns.values()) {
+      points[n++] = x;
+      points[n++] = y;
+      points[n++] = z0;
+      points[n++] = x;
+      points[n++] = y;
+      points[n++] = z1;
+    }
+
+    let width = 0,
+      height = 0;
+    const out = [0, 0];
+    const measure = (camera) => {
+      const project = makeProjector({
+        ...this.renderOptions,
+        ...this._cameraSettings(camera),
+      });
+      project(
+        pivot[0],
+        pivot[1],
+        camera.type === "oblique" ? frontZ : pivot[2],
+        out,
+      );
+      const cx = out[0],
+        cy = out[1];
+      for (let i = 0; i < n; i += 3) {
+        project(points[i], points[i + 1], points[i + 2], out);
+        const w = Math.abs(out[0] - cx) * 2,
+          h = Math.abs(out[1] - cy) * 2;
+        if (w > width) width = w;
+        if (h > height) height = h;
+      }
+    };
+    const steps = ([from, to]) => {
+      const values = [];
+      for (let v = from; v < to; v += FIT_STEP_DEG) values.push(v);
+      values.push(to);
+      return values;
+    };
+
+    if (cameras.includes("oblique")) {
+      // The offset grows with distance, so its extremes are at the ends of the range
+      for (const angle of steps(angleRange)) {
+        for (const distance of distanceRange) {
+          measure({ type: "oblique", angle, distance });
+        }
+      }
+    }
+    if (cameras.includes("orthographic")) {
+      for (const angle of steps(angleRange)) {
+        for (const pitch of steps(pitchRange)) {
+          measure({ type: "orthographic", angle, pitch });
+        }
+      }
+    }
+    if (cameras.includes("isometric")) {
+      for (const angle of steps(angleRange)) {
+        measure({ type: "isometric", angle });
+      }
+    }
+    if (cameras.includes("perspective")) {
+      const positions =
+        options.positions ||
+        (this.renderOptions.projection === "perspective"
+          ? [[this.renderOptions.cameraX, this.renderOptions.cameraY]]
+          : [[pivot[0], pivot[1]]]);
+      // A voxel at or past the camera has no finite position, so the sweep starts
+      // where the nearest one is scaled at most 2x. Closer views grow the frame.
+      const nearest = Math.max(distanceRange[0], minZ < 0 ? -2 * minZ : 0);
+      const farthest = Math.max(nearest, distanceRange[1]);
+      // Geometric steps, because the view changes fastest when the camera is close
+      for (let i = 0; i <= 32; i++) {
+        const distance =
+          nearest > 0
+            ? nearest * (farthest / nearest) ** (i / 32)
+            : (farthest * i) / 32;
+        for (const position of positions) {
+          measure({ type: "perspective", position, distance });
+        }
+      }
+    }
+
+    return {
+      pivot,
+      frontZ,
+      width: width * FIT_MARGIN,
+      height: height * FIT_MARGIN,
+    };
+  }
+
+  /**
+   * The viewBox a `getFitFrame()` frame gives under the current camera: centred on
+   * the pivot, and grown only if this view reaches past the frame. `toSVG({ fit })`
+   * and `updateSVG(target, { fit })` use this for you.
+   *
+   * @param {FitFrame|Object|true} [fit=true] - A frame, or `getFitFrame()` options (or `true`) to measure one now. With no stored voxels to measure, this is the normal fit around `faces`.
+   * @param {Object} [options]
+   * @param {number} [options.padding=20] - ViewBox padding in pixels
+   * @param {Face[]} [options.faces] - The faces that must stay in frame. Uses the scene's if omitted.
+   * @returns {[number,number,number,number]} [x, y, w, h]
+   */
+  getFitViewBox(fit = true, options = {}) {
+    const pad = options.padding ?? 20;
+    const b = computeBounds(options.faces || this.getFaces());
+    const isFrame = fit !== true && fit.width !== undefined;
+    if (!isFrame && !this.voxels.size) {
+      return [b.x - pad, b.y - pad, b.w + pad * 2, b.h + pad * 2];
+    }
+    const frame = isFrame ? fit : this.getFitFrame(fit === true ? {} : fit);
+    const { x: cx, y: cy } = this.project(
+      this.renderOptions.projection === "oblique"
+        ? [frame.pivot[0], frame.pivot[1], frame.frontZ]
+        : frame.pivot,
+    );
+    const w = Math.max(
+      frame.width + pad * 2,
+      2 * (Math.max(cx - b.x, b.x + b.w - cx) + pad),
+    );
+    const h = Math.max(
+      frame.height + pad * 2,
+      2 * (Math.max(cy - b.y, b.y + b.h - cy) + pad),
+    );
+    return [cx - w / 2, cy - h / 2, w, h];
+  }
+
+  /**
    * Query position and size data for a single voxel.
    *
    * Accepts either a `[x, y, z]` coordinate array or a voxel object reference
@@ -1997,11 +2212,26 @@ export class Heerich {
   }
 
   /**
+   * @param {Face[]} faces
+   * @param {Object} options - `toSVG()` options
+   * @returns {[number,number,number,number]|undefined}
+   * @private
+   */
+  _resolveViewBox(faces, options) {
+    if (options.viewBox || !options.fit) return options.viewBox;
+    return this.getFitViewBox(options.fit, {
+      padding: options.padding,
+      faces,
+    });
+  }
+
+  /**
    * Render the scene (or pre-computed faces) to an SVG string.
    * @param {Object} [options]
    * @param {number} [options.padding=20] - ViewBox padding in pixels
    * @param {Face[]} [options.faces] - Pre-computed faces (skips internal `getFaces()`)
    * @param {[number,number,number,number]} [options.viewBox] - Custom viewBox override [x, y, w, h]
+   * @param {FitFrame|Object|true} [options.fit] - Keep one frame while the camera moves: a `getFitFrame()` result, or its options (or `true`) to measure one on each render. `viewBox` takes priority.
    * @param {[number,number]} [options.offset=[0,0]] - Translate all geometry
    * @param {string} [options.prepend] - Raw SVG to insert before faces
    * @param {string} [options.append] - Raw SVG to insert after faces
@@ -2015,6 +2245,7 @@ export class Heerich {
     const faces = options.faces || this.getFaces();
     return this._svgRenderer.render(faces, {
       ...options,
+      viewBox: this._resolveViewBox(faces, options),
       tileW: this.renderOptions.tileW,
       decals: this.decals,
     });
@@ -2037,6 +2268,11 @@ export class Heerich {
     const faces = options.faces || this.getFaces();
     return this._svgRenderer.update(target, faces, {
       ...options,
+      // A <g> has no viewBox, so don't measure a frame for one
+      viewBox:
+        target.tagName.toLowerCase() === "svg"
+          ? this._resolveViewBox(faces, options)
+          : options.viewBox,
       tileW: this.renderOptions.tileW,
       decals: this.decals,
     });
