@@ -25,7 +25,8 @@
     "test": "node tests/faces.test.js && node tests/update.test.js && npm run bench",
     "bench": "node tests/benches.js",
     "format": "prettier --write \"src/**/*.js\" \"site/**/*.js\" \"site/**/*.css\" \"site/**/*.html\"",
-    "format:check": "prettier --check \"src/**/*.js\" \"site/**/*.js\" \"site/**/*.css\" \"site/**/*.html\""
+    "format:check": "prettier --check \"src/**/*.js\" \"site/**/*.js\" \"site/**/*.css\" \"site/**/*.html\"",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "voxel",
