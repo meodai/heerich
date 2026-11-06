@@ -98,6 +98,7 @@ All shape methods accept a common set of options:
 | `scale`   | `[x, y, z]` or `(x, y, z) => [sx, sy, sz]` | Per-axis scale 0–1 (auto-sets `opaque: false`) |
 | `scaleOrigin` | `[x, y, z]` or `(x, y, z) => [ox, oy, oz]` | Scale anchor within the voxel cell (default: `[0.5, 0, 0.5]`) |
 | `gap`   | number | Gap between voxels, 0–0.5 (overrides constructor default) |
+| `slope` | string or `(x, y, z) => string \| null` | Make voxels ramps, corners or tips (see [Slopes](#slopes)) |
 
 #### Convenience methods
 
@@ -477,6 +478,130 @@ h.applyGeometry({
 ```
 
 The `scaleOrigin` sets where scaling anchors within the voxel cell (0–1 per axis). `[0.5, 1, 0.5]` pins to the bottom-center (floor), `[0.5, 0, 0.5]` pins to the top-center (ceiling). Both `scale` and `scaleOrigin` accept functions of `(x, y, z)` for per-voxel control. Return `null` from a scale function to leave that voxel at full size.
+
+## Slopes
+
+`slope` turns voxels into wedge-shaped pieces. Every piece has a full floor (or ceiling); the value names the shape and the side its full wall faces.
+
+| Value | Shape |
+|---|---|
+| `'+x'` `'-x'` `'+z'` `'-z'` | Ramp: a full wall facing that direction, open on the opposite side, triangles on the other two |
+| `'outer+x+z'` (and `-x+z`, `-x-z`, `+x-z`) | Outer corner: only the corner between the two named sides reaches the top. Caps the outside corner where two ramps meet |
+| `'inner+x+z'` (and the other three) | Inner corner: full walls on both named sides, only the opposite corner stays low. Fills the inside corner where two ramps meet |
+| `'tip'` | A pyramid with its apex at the top centre |
+| `'ceiling:'` + any of the above | The same piece upside down: a full ceiling instead of a floor, slanted faces pointing down. For brackets, arches and overhangs |
+
+```js
+h.addGeometry({ type: 'box', position: [0, 2, 0], size: [1, 1, 3], slope: '+x' })
+
+// per voxel: ramps around the rim of a box, outer corners at its corners
+h.addGeometry({
+  type: 'box', position: [0, 0, 0], size: [5, 1, 5],
+  slope: (x, y, z) => {
+    const ex = x === 0 ? '+x' : x === 4 ? '-x' : ''
+    const ez = z === 0 ? '+z' : z === 4 ? '-z' : ''
+    if (ex && ez) return 'outer' + ex + ez
+    return ex || ez || null // null leaves a plain cube
+  },
+})
+```
+
+Slanted faces have type `slope` and take the `slope` style key, falling back to `top` (`bottom` for ceiling pieces). Upright faces keep their side's name and style. A neighbour hides a piece's side face when its own face there is full or has exactly the same outline, so a ramp next to a matching ramp, corner or cube joins without seams.
+
+`scale` works on pieces like on cubes, and gives you gentler or steeper slopes: `scale: [1, 0.5, 1], scaleOrigin: [0.5, 1, 0.5]` makes a half-height ramp. As with any scaled voxel, a scaled piece no longer hides its neighbours' faces, so pieces of different heights can stand side by side.
+
+`rotate()` turns pieces with the scene: any turn around y, and half turns around x or z (which flip floor pieces to ceiling pieces). A quarter turn around x or z would stand a piece on its side, so it becomes a plain cube.
+
+Limits: no vertical (wall) slopes; content voxels ignore `slope` (with a console warning), since they draw their content instead of faces; on `applyGeometry`, `slope` is given in world directions after `rotate` is applied; `renderTest()` doesn't support slopes.
+
+### Pieces between two heights
+
+Every piece can also start and end partway up the cell. Pass `{ side, from, to }`, where `side` is any of the names above (`'+x'`, `'outer+x+z'`, `'ceiling:tip'`, …) and `from` and `to` are heights as a fraction of the cell (0 = floor, 1 = full height):
+
+| Piece | `from` | `to` |
+|---|---|---|
+| Ramp | height at its open end | height at its wall |
+| Outer corner | height along its two low sides | height at its one high corner |
+| Inner corner | height at its one low corner | height along its two walls |
+| Tip | height along its four edges | height of its apex |
+
+`from` defaults to 0 and `to` to 1, so `{ side: '+x' }` is the plain `'+x'`. The walls become trapezoids (triangles where a height is 0). For ceiling pieces the heights are measured down from the ceiling.
+
+Cells that continue where the last one stopped make one straight slope at any angle, one cell at a time:
+
+```js
+// a 1:3 slope: 0→⅓, ⅓→⅔, ⅔→1
+for (let i = 0; i < 3; i++)
+  h.addGeometry({
+    type: 'box', position: [i, 0, 0], size: [1, 1, 3],
+    slope: { side: '+x', from: i / 3, to: (i + 1) / 3 },
+  })
+
+// on its own: a half slope on a raised block
+h.addGeometry({ type: 'box', position: [0, 2, 0], size: 1, slope: { side: '+x', from: 0.5, to: 1 } })
+
+// a 45° tip, the same as scale: [1, 0.5, 1] on a plain 'tip'
+h.addGeometry({ type: 'box', position: [2, 2, 0], size: 1, slope: { side: 'tip', from: 0, to: 0.5 } })
+```
+
+Corners with the same heights join the ramps beside them, so a gentle roof keeps its angle all the way around. A 1:2 hip roof on a 4×4 footprint, its outer ring rising 0 → ½ and the 2×2 in the middle ½ → 1:
+
+```js
+const ring = (x, z, lo, hi) => {
+  const ex = x === lo ? '+x' : x === hi ? '-x' : ''
+  const ez = z === lo ? '+z' : z === hi ? '-z' : ''
+  return ex && ez ? 'outer' + ex + ez : ex || ez
+}
+h.addGeometry({
+  type: 'box', position: [0, 0, 0], size: [4, 1, 4],
+  slope: (x, y, z) => {
+    const edge = x === 0 || x === 3 || z === 0 || z === 3
+    return edge
+      ? { side: ring(x, z, 0, 3), from: 0, to: 0.5 }
+      : { side: ring(x, z, 1, 2), from: 0.5, to: 1 }
+  },
+})
+```
+
+The voxel stores the piece as a string, the side and both heights joined with colons: `'+x:0.5:1'`, `'outer+x+z:0:0.5'` (heights rounded to 6 decimals). You can pass that string too; it is what `getVoxel()` and `toJSON()` return, and `rotate()` turns it like any other piece. A flat top (`from === to`) is allowed on ramps only, giving a block of partial height; heights must be 0–1 and not both 0.
+
+### Pieces from corner heights
+
+For terrain, give the height at each of the top's four corners: `{ corners: [h00, h10, h01, h11] }`, at (x, z), (x+1, z), (x, z+1) and (x+1, z+1), each from 0 to 1. Add `ceiling: true` to hang it. Neighbours that share corner heights join without seams, so a height field sampled at the grid's corners becomes one continuous surface, whatever the angle:
+
+```js
+// corner heights in levels, e.g. from noise: g(i, k) for i, k = 0..n
+for (let i = 0; i < n; i++)
+  for (let k = 0; k < n; k++) {
+    const c = [g(i, k), g(i + 1, k), g(i, k + 1), g(i + 1, k + 1)]
+    const L = Math.floor(Math.min(...c)) // whole levels of cubes below
+    if (L > 0) h.addGeometry({ type: 'box', position: [i, FLOOR - L + 1, k], size: [1, L, 1] })
+    const top = c.map((v) => v - L)
+    if (top.some((v) => v > 0))
+      h.addGeometry({ type: 'box', position: [i, FLOOR - L, k], size: 1, slope: { corners: top } })
+  }
+```
+
+Every corner of a cell has to fit in the one voxel above its whole level: no corner higher than `floor(lowest) + 1`. Lower the corners that stick out until that holds (each one you lower can push its other cells back into range, so repeat until nothing changes).
+
+A top that isn't one plane folds into two triangles along the diagonal with the larger height difference: a single odd corner gets the fold through it, as the outer and inner corners do. A saddle (two opposite corners high) folds along its high pair, a ridge. Every named piece is one of these: `[0, 1, 0, 1]` is `'+x'`, `[0, 0, 0, 1]` is `'outer+x+z'`, `[0, 1, 1, 1]` is `'inner+x+z'`.
+
+The voxel stores it as `'c:h00:h10:h01:h11'` (`'ceiling:c:…'` hung); `rotate()` moves the heights with the corners. Pieces with heights are built the first time each combination is used and cached, up to 4,096 of them; past that the oldest is dropped and rebuilt when needed, so animating heights smoothly costs time, not memory. Rounding heights (to quarters, say) keeps the number small.
+
+The idea comes from Geoff Crammond's *The Sentinel* (1986), which stores its landscape as corner heights and derives each tile's shape from its four corners. See Mark Moxon's commentary on [tile shapes](https://thesentinel.bbcelite.com/deep_dives/tile_shapes.html) and [generating the landscape](https://thesentinel.bbcelite.com/deep_dives/generating_the_landscape.html).
+
+### `autoSlope(options?)`
+
+Picks pieces for you: run it after building a shape and it smooths the surfaces from each voxel's neighbours, replacing any slopes already set.
+
+```js
+h.addGeometry({ type: 'box', position: [0, 0, 0], size: [6, 3, 4] })
+h.autoSlope()                                  // tops and undersides
+h.autoSlope({ bottom: false, tips: false })    // tops only, no lone peaks
+h.autoSlope({ filter: (v) => v.y < 4 })        // only some voxels
+```
+
+A voxel with nothing above it gets a ramp falling toward its one open side, an outer corner where two adjacent sides are open (if both its high neighbours are surface too), an inner corner where all four sides are closed but one diagonal is open, and a tip if it stands alone. One-wide ridges stay cubes. Undersides get the same with `ceiling:` pieces. Ramps on neighbouring layers line up, so a 45° staircase becomes one smooth slope. Edges that run diagonally in plan (sphere and line outlines) stay stepped: smoothing those would need slopes on vertical walls.
 
 ## Gap
 

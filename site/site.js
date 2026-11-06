@@ -485,6 +485,7 @@ setupDemo("demo-box", (v) => {
     gap: getGap(),
   });
   e.applyGeometry({ type: "box", position: [0, 0, 0], size: [v.w, v.h, v.d] });
+  if (v.slopes === "on") e.autoSlope();
   return e.toSVG(getSvgOpts());
 });
 
@@ -553,6 +554,7 @@ setupDemo("demo-line", (v) => {
     radius: v.r,
     shape: v.shape,
   });
+  if (v.slopes === "on") e.autoSlope();
   return e.toSVG(getSvgOpts());
 });
 
@@ -577,6 +579,7 @@ setupDemo("demo-custom-shape", (v) => {
       return nearEdge < 3;
     },
   });
+  if (v.slopes === "on") e.autoSlope();
   return e.toSVG(getSvgOpts());
 });
 
@@ -596,6 +599,7 @@ setupDemo("demo-boolean", (v) => {
     mode: v.mode,
     style: { default: { fill: "#18191b", stroke: "var(--fill)" } },
   });
+  if (v.slopes === "on") e.autoSlope();
   return e.toSVG(getSvgOpts());
 });
 
@@ -1043,6 +1047,142 @@ setupDemo("demo-functional-scale", (v) => {
     },
     scaleOrigin: (x, y, z) => [0.5, y % 2 === 0 ? 0 : 1, 0.5],
   });
+  return e.toSVG(getSvgOpts());
+});
+
+// ─── Slopes ──────────────────────────
+// A stepped pyramid. Each layer is one box whose rim is turned into ramps,
+// outer corners at its four corners, and a tip on top when it narrows to one.
+// Going down mirrors it with `ceiling:` pieces, hanging below the widest layer.
+setupDemo("demo-slopes", (v) => {
+  const n = v.height;
+  const w = v.width;
+  const e = new Heerich({
+    tile: 26,
+    camera: getCamera(),
+    style: baseStyle,
+    gap: getGap(),
+  });
+  // Only the bottom (ceiling) half gets dark slanted faces; the top half keeps
+  // the regular fill.
+  const dark = { slope: { fill: "#18191b", stroke: "var(--fill)" } };
+  const fillFor = (prefix) => (prefix ? dark : undefined);
+  // Transparent corners and tip: outlines only, like the transparent voxels
+  // demo. Their neighbours see through them and draw the faces behind.
+  const glass = v.glass === "transparent";
+  const outline = {
+    default: {
+      fill: "none",
+      stroke: "var(--text)",
+      strokeWidth: "var(--stroke-w)",
+    },
+  };
+  const halves = [];
+  if (v.dir !== "down") halves.push({ prefix: "", y: (i) => n - 1 - i });
+  if (v.dir !== "up") halves.push({ prefix: "ceiling:", y: (i) => n + i });
+  for (const { prefix, y } of halves) {
+    for (let i = 0; i < n; i++) {
+      const lo = i; // layer i spans lo..hi, its rim one cell wide
+      const hi = w + 2 * n - 1 - i;
+      e.applyGeometry({
+        type: "box",
+        position: [lo, y(i), lo],
+        size: [hi - lo + 1, 1, hi - lo + 1],
+        style: fillFor(prefix),
+        slope: (x, _, z) => {
+          const ex = x === lo ? "+x" : x === hi ? "-x" : "";
+          const ez = z === lo ? "+z" : z === hi ? "-z" : "";
+          if (ex && ez) return prefix + "outer" + ex + ez;
+          return ex || ez ? prefix + (ex || ez) : null;
+        },
+      });
+      if (glass)
+        for (const [cx, sx] of [
+          [lo, "+x"],
+          [hi, "-x"],
+        ])
+          for (const [cz, sz] of [
+            [lo, "+z"],
+            [hi, "-z"],
+          ])
+            e.applyGeometry({
+              type: "box",
+              position: [cx, y(i), cz],
+              size: 1,
+              slope: prefix + "outer" + sx + sz,
+              opaque: false,
+              style: outline,
+            });
+    }
+    if (w === 1)
+      e.applyGeometry({
+        type: "box",
+        position: [n, y(n), n],
+        size: 1,
+        style: glass ? outline : fillFor(prefix),
+        slope: prefix + "tip",
+        // A tip rises a full cell over half a cell; half its height gives
+        // the same 45° as the ramps. Anchor on its flat face so it stays put.
+        scale: [1, 0.5, 1],
+        scaleOrigin: [0.5, prefix ? 0 : 1, 0.5],
+      });
+  }
+  return e.toSVG(getSvgOpts());
+});
+
+// ─── Gentle slopes ───────────────────
+// A roof whose sides climb `rise` layers, `run` cells per layer, up to a
+// one-cell ridge. Each column's distance from the eaves picks its layer and
+// where in that layer's slope it sits; a hip roof slopes on all four sides and
+// puts outer corners, with the same heights, where two sides meet.
+setupDemo("demo-gentle-slopes", (v) => {
+  const { rise, run } = v;
+  const hip = v.roof === "hip";
+  const e = new Heerich({
+    tile: 22,
+    camera: getCamera(),
+    style: baseStyle,
+    gap: getGap(),
+  });
+  const len = rise * run; // cells per side
+  const W = 2 * len + (hip ? 3 : 1);
+  const D = hip ? 2 * len + 1 : 4;
+  const floor = rise; // y of the bottom layer (y grows downward)
+  for (let x = 0; x < W; x++)
+    for (let z = 0; z < D; z++) {
+      const dx = Math.min(x, W - 1 - x);
+      const dz = hip ? Math.min(z, D - 1 - z) : Infinity;
+      const d = Math.min(dx, dz); // cells in from the eaves
+      if (d >= len) {
+        // the ridge: solid all the way up
+        e.applyGeometry({
+          type: "box",
+          position: [x, floor - rise + 1, z],
+          size: [1, rise, 1],
+        });
+        continue;
+      }
+      const layer = Math.floor(d / run);
+      const k = d % run;
+      if (layer > 0)
+        e.applyGeometry({
+          type: "box",
+          position: [x, floor - layer + 1, z],
+          size: [1, layer, 1],
+        });
+      const ex = dx === d ? (x === d ? "+x" : "-x") : "";
+      const ez = dz === d ? (z === d ? "+z" : "-z") : "";
+      e.applyGeometry({
+        type: "box",
+        position: [x, floor - layer, z],
+        size: 1,
+        slope: {
+          side: ex && ez ? "outer" + ex + ez : ex || ez,
+          from: k / run,
+          to: (k + 1) / run,
+        },
+      });
+    }
   return e.toSVG(getSvgOpts());
 });
 

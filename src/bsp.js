@@ -181,6 +181,9 @@ export class OccluderIndex {
 
       const p1 = occluder[i];
       const p2 = occluder[(i + 1) % occluder.length];
+      // Zero-length edges (triangles stored as quads repeat a vertex) can't
+      // split anything; every point would land "on the line" on both sides.
+      if (p1[0] === p2[0] && p1[1] === p2[1]) continue;
 
       const split = this.splitPolygonByLine(insideFrag, p1, p2);
 

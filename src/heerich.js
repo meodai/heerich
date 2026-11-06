@@ -55,6 +55,7 @@ const AXIS_FACES = {
  * @property {StyleObject | ((x: number, y: number, z: number) => StyleObject)} [right]
  * @property {StyleObject | ((x: number, y: number, z: number) => StyleObject)} [front]
  * @property {StyleObject | ((x: number, y: number, z: number) => StyleObject)} [back]
+ * @property {StyleObject | ((x: number, y: number, z: number) => StyleObject)} [slope] - Slanted face of slope voxels (falls back to `top`)
  */
 
 /**
@@ -85,10 +86,22 @@ const AXIS_FACES = {
  * @property {Object} [meta] - Arbitrary key-value pairs for data-* attributes
  * @property {[number,number,number]} [scale] - Per-axis scale factors [sx, sy, sz] (0-1)
  * @property {[number,number,number]} [scaleOrigin] - Scale transform origin within voxel
+ * @property {SlopeDir} [slope] - Wedge rising toward this direction instead of a full cube
  */
 
 /**
- * @typedef {'top'|'bottom'|'left'|'right'|'front'|'back'|'content'} FaceType
+ * @typedef {'top'|'bottom'|'left'|'right'|'front'|'back'|'slope'|'content'} FaceType
+ */
+
+/**
+ * @typedef {string | {side: string, from?: number, to?: number} | {corners: number[], ceiling?: boolean}} SlopeDir
+ * Slope shape: a ramp rising toward `'+x'`, `'-x'`, `'+z'` or `'-z'`; an outer
+ * or inner corner whose high side faces two directions, e.g. `'outer+x+z'`,
+ * `'inner-x+z'`; or `'tip'`, a pyramid peak. Prefix any with `'ceiling:'` to
+ * hang it upside down. `{ corners: [h00, h10, h01, h11] }` sets the top's
+ * height at each corner (`ceiling: true` hangs it), stored as `'c:…'`.
+ * `{ side: '+x', from: 0.5, to: 1 }` is a piece between
+ * two heights (fractions of the cell; any piece), stored as `'+x:0.5:1'`.
  */
 
 /**
@@ -160,6 +173,537 @@ const ADJ = [
   [0, 0, -1, "back"],
   [0, 0, 1, "front"],
 ];
+
+/** The face on the other side of a shared cell wall. */
+const OPPOSITE = {
+  top: "bottom",
+  bottom: "top",
+  left: "right",
+  right: "left",
+  front: "back",
+  back: "front",
+};
+
+/** Axis-aligned unit normal → face name. */
+const NORMAL_FACE = {
+  "1,0,0": "right",
+  "-1,0,0": "left",
+  "0,-1,0": "top",
+  "0,1,0": "bottom",
+  "0,0,-1": "front",
+  "0,0,1": "back",
+};
+
+/**
+ * Slope shapes, authored once in local coords (a, y, b) — y = 0 at the top of
+ * the cell, y = 1 at its floor — and turned into the four directions by the
+ * maps below. Every shape has a full floor.
+ *
+ * - ramp  (`'+x'`): rises toward a; full wall at a = 1, open at a = 0.
+ * - outer (`'outer+x+z'`): two ramps intersected; only the corner a = b = 1
+ *   reaches the top. Caps the outside corner where two ramps meet.
+ * - inner (`'inner+x+z'`): two ramps joined; only the corner a = b = 0 stays
+ *   low. Fills the inside corner where two ramps meet.
+ * - tip   (`'tip'`): a pyramid with its apex at the top centre.
+ *
+ * Triangles are listed with 3 vertices; `_slopeShape` repeats the last one so
+ * every face stays a quad for the projectors, renderers and decal warping.
+ */
+const SLOPE_LOCAL = {
+  ramp: {
+    inside: [0.75, 0.75, 0.5],
+    faces: [
+      [
+        [0, 1, 0],
+        [1, 0, 0],
+        [1, 0, 1],
+        [0, 1, 1],
+      ],
+      [
+        [1, 0, 0],
+        [1, 0, 1],
+        [1, 1, 1],
+        [1, 1, 0],
+      ],
+      [
+        [0, 1, 0],
+        [1, 1, 0],
+        [1, 0, 0],
+      ],
+      [
+        [1, 0, 1],
+        [1, 1, 1],
+        [0, 1, 1],
+      ],
+    ],
+  },
+  outer: {
+    inside: [0.8, 0.9, 0.8],
+    faces: [
+      [
+        [0, 1, 0],
+        [0, 1, 1],
+        [1, 0, 1],
+      ],
+      [
+        [0, 1, 0],
+        [1, 0, 1],
+        [1, 1, 0],
+      ],
+      [
+        [1, 1, 0],
+        [1, 1, 1],
+        [1, 0, 1],
+      ],
+      [
+        [1, 1, 1],
+        [0, 1, 1],
+        [1, 0, 1],
+      ],
+    ],
+  },
+  inner: {
+    inside: [0.75, 0.75, 0.75],
+    faces: [
+      [
+        [0, 1, 0],
+        [1, 0, 0],
+        [1, 0, 1],
+      ],
+      [
+        [0, 1, 0],
+        [1, 0, 1],
+        [0, 0, 1],
+      ],
+      [
+        [1, 0, 0],
+        [1, 0, 1],
+        [1, 1, 1],
+        [1, 1, 0],
+      ],
+      [
+        [1, 0, 1],
+        [0, 0, 1],
+        [0, 1, 1],
+        [1, 1, 1],
+      ],
+      [
+        [0, 1, 0],
+        [0, 1, 1],
+        [0, 0, 1],
+      ],
+      [
+        [0, 1, 0],
+        [1, 1, 0],
+        [1, 0, 0],
+      ],
+    ],
+  },
+  tip: {
+    inside: [0.5, 0.8, 0.5],
+    faces: [
+      [
+        [0, 1, 0],
+        [1, 1, 0],
+        [0.5, 0, 0.5],
+      ],
+      [
+        [1, 1, 0],
+        [1, 1, 1],
+        [0.5, 0, 0.5],
+      ],
+      [
+        [1, 1, 1],
+        [0, 1, 1],
+        [0.5, 0, 0.5],
+      ],
+      [
+        [0, 1, 1],
+        [0, 1, 0],
+        [0.5, 0, 0.5],
+      ],
+    ],
+  },
+};
+const SLOPE_FLOOR = [
+  [0, 1, 1],
+  [1, 1, 1],
+  [1, 1, 0],
+  [0, 1, 0],
+];
+
+/**
+ * Quarter turns around the cell's vertical axis, keyed by where local +a ends
+ * up. Local +b ends up a quarter turn further, so the corner shapes' high
+ * corner (+a+b) lands on `+x+z`, `-x+z`, `-x-z` and `+x-z` in turn.
+ */
+const SLOPE_TURNS = {
+  "+x": { p: (a, y, b) => [a, y, b], corner: "+x+z" },
+  "+z": { p: (a, y, b) => [1 - b, y, a], corner: "-x+z" },
+  "-x": { p: (a, y, b) => [1 - a, y, 1 - b], corner: "-x-z" },
+  "-z": { p: (a, y, b) => [b, y, 1 - a], corner: "+x-z" },
+};
+
+/** One 90° turn around y, per axis direction (matches `_rot90`). */
+const SLOPE_ROT_Y = { "+x": "+z", "+z": "-x", "-x": "-z", "-z": "+x" };
+
+/** Cell side → offset to the neighbour across it. */
+const SIDE_DELTA = {
+  top: [0, -1, 0],
+  bottom: [0, 1, 0],
+  left: [-1, 0, 0],
+  right: [1, 0, 0],
+  front: [0, 0, -1],
+  back: [0, 0, 1],
+};
+
+/**
+ * Build one slope shape in cell offsets: its faces (with normal, centre and
+ * type) and, per cell side it touches, whether that face is full and a key of
+ * its outline within the side's plane, so two neighbours can compare outlines.
+ */
+function _slopeShape(local, map) {
+  const sub = (u, v) => [u[0] - v[0], u[1] - v[1], u[2] - v[2]];
+  const inside = local.inside && map(...local.inside);
+  const faces = [];
+  const sides = {};
+  const all = [SLOPE_FLOOR, ...local.faces];
+  for (let fi = 0; fi < all.length; fi++) {
+    const lv = all[fi];
+    const verts = lv.map((v) => map(...v));
+    const c = [0, 1, 2].map(
+      (i) => verts.reduce((s, v) => s + v[i], 0) / verts.length,
+    );
+    const e1 = sub(verts[1], verts[0]),
+      e2 = sub(verts[2], verts[0]);
+    let n = [
+      e1[1] * e2[2] - e1[2] * e2[1],
+      e1[2] * e2[0] - e1[0] * e2[2],
+      e1[0] * e2[1] - e1[1] * e2[0],
+    ];
+    const len = Math.hypot(...n);
+    n = n.map((k) => k / len);
+    // Outward: away from the inside point, or along the face's own `out`
+    // direction (mapped like the vertices) when the shape gives one.
+    const o = local.outs?.[fi];
+    const out = o
+      ? sub(
+          map(lv[0][0] + o[0], lv[0][1] + o[1], lv[0][2] + o[2]),
+          map(...lv[0]),
+        )
+      : sub(c, inside);
+    if (n[0] * out[0] + n[1] * out[1] + n[2] * out[2] < 0) n = n.map((k) => -k);
+    n = n.map((k) => (Math.abs(k) < 1e-9 ? 0 : k));
+    const type = NORMAL_FACE[n.join(",")] || "slope";
+    if (type !== "slope") {
+      const axis = n.findIndex((k) => k !== 0);
+      // Rounded, so heights like 1/3 match however they were computed.
+      const key = verts
+        .map((v) =>
+          v
+            .filter((_, i) => i !== axis)
+            .map((k) => Math.round(k * 1e6) / 1e6)
+            .join(","),
+        )
+        .sort()
+        .join(";");
+      sides[type] = { full: key === FULL_SIDE_KEY, key };
+    }
+    if (verts.length === 3) verts.push(verts[2]);
+    faces.push({ type, verts, n, c });
+  }
+  return { faces, sides };
+}
+
+/** Outline key of a face covering a whole cell side. */
+const FULL_SIDE_KEY = "0,0;0,1;1,0;1,1";
+
+/**
+ * A piece whose top runs between two heights (fractions of the cell): `from`
+ * where the plain piece is low, `to` where it reaches the top. In local
+ * coords, by the height at each top corner (a, b):
+ *
+ * - ramp:  `from` at a = 0, `to` at a = 1
+ * - outer: `to` only at the corner a = b = 1
+ * - inner: `from` only at the corner a = b = 0
+ * - tip:   `from` along all four edges, `to` at the apex in the centre
+ *
+ * Walls are trapezoids (triangles where a height is 0, left out where both
+ * are), so neighbours continue where this piece stops: a row of ramps makes a
+ * slope of any angle, and corners join them at the same heights.
+ */
+function _heightLocal(kind, from, to, corners) {
+  const H =
+    kind === "corners"
+      ? corners
+      : kind === "ramp"
+        ? [from, to, from, to] // h00, h10, h01, h11
+        : kind === "outer"
+          ? [from, from, from, to]
+          : kind === "inner"
+            ? [from, to, to, to]
+            : [from, from, from, from];
+  const h = (a, b) => H[a + 2 * b];
+  const P = (a, b) => [a, 1 - h(a, b), b];
+  const faces = [];
+  const outs = [[0, 1, 0]]; // the floor
+  const add = (verts, out) => {
+    faces.push(verts);
+    outs.push(out);
+  };
+  if (kind === "tip") {
+    const apex = [0.5, 1 - to, 0.5];
+    for (const [p, q] of [
+      [P(0, 0), P(1, 0)],
+      [P(1, 0), P(1, 1)],
+      [P(1, 1), P(0, 1)],
+      [P(0, 1), P(0, 0)],
+    ])
+      add([p, q, apex], [0, -1, 0]);
+  } else if (Math.abs(H[0] + H[3] - H[1] - H[2]) < 1e-9) {
+    add([P(0, 0), P(1, 0), P(1, 1), P(0, 1)], [0, -1, 0]); // one plane
+  } else if (_foldMain(H)) {
+    // two triangles, folded along the diagonal 00–11
+    add([P(0, 0), P(1, 0), P(1, 1)], [0, -1, 0]);
+    add([P(0, 0), P(1, 1), P(0, 1)], [0, -1, 0]);
+  } else {
+    // folded along the other diagonal, 10–01
+    add([P(0, 0), P(1, 0), P(0, 1)], [0, -1, 0]);
+    add([P(1, 0), P(1, 1), P(0, 1)], [0, -1, 0]);
+  }
+  // walls: along each cell edge, from the floor up to the top's heights there
+  for (const [[a0, b0], [a1, b1], out] of [
+    [
+      [0, 0],
+      [0, 1],
+      [-1, 0, 0],
+    ],
+    [
+      [1, 0],
+      [1, 1],
+      [1, 0, 0],
+    ],
+    [
+      [0, 0],
+      [1, 0],
+      [0, 0, -1],
+    ],
+    [
+      [0, 1],
+      [1, 1],
+      [0, 0, 1],
+    ],
+  ]) {
+    const v = [
+      [a0, 1, b0],
+      [a1, 1, b1],
+      h(a1, b1) > 0 && P(a1, b1),
+      h(a0, b0) > 0 && P(a0, b0),
+    ].filter(Boolean);
+    if (v.length > 2) add(v, out);
+  }
+  return { faces, outs };
+}
+
+/**
+ * Which diagonal a top that isn't one plane folds along: true for 00–11.
+ * Pieces from corner heights follow The Sentinel (Geoff Crammond, 1986),
+ * which derives each landscape tile's shape from its four corner heights:
+ * https://thesentinel.bbcelite.com/deep_dives/tile_shapes.html
+ * The one with the larger height difference, so a single odd corner gets
+ * the fold through it (as outer and inner corners do) and the two slanted
+ * triangles lean the way that corner does. A saddle (equal differences)
+ * folds along its higher pair, a ridge rather than a valley. Depends only on
+ * the heights, so it turns with the piece.
+ * @param {number[]} H - h00, h10, h01, h11
+ */
+function _foldMain(H) {
+  const d0 = Math.abs(H[0] - H[3]),
+    d1 = Math.abs(H[1] - H[2]);
+  if (Math.abs(d0 - d1) > 1e-9) return d0 > d1;
+  return H[0] + H[3] >= H[1] + H[2];
+}
+
+/** Every slope shape by its normalised key (`'+x'`, `'outer+x+z'`, `'tip'`, …). */
+const SLOPE_SHAPES = (() => {
+  const out = {};
+  // `ceiling:` pieces are the same shapes mirrored top to bottom: a full
+  // ceiling instead of a floor, slanted faces pointing down.
+  for (const [prefix, flip] of [
+    ["", false],
+    ["ceiling:", true],
+  ]) {
+    const turn = (p) => (flip ? (a, y, b) => p(a, 1 - y, b) : p);
+    out[prefix + "tip"] = _slopeShape(
+      SLOPE_LOCAL.tip,
+      turn(SLOPE_TURNS["+x"].p),
+    );
+    for (const [dir, { p, corner }] of Object.entries(SLOPE_TURNS)) {
+      out[prefix + dir] = _slopeShape(SLOPE_LOCAL.ramp, turn(p));
+      out[prefix + "outer" + corner] = _slopeShape(SLOPE_LOCAL.outer, turn(p));
+      out[prefix + "inner" + corner] = _slopeShape(SLOPE_LOCAL.inner, turn(p));
+    }
+  }
+  return out;
+})();
+
+/**
+ * Normalise a slope value to its `SLOPE_SHAPES` key: corners may name z
+ * before x. Throws on anything else.
+ * @param {string} value
+ * @returns {string}
+ */
+function _slopeKey(value) {
+  if (value && typeof value === "object" && "corners" in value) {
+    const c = value.corners;
+    const pre = value.ceiling ? "ceiling:" : "";
+    if (
+      !Array.isArray(c) ||
+      c.length !== 4 ||
+      c.some((h) => typeof h !== "number" || !(h >= 0 && h <= 1)) ||
+      c.every((h) => h === 0)
+    )
+      throw new Error(
+        `Unknown slope ${JSON.stringify(value)} (use { corners: [h00, h10, h01, h11] }: the top's heights at its corners (x, z), (x+1, z), (x, z+1), (x+1, z+1), each from 0 to 1, not all 0; add ceiling: true to hang it)`,
+      );
+    const r = (h) => Math.round(h * 1e6) / 1e6;
+    return pre + "c:" + c.map(r).join(":");
+  }
+  if (value && typeof value === "object") {
+    const { side, from = 0, to = 1 } = value;
+    const base = _sortCorner(String(side));
+    const bad = (h) => typeof h !== "number" || !(h >= 0 && h <= 1);
+    if (!HEIGHT_KEY.test(`${base}:0:1`) || bad(from) || bad(to))
+      throw new Error(
+        `Unknown slope ${JSON.stringify(value)} (use { side, from, to } with side "+x", "-x", "+z", "-z", "outer+x+z", "inner-x+z" or "tip", optionally prefixed with "ceiling:", and heights from 0 to 1)`,
+      );
+    if (from === 0 && to === 1) return base;
+    const r = (h) => Math.round(h * 1e6) / 1e6;
+    value = `${base}:${r(from)}:${r(to)}`;
+  }
+  const key = _sortCorner(String(value));
+  if (!_slopeShapeOf(key))
+    throw new Error(
+      `Unknown slope "${value}" (use "+x", "-x", "+z", "-z", "outer+x+z", "inner-x+z", "tip", or any of them prefixed with "ceiling:"; or { side, from, to } for a piece between two heights, which can't both be 0, or equal for corners and tips)`,
+    );
+  return key;
+}
+
+const CORNER_KEY = /^(ceiling:)?c:([\d.]+):([\d.]+):([\d.]+):([\d.]+)$/;
+
+const HEIGHT_KEY =
+  /^(ceiling:)?(tip|(?:outer|inner)[+-]x[+-]z|[+-][xz]):([\d.]+):([\d.]+)$/;
+
+/**
+ * Shapes of pieces with heights, built on demand. Heights can take any
+ * value, so this is capped: past the limit the oldest shape is dropped, and
+ * rebuilt if it's needed again. Only costs time, never correctness.
+ */
+const HEIGHT_SHAPES = new Map();
+const HEIGHT_SHAPES_MAX = 4096;
+function _keepShape(key, shape) {
+  if (HEIGHT_SHAPES.size >= HEIGHT_SHAPES_MAX)
+    HEIGHT_SHAPES.delete(HEIGHT_SHAPES.keys().next().value);
+  HEIGHT_SHAPES.set(key, shape);
+  return shape;
+}
+
+/**
+ * Look up a slope shape by key, building pieces between two heights
+ * (`'+x:0.5:1'`, `'outer+x+z:0:0.5'`, …) the first time they're asked for.
+ * Undefined if unknown.
+ * @param {string} key
+ */
+function _slopeShapeOf(key) {
+  let shape = SLOPE_SHAPES[key] || HEIGHT_SHAPES.get(key);
+  if (shape) return shape;
+  const c = CORNER_KEY.exec(key);
+  if (c) {
+    const H = c.slice(2, 6).map(Number);
+    if (H.some((h) => h > 1) || H.every((h) => h === 0)) return undefined;
+    const p = SLOPE_TURNS["+x"].p; // local a, b are world x, z
+    shape = _slopeShape(
+      _heightLocal("corners", 0, 0, H),
+      c[1] ? (a, y, b) => p(a, 1 - y, b) : p,
+    );
+    return _keepShape(key, shape);
+  }
+  const m = HEIGHT_KEY.exec(key);
+  if (!m) return undefined;
+  const from = +m[3],
+    to = +m[4];
+  const kind = /^[+-]/.test(m[2]) ? "ramp" : m[2].slice(0, 5);
+  if (!(from <= 1 && to <= 1 && from + to > 0)) return undefined;
+  // A flat top: only a ramp may have one (a block of partial height).
+  if (from === to && kind !== "ramp") return undefined;
+  const dir =
+    kind === "ramp"
+      ? m[2]
+      : kind === "tip"
+        ? "+x"
+        : Object.keys(SLOPE_TURNS).find(
+            (d) => SLOPE_TURNS[d].corner === m[2].slice(5),
+          );
+  const p = SLOPE_TURNS[dir].p;
+  shape = _slopeShape(
+    _heightLocal(kind, from, to),
+    m[1] ? (a, y, b) => p(a, 1 - y, b) : p,
+  );
+  return _keepShape(key, shape);
+}
+
+/** Put a corner's x direction before its z direction. */
+function _sortCorner(key) {
+  return key.replace(
+    /(outer|inner)([+-]z)([+-]x)(?=$|:)/,
+    (_, kind, z, x) => kind + x + z,
+  );
+}
+
+/**
+ * Turn a slope key with the voxels it belongs to (matches `_rot90`). Any
+ * quarter turn around y works; around x or z only a half turn keeps the piece
+ * horizontal (it flips it between floor and ceiling). Other turns return
+ * `null`: the piece would stand on its side, which has no shape.
+ * @param {string} key
+ * @param {'x'|'y'|'z'} axis
+ * @param {number} turns
+ * @returns {string|null}
+ */
+function _rotateSlope(key, axis, turns) {
+  const n = ((turns % 4) + 4) % 4;
+  if (n === 0) return key;
+  const c = CORNER_KEY.exec(key);
+  if (c) {
+    // Corner heights move with the cell's corners: a quarter turn around y
+    // takes corner (a, b) to (1 − b, a); a half turn around x mirrors b,
+    // around z mirrors a, and both flip floor and ceiling.
+    let [h00, h10, h01, h11] = c.slice(2, 6);
+    let ceiling = !!c[1];
+    if (axis === "y")
+      for (let i = 0; i < n; i++) [h00, h10, h01, h11] = [h01, h00, h11, h10];
+    else if (n !== 2) return null;
+    else {
+      ceiling = !ceiling;
+      if (axis === "x") [h00, h10, h01, h11] = [h01, h11, h00, h10];
+      else [h00, h10, h01, h11] = [h10, h00, h11, h01];
+    }
+    return (ceiling ? "ceiling:" : "") + `c:${h00}:${h10}:${h01}:${h11}`;
+  }
+  if (axis === "y") {
+    for (let i = 0; i < n; i++)
+      key = key.replace(/[+-][xz]/g, (d) => SLOPE_ROT_Y[d]);
+    return _sortCorner(key);
+  }
+  if (n !== 2) return null;
+  // Half turn around x negates y and z; around z it negates y and x.
+  const flipped = key.startsWith("ceiling:") ? key.slice(8) : "ceiling:" + key;
+  const other = axis === "x" ? "z" : "x";
+  return flipped.replace(
+    new RegExp(`([+-])${other}`, "g"),
+    (_, sign) => (sign === "+" ? "-" : "+") + other,
+  );
+}
 
 /** Cache entry for voxels that emit no faces, so they aren't re-tested. */
 const NO_FACES = [];
@@ -532,7 +1076,14 @@ export class Heerich {
         cy,
         cz,
       );
-      this.voxels.set(this._k(nx, ny, nz), { ...v, x: nx, y: ny, z: nz });
+      const moved = { ...v, x: nx, y: ny, z: nz };
+      if (v.slope) {
+        const turned = _rotateSlope(v.slope, opts.axis, opts.turns);
+        // A piece turned onto its side becomes a plain cube.
+        if (turned) moved.slope = turned;
+        else delete moved.slope;
+      }
+      this.voxels.set(this._k(nx, ny, nz), moved);
     }
     this._invalidate();
   }
@@ -548,6 +1099,7 @@ export class Heerich {
    * @param {[number,number,number]|((x: number, y: number, z: number) => [number,number,number])} [scale] - Per-axis scale 0-1
    * @param {[number,number,number]|((x: number, y: number, z: number) => [number,number,number])} [scaleOrigin] - Scale origin within voxel
    * @param {number} [gap] - Per-geometry gap override (undefined = use defaultGap)
+   * @param {SlopeDir|((x: number, y: number, z: number) => SlopeDir|null)} [slope] - Make voxels slopes rising toward this direction
    */
   _applyOp(
     coords,
@@ -559,7 +1111,21 @@ export class Heerich {
     scale,
     scaleOrigin,
     gap,
+    slope,
   ) {
+    // Content voxels draw their content instead of faces, so a slope would
+    // never show, yet neighbours would treat the voxel as a partial wedge.
+    // Checked once per call, not per voxel.
+    if (slope && content) {
+      console.warn(
+        "Heerich: `slope` has no effect on content voxels and is ignored",
+      );
+      slope = undefined;
+    }
+    const slopeAt = (x, y, z) => {
+      const d = typeof slope === "function" ? slope(x, y, z) : slope;
+      return d ? _slopeKey(d) : null;
+    };
     if (mode === "intersect") {
       // Collect shape coords, then delete everything not in the set
       const keep = new Set();
@@ -614,6 +1180,10 @@ export class Heerich {
             voxel.opaque = false;
           }
           if (meta) voxel.meta = meta;
+          if (slope) {
+            const d = slopeAt(x, y, z);
+            if (d) voxel.slope = d;
+          }
           const g = gap !== undefined ? gap : this.defaultGap;
           if (g) voxel.gap = g;
           else if (gap === 0) voxel.gap = 0;
@@ -667,6 +1237,10 @@ export class Heerich {
               voxel.opaque = false;
             }
             if (meta) voxel.meta = meta;
+            if (slope) {
+              const d = slopeAt(x, y, z);
+              if (d) voxel.slope = d;
+            }
             const g = gap !== undefined ? gap : this.defaultGap;
             if (g) voxel.gap = g;
             this.voxels.set(key, voxel);
@@ -822,6 +1396,7 @@ export class Heerich {
       if (voxel.scale) entry.scale = voxel.scale;
       if (voxel.scaleOrigin) entry.scaleOrigin = voxel.scaleOrigin;
       if (voxel.gap !== undefined) entry.gap = voxel.gap;
+      if (voxel.slope) entry.slope = voxel.slope;
       voxelData.push(entry);
     }
 
@@ -877,6 +1452,7 @@ export class Heerich {
       if (v.scale) voxel.scale = v.scale;
       if (v.scaleOrigin) voxel.scaleOrigin = v.scaleOrigin;
       if (v.gap) voxel.gap = v.gap;
+      if (v.slope && !v.content) voxel.slope = _slopeKey(v.slope);
       engine.voxels.set(engine._k(v.x, v.y, v.z), voxel);
     }
 
@@ -965,6 +1541,7 @@ export class Heerich {
    * @param {[number,number,number]|((x: number, y: number, z: number) => [number,number,number])} [opts.scale] - Per-axis scale 0-1
    * @param {[number,number,number]|((x: number, y: number, z: number) => [number,number,number])} [opts.scaleOrigin=[0.5,0,0.5]] - Scale origin
    * @param {number} [opts.gap] - Gap between voxels (0–<0.5). Overrides constructor default.
+   * @param {SlopeDir|((x: number, y: number, z: number) => SlopeDir|null)} [opts.slope] - Turn voxels into wedges rising toward this direction (a function picks per voxel; return null for a cube). Ignored, with a warning, together with `content`
    *
    * Box params: position, size
    * Sphere params: center, radius
@@ -984,6 +1561,7 @@ export class Heerich {
       opts.scale,
       opts.scaleOrigin,
       opts.gap,
+      opts.slope,
     );
   }
 
@@ -1001,6 +1579,89 @@ export class Heerich {
    */
   addGeometry(opts) {
     this.applyGeometry({ ...opts, mode: "union" });
+  }
+
+  /**
+   * Smooth the scene's surfaces by picking a slope piece for every voxel from
+   * its neighbours. Replaces any slopes already set, so it can be run again
+   * after editing. A voxel with nothing above it becomes, by its open sides
+   * (no neighbour on the same layer):
+   *
+   * - one open side: a ramp falling toward it
+   * - two adjacent open sides: an outer corner
+   * - none open but one open diagonal: an inner corner
+   * - three open sides: a ramp rising toward the one neighbour
+   * - four open sides: a tip (if `tips` is on)
+   *
+   * Two opposite open sides (a one-wide ridge) stay a cube. Voxels with
+   * nothing below get the same treatment with `ceiling:` pieces. Ramps on
+   * neighbouring layers line up into one continuous 45° slope.
+   *
+   * @param {Object} [opts]
+   * @param {boolean} [opts.top=true] - Smooth upward-facing surfaces
+   * @param {boolean} [opts.bottom=true] - Smooth downward-facing surfaces
+   * @param {boolean} [opts.tips=true] - Cap lone columns with a tip
+   * @param {(voxel: Voxel) => boolean} [opts.filter] - Only reshape voxels that pass
+   */
+  autoSlope({ top = true, bottom = true, tips = true, filter } = {}) {
+    const solid = (x, y, z) => {
+      const v = this.voxels.get(this._k(x, y, z));
+      return !!v && v.opaque !== false && !v.content;
+    };
+    // `dy` points out of the surface: -1 for tops, +1 for undersides.
+    const pick = (x, y, z, dy) => {
+      const px = solid(x + 1, y, z),
+        nx = solid(x - 1, y, z),
+        pz = solid(x, y, z + 1),
+        nz = solid(x, y, z - 1);
+      const open = !px + !nx + !pz + !nz;
+      if (open === 4) return tips ? "tip" : null;
+      if (open === 3) return px ? "+x" : nx ? "-x" : pz ? "+z" : "-z";
+      if (open === 2) {
+        if (px === nx) return null; // a one-wide ridge: no piece for it
+        // An outer corner only joins up when both its high neighbours are
+        // surface too. Against a taller neighbour, a ramp falling away from
+        // it reads better; against two, the step stays a cube.
+        const sx = px ? 1 : -1,
+          sz = pz ? 1 : -1;
+        const ex = !solid(x + sx, y + dy, z),
+          ez = !solid(x, y + dy, z + sz);
+        if (ex && ez) return "outer" + (px ? "+x" : "-x") + (pz ? "+z" : "-z");
+        if (ex) return pz ? "+z" : "-z";
+        if (ez) return px ? "+x" : "-x";
+        return null;
+      }
+      if (open === 1) return !nx ? "+x" : !px ? "-x" : !nz ? "+z" : "-z";
+      // Closed on all four sides: an inner corner if exactly one diagonal is
+      // open; it rises away from that diagonal.
+      let corner = null;
+      for (const [dx, dz] of [
+        [1, 1],
+        [1, -1],
+        [-1, 1],
+        [-1, -1],
+      ]) {
+        if (solid(x + dx, y, z + dz)) continue;
+        if (corner) return null;
+        corner = "inner" + (dx > 0 ? "-x" : "+x") + (dz > 0 ? "-z" : "+z");
+      }
+      return corner;
+    };
+    for (const v of this.voxels.values()) {
+      if (v.opaque === false || v.content || v.scale) continue;
+      if (filter && !filter(v)) continue;
+      const { x, y, z } = v;
+      let shape = null;
+      if (top && !solid(x, y - 1, z)) shape = pick(x, y, z, -1);
+      else if (bottom && !solid(x, y + 1, z)) {
+        const s = pick(x, y, z, 1);
+        if (s) shape = "ceiling:" + s;
+      }
+      if (shape) v.slope = shape;
+      else delete v.slope;
+    }
+    this._clearFaceCaches();
+    this._invalidate();
   }
 
   /**
@@ -1080,9 +1741,12 @@ export class Heerich {
    * @returns {Object[]} Raw 3D face objects
    */
   _buildFaces3D(cullTypes = null) {
-    const hasVoxel = (x, y, z) => {
+    // Does the voxel at (x,y,z) have a full, opaque face on `side`? Cubes do
+    // on every side; a slope only on its floor and its wall.
+    const solidSide = (x, y, z, side) => {
       const v = this.voxels.get(this._k(x, y, z));
-      return v && v.opaque !== false;
+      if (!v || v.opaque === false) return false;
+      return !v.slope || !!_slopeShapeOf(v.slope).sides[side]?.full;
     };
 
     const cache = cullTypes ? this._culledFaceCache : this._faceCache3D;
@@ -1112,12 +1776,13 @@ export class Heerich {
       if (
         !voxel.scale &&
         !voxel.gap &&
-        hasVoxel(x - 1, y, z) &&
-        hasVoxel(x + 1, y, z) &&
-        hasVoxel(x, y - 1, z) &&
-        hasVoxel(x, y + 1, z) &&
-        hasVoxel(x, y, z - 1) &&
-        hasVoxel(x, y, z + 1)
+        !voxel.slope &&
+        solidSide(x - 1, y, z, "right") &&
+        solidSide(x + 1, y, z, "left") &&
+        solidSide(x, y - 1, z, "bottom") &&
+        solidSide(x, y + 1, z, "top") &&
+        solidSide(x, y, z - 1, "back") &&
+        solidSide(x, y, z + 1, "front")
       ) {
         if (caching) cache.set(key, NO_FACES);
         continue;
@@ -1139,8 +1804,14 @@ export class Heerich {
       const base = styles.default
         ? { ...this.defaultStyle, ...styles.default }
         : this.defaultStyle;
-      const getStyle = (faceName) => {
-        const faceStyle = styles[faceName];
+      const getStyle = (faceName, n) => {
+        // A slanted face falls back to the style of the flat face it leans
+        // toward (top, or bottom for ceiling pieces), so terrain styled by
+        // `top` keeps its colour where it tilts.
+        const faceStyle =
+          faceName === "slope"
+            ? styles.slope || styles[n[1] > 0 ? "bottom" : "top"]
+            : styles[faceName];
         return faceStyle ? { ...base, ...faceStyle } : base;
       };
 
@@ -1184,20 +1855,77 @@ export class Heerich {
             [0.5, 0.5, 0.5],
           );
         }
+        // Non-uniform scale tilts slanted faces, so their normal must follow:
+        // scale it by the inverse (written with cofactors, so a 0 is safe).
+        // Axis-aligned normals keep their direction and are left alone.
+        if (sc && type === "slope") {
+          const m = [
+            n[0] * sc[1] * sc[2],
+            n[1] * sc[0] * sc[2],
+            n[2] * sc[0] * sc[1],
+          ];
+          const len = Math.hypot(m[0], m[1], m[2]);
+          if (len > 0) n = [m[0] / len, m[1] / len, m[2] / len];
+        }
         faces3D.push({
           type,
           voxel,
           vertices: verts,
           n,
           c,
-          style: getStyle(type),
+          style: getStyle(type, n),
         });
       };
+
+      if (voxel.slope) {
+        const shape = _slopeShapeOf(voxel.slope);
+        const all = sc || gp;
+        // A slanted face is hidden only if the cell's empty part is sealed:
+        // every side this shape doesn't fill is backed by a full neighbour face.
+        let sealed;
+        const isSealed = () => {
+          for (const side in SIDE_DELTA) {
+            if (shape.sides[side]?.full) continue;
+            const [dx, dy, dz] = SIDE_DELTA[side];
+            if (!solidSide(x + dx, y + dy, z + dz, OPPOSITE[side]))
+              return false;
+          }
+          return true;
+        };
+        // A side face is hidden by a full neighbour face, or by a neighbour
+        // shape whose face on that wall has exactly the same outline.
+        const covered = (side) => {
+          const [dx, dy, dz] = SIDE_DELTA[side];
+          if (solidSide(x + dx, y + dy, z + dz, OPPOSITE[side])) return true;
+          const nb = this.voxels.get(this._k(x + dx, y + dy, z + dz));
+          if (!nb || !nb.slope || nb.opaque === false || nb.gap) return false;
+          const theirs = _slopeShapeOf(nb.slope).sides[OPPOSITE[side]];
+          return !!theirs && theirs.key === shape.sides[side].key;
+        };
+        for (const f of shape.faces) {
+          if (!all) {
+            if (f.type === "slope") {
+              if (sealed === undefined) sealed = isSealed();
+              if (sealed) continue;
+            } else if (covered(f.type)) continue;
+          }
+          addFace(
+            f.type,
+            f.verts.map((v) => [x + v[0], y + v[1], z + v[2]]),
+            f.n,
+            x + f.c[0],
+            y + f.c[1],
+            z + f.c[2],
+          );
+        }
+        if (caching) cache.set(key, faces3D.slice(faceStart));
+        continue;
+      }
 
       // Emit up to 5 neighbor-exposed faces (back is always omitted — see JSDoc).
       // Camera-direction filtering for oblique is applied via cullTypes; other
       // projections filter in _projectAndSort via dot-product backface culling.
-      if (sc || gp || !hasVoxel(x, y - 1, z))
+      if (sc || gp || !solidSide(x, y - 1, z, "bottom"))
         addFace(
           "top",
           [
@@ -1211,7 +1939,7 @@ export class Heerich {
           y,
           z + 0.5,
         );
-      if (sc || gp || !hasVoxel(x, y + 1, z))
+      if (sc || gp || !solidSide(x, y + 1, z, "top"))
         addFace(
           "bottom",
           [
@@ -1225,7 +1953,7 @@ export class Heerich {
           y + 1,
           z + 0.5,
         );
-      if (sc || gp || !hasVoxel(x - 1, y, z))
+      if (sc || gp || !solidSide(x - 1, y, z, "right"))
         addFace(
           "left",
           [
@@ -1239,7 +1967,7 @@ export class Heerich {
           y + 0.5,
           z + 0.5,
         );
-      if (sc || gp || !hasVoxel(x + 1, y, z))
+      if (sc || gp || !solidSide(x + 1, y, z, "left"))
         addFace(
           "right",
           [
@@ -1253,7 +1981,7 @@ export class Heerich {
           y + 0.5,
           z + 0.5,
         );
-      if (sc || gp || !hasVoxel(x, y, z - 1))
+      if (sc || gp || !solidSide(x, y, z - 1, "back"))
         addFace(
           "front",
           [
@@ -1267,7 +1995,7 @@ export class Heerich {
           y + 0.5,
           z,
         );
-      if (sc || gp || !hasVoxel(x, y, z + 1))
+      if (sc || gp || !solidSide(x, y, z + 1, "front"))
         addFace(
           "back",
           [
@@ -1787,6 +2515,14 @@ export class Heerich {
           (face.type === "bottom" && depthOffsetY <= 0) ||
           (face.type === "left" && depthOffsetX >= 0) ||
           (face.type === "right" && depthOffsetX <= 0)
+        )
+          continue;
+        // Slanted faces have no fixed side, so test the normal against the
+        // oblique view direction (-dx_norm, -dy_norm, 1) instead.
+        if (
+          face.type === "slope" &&
+          // a hair below 0 so faces seen exactly edge-on (zero area) drop out
+          face.n[2] - face.n[0] * dx_norm - face.n[1] * dy_norm >= -1e-9
         )
           continue;
 
