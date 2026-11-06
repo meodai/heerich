@@ -129,8 +129,8 @@
     <div class="title">
       <h1>Terrain</h1>
       <p>
-        Scroll to travel. Simplex noise, with tiles shaped by their corner
-        heights as in
+        Scroll or swipe to travel. Simplex noise, with tiles shaped by their
+        corner heights as in
         <a href="https://thesentinel.bbcelite.com/deep_dives/tile_shapes.html"
           >The Sentinel</a
         >. The birds flock as
@@ -1116,8 +1116,10 @@
         schedule(true);
       }
 
-      const move = (px) => {
+      // forward/back in scroll pixels, sideways in cells
+      const move = (px, cells = 0) => {
         travel += px;
+        travelX += cells;
         schedule();
       };
       const inPanel = (e) => e.target.closest?.("#settings-panel");
@@ -1129,27 +1131,57 @@
           e.preventDefault();
           // deltaMode 1 is lines, 2 pages (Firefox); 0 is pixels
           const unit = [1, PX_PER_ROW, window.innerHeight][e.deltaMode] ?? 1;
-          move(e.deltaY * unit);
+          // vertical scrolling travels forward and back, sideways scrolling
+          // (trackpads, shift+wheel) sideways
+          move(e.deltaY * unit, (e.deltaX * unit) / PX_PER_ROW);
         },
         { passive: false },
       );
 
-      let touchY = null;
+      // Touch: grab the land and drag it, in any direction. The finger's
+      // move on screen is turned into a move across the ground through the
+      // current camera: x and z one cell along, projected, give two screen
+      // vectors, and solving for the pair that matches the drag gives how
+      // far to travel along each.
+      let touch = null;
+      const toSVG = (t) => {
+        const m = svg.getScreenCTM()?.inverse();
+        if (!m) return null;
+        const pt = new DOMPoint(t.clientX, t.clientY).matrixTransform(m);
+        return [pt.x, pt.y];
+      };
       window.addEventListener("touchstart", (e) => {
-        if (!inPanel(e)) touchY = e.touches[0].clientY;
+        touch =
+          !inPanel(e) && e.touches.length === 1 ? toSVG(e.touches[0]) : null;
       });
       window.addEventListener(
         "touchmove",
         (e) => {
-          if (touchY === null) return;
+          if (!touch || !shown) return;
           e.preventDefault();
-          const y = e.touches[0].clientY;
-          move(touchY - y); // drag up to travel forward, like scrolling
-          touchY = y;
+          const p = toSVG(e.touches[0]);
+          if (!p) return;
+          const dx = p[0] - touch[0],
+            dy = p[1] - touch[1];
+          touch = p;
+          const y = maxH / 2;
+          const o = shown.project([0, y, 0]),
+            ex = shown.project([1, y, 0]),
+            ez = shown.project([0, y, 1]);
+          const ax = ex.x - o.x,
+            ay = ex.y - o.y,
+            bx = ez.x - o.x,
+            by = ez.y - o.y;
+          const det = ax * by - bx * ay;
+          if (Math.abs(det) < 1e-6) return;
+          // the land follows the finger, so the view moves the other way
+          const cx = -(dx * by - bx * dy) / det,
+            cz = -(ax * dy - dx * ay) / det;
+          move(cz * PX_PER_ROW, cx);
         },
         { passive: false },
       );
-      window.addEventListener("touchend", () => (touchY = null));
+      window.addEventListener("touchend", () => (touch = null));
 
       const KEYS = {
         ArrowDown: 1,
