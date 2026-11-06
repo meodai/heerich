@@ -313,7 +313,10 @@ for (const camera of [
   const frame = h.getFitFrame();
   const svg = new FakeElement(doc, "svg");
   h.updateSVG(svg, { fit: frame });
-  check("fit: same viewBox as toSVG", h.toSVG({ fit: frame }).includes(`viewBox="${svg.attrs.get("viewBox")}"`));
+  check(
+    "fit: same viewBox as toSVG",
+    h.toSVG({ fit: frame }).includes(`viewBox="${svg.attrs.get("viewBox")}"`),
+  );
   const size = () => svg.attrs.get("viewBox").split(" ").slice(2).join();
   const before = size();
   h.setCamera({ type: "isometric", angle: 77 });
@@ -331,6 +334,43 @@ for (const camera of [
   h.updateSVG(new FakeElement(doc, "g"), { fit: true });
   check("fit: <g> target measures nothing", measured === 0);
   h.getFitFrame = realGetFitFrame;
+}
+
+// dataAttributes: false leaves out data-* in both render paths, and switching
+// it off on a live target removes the ones already written
+{
+  const h = new Heerich();
+  h.applyGeometry({ ...box(), meta: { kind: "rock" } });
+  const withData = h.toSVG();
+  check(
+    "data: on by default",
+    withData.includes('data-voxel="') && withData.includes('data-kind="rock"'),
+  );
+  const without = h.toSVG({ dataAttributes: false });
+  check("data: toSVG leaves them out", !without.includes("data-"));
+  check(
+    "data: same polygons",
+    (without.match(/<polygon/g) || []).length ===
+      (withData.match(/<polygon/g) || []).length,
+  );
+  const svg = new FakeElement(doc, "svg");
+  h.updateSVG(svg);
+  const polys = () => svg.children[0].children;
+  check(
+    "data: updateSVG writes them",
+    polys().every((p) => p.attrs.has("data-face") && p.attrs.has("data-kind")),
+  );
+  h.updateSVG(svg, { dataAttributes: false });
+  check(
+    "data: updateSVG removes them when switched off",
+    polys().every(
+      (p) => ![...p.attrs.keys()].some((k) => k.startsWith("data-")),
+    ),
+  );
+  check(
+    "data: points kept",
+    polys().every((p) => p.attrs.has("points") && p.attrs.has("fill")),
+  );
 }
 
 if (failures.length) {

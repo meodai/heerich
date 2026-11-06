@@ -662,6 +662,7 @@ Options:
 | `prepend` | string | Raw SVG inserted before faces |
 | `append` | string | Raw SVG inserted after faces |
 | `faceAttributes` | function | Per-face attribute callback |
+| `dataAttributes` | boolean | Write `data-voxel`, `data-x`/`y`/`z`, `data-face` and `meta` as `data-*` (default `true`). Turn off when nothing reads them: smaller markup, and `updateSVG()` writes far fewer attributes per frame |
 | `occlusion` | boolean | Enable built-in occlusion culling (no external dependency) |
 | `resolveOcclusion` | function | Custom occlusion resolver (overrides built-in). Providing this implicitly enables occlusion. Input `(subjectCoords, overlappingCoords[])`, return `pathString` or `null` |
 

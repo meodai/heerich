@@ -2972,6 +2972,7 @@ export class Heerich {
    * @param {string} [options.prepend] - Raw SVG to insert before faces
    * @param {string} [options.append] - Raw SVG to insert after faces
    * @param {(face: Face) => Object|null} [options.faceAttributes] - Per-face attribute callback
+   * @param {boolean} [options.dataAttributes=true] - Write the `data-*` attributes (voxel, x, y, z, face, meta). Turn off when nothing reads them
    * @param {boolean} [options.occlusion=false] - Enable built-in occlusion culling
    * @param {(polygon: number[][], occluders: number[][][]) => string|null} [options.resolveOcclusion] - Custom occlusion resolver (overrides built-in). Providing this implicitly enables occlusion.
    * @returns {string} SVG markup

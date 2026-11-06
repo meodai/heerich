@@ -42,6 +42,7 @@ export class SVGRenderer {
    * @param {(face: import('./heerich.js').Face) => Object|null} [options.faceAttributes] - Per-face attribute callback
    * @param {number} [options.tileW] - Voxel tile pixel width (for content face transforms)
    * @param {Map<string, import('./heerich.js').DecalDef>} [options.decals] - Registered decal definitions
+   * @param {boolean} [options.dataAttributes=true] - Write `data-voxel`, `data-x/y/z`, `data-face` and `meta` attributes. Turn off when nothing reads them: smaller markup, fewer DOM writes
    * @returns {string} SVG markup
    */
   render(faces, options = {}) {
@@ -67,7 +68,12 @@ export class SVGRenderer {
     if (options.prepend) parts.push(options.prepend);
     parts.push(`<g transform="translate(${offset[0]}, ${offset[1]})">`);
 
-    const ctx = { tw, faceAttrFn, decalDefs };
+    const ctx = {
+      tw,
+      faceAttrFn,
+      decalDefs,
+      data: options.dataAttributes !== false,
+    };
     for (let fi = 0; fi < renderFaces.length; fi++) {
       this._pushFaceMarkup(parts, renderFaces[fi], ctx);
     }
@@ -128,6 +134,7 @@ export class SVGRenderer {
       tw: options.tileW || 1,
       faceAttrFn: options.faceAttributes || null,
       decalDefs: options.decals || null,
+      data: options.dataAttributes !== false,
     };
     const { group, slots } = state;
     const gen = ++state.gen;
@@ -149,7 +156,7 @@ export class SVGRenderer {
       }
 
       if (isPolygon) {
-        _writePolygon(slot, face, ctx.faceAttrFn, gen);
+        _writePolygon(slot, face, ctx.faceAttrFn, gen, ctx.data);
       } else {
         const parts = [];
         this._pushFaceMarkup(parts, face, ctx);
@@ -273,7 +280,7 @@ export class SVGRenderer {
    * @param {import('./heerich.js').Face} face
    * @param {{tw: number, faceAttrFn: Function|null, decalDefs: Map<string, import('./heerich.js').DecalDef>|null}} ctx
    */
-  _pushFaceMarkup(parts, face, { tw, faceAttrFn, decalDefs }) {
+  _pushFaceMarkup(parts, face, { tw, faceAttrFn, decalDefs, data = true }) {
     if (face.type === "content") {
       parts.push(
         `<g transform="translate(${face._px}, ${face._py}) scale(${face._scale})" style="--x:${face._px};--y:${face._py};--z:${face._pos[2]};--scale:${face._scale};--tile:${tw}">`,
@@ -307,20 +314,23 @@ export class SVGRenderer {
       }
     }
 
-    let metaAttrs = "";
-    if (v.meta) {
-      for (const [mk, mv] of Object.entries(v.meta)) {
-        metaAttrs += ` data-${mk}="${mv}"`;
+    let dataAttrs = "";
+    if (data) {
+      dataAttrs = ` data-voxel="${v.x},${v.y},${v.z}" data-x="${v.x}" data-y="${v.y}" data-z="${v.z}" data-face="${face.type}"`;
+      if (v.meta) {
+        for (const [mk, mv] of Object.entries(v.meta)) {
+          dataAttrs += ` data-${mk}="${mv}"`;
+        }
       }
     }
 
     if (face._pathD) {
       parts.push(
-        `<path d="${face._pathD}"${_buildSvgAttributes(style)} data-voxel="${v.x},${v.y},${v.z}" data-x="${v.x}" data-y="${v.y}" data-z="${v.z}" data-face="${face.type}"${metaAttrs}${extraAttrs} />`,
+        `<path d="${face._pathD}"${_buildSvgAttributes(style)}${dataAttrs}${extraAttrs} />`,
       );
     } else {
       parts.push(
-        `<polygon points="${d[0]},${d[1]} ${d[2]},${d[3]} ${d[4]},${d[5]} ${d[6]},${d[7]}"${_buildSvgAttributes(style)} data-voxel="${v.x},${v.y},${v.z}" data-x="${v.x}" data-y="${v.y}" data-z="${v.z}" data-face="${face.type}"${metaAttrs}${extraAttrs} />`,
+        `<polygon points="${d[0]},${d[1]} ${d[2]},${d[3]} ${d[4]},${d[5]} ${d[6]},${d[7]}"${_buildSvgAttributes(style)}${dataAttrs}${extraAttrs} />`,
       );
     }
 
@@ -413,7 +423,7 @@ function _setAttr(slot, name, value, gen) {
  * @param {((face: import('./heerich.js').Face) => Object|null)|null} faceAttrFn
  * @param {number} gen
  */
-function _writePolygon(slot, face, faceAttrFn, gen) {
+function _writePolygon(slot, face, faceAttrFn, gen, data = true) {
   const d = face.points.data;
   const v = face.voxel;
   const style = face.style;
@@ -443,13 +453,15 @@ function _writePolygon(slot, face, faceAttrFn, gen) {
     }
   }
 
-  _setAttr(slot, "data-voxel", `${v.x},${v.y},${v.z}`, gen);
-  _setAttr(slot, "data-x", v.x, gen);
-  _setAttr(slot, "data-y", v.y, gen);
-  _setAttr(slot, "data-z", v.z, gen);
-  _setAttr(slot, "data-face", face.type, gen);
-  if (v.meta) {
-    for (const key in v.meta) _setAttr(slot, `data-${key}`, v.meta[key], gen);
+  if (data) {
+    _setAttr(slot, "data-voxel", `${v.x},${v.y},${v.z}`, gen);
+    _setAttr(slot, "data-x", v.x, gen);
+    _setAttr(slot, "data-y", v.y, gen);
+    _setAttr(slot, "data-z", v.z, gen);
+    _setAttr(slot, "data-face", face.type, gen);
+    if (v.meta) {
+      for (const key in v.meta) _setAttr(slot, `data-${key}`, v.meta[key], gen);
+    }
   }
 
   // Remove what the previous face on this element had and this one doesn't
