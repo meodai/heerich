@@ -16,6 +16,7 @@ export default defineConfig({
         minesweeper: fileURLToPath(
           new URL("./minesweeper.html", import.meta.url),
         ),
+        terrain: fileURLToPath(new URL("./terrain.html", import.meta.url)),
       },
     },
   },

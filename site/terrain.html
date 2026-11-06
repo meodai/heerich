@@ -1,0 +1,1656 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Heerich Terrain</title>
+    <meta
+      name="description"
+      content="Endless voxel terrain from simplex noise, built with heerich.js"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Aboreto&family=Work+Sans:wght@300;400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./site.css" />
+    <style>
+      :root {
+        --fill: #fbf4ea;
+        --stroke-c: #18191b;
+        --stroke-w: 0.3;
+        --sand: #eadcb4;
+        --grass: #b9cf98;
+        --forest: #87a874;
+        --rock: #b3aca0;
+        --snow: #fffaf2;
+        --water: #a9c8dc;
+        --water-deep: #2f5d7c;
+        --tower: #f4ece0;
+        --shade: #3a2f25; /* mixed into side faces */
+        --shade-amount: 18%;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --fill: #0e0e0e;
+          --stroke-c: #fbf4ea;
+          --sand: #4a4330;
+          --grass: #36452a;
+          --forest: #263a22;
+          --rock: #3d3a35;
+          --snow: #6d6a64;
+          --water: #2b4a5f;
+          --water-deep: #0d1a24;
+          --tower: #4a4640;
+          --shade: #000;
+          --shade-amount: 35%;
+        }
+      }
+
+      html {
+        scroll-behavior: auto;
+      }
+
+      /* Nothing scrolls: wheel, touch and keys move the terrain instead, with
+         no start or end. */
+      body {
+        height: 100vh;
+        overflow: hidden;
+        overscroll-behavior: none;
+      }
+
+      .terrain {
+        touch-action: none;
+      }
+
+      /* The panel is taller than short screens: let it scroll on its own
+         (the wheel over it scrolls the panel, not the terrain). */
+      .settings-panel {
+        max-height: calc(100vh - 2.4rem);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+      }
+
+      .terrain {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .terrain svg {
+        width: min(96vw, 140vh);
+        height: 96vh;
+        display: block;
+      }
+
+      .title {
+        position: fixed;
+        top: 1.2rem;
+        left: 1.6rem;
+        z-index: 10;
+        pointer-events: none;
+      }
+
+      .title h1 {
+        font-family: "Aboreto", cursive;
+        font-weight: 400;
+        font-size: 2.4rem;
+        letter-spacing: -0.05em;
+        line-height: 1.1;
+        margin: 0 0 0.3rem;
+      }
+
+      .title p {
+        font-size: 0.85rem;
+        opacity: 0.6;
+        max-width: 34ch;
+        margin: 1rem 0 0 1.2rem;
+      }
+
+      .title a {
+        color: inherit;
+        pointer-events: auto;
+      }
+
+      .stats {
+        position: fixed;
+        left: 1.6rem;
+        bottom: 1.2rem;
+        font-size: 0.8rem;
+        opacity: 0.6;
+        font-variant-numeric: tabular-nums;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="title">
+      <h1>Terrain</h1>
+      <p>
+        Scroll to travel. Simplex noise, with tiles shaped by their corner
+        heights as in
+        <a href="https://thesentinel.bbcelite.com/deep_dives/tile_shapes.html"
+          >The Sentinel</a
+        >. The birds flock as
+        <a href="https://www.red3d.com/cwr/boids/">boids</a>, after Craig
+        Reynolds. Made with <a href="./">heerich.js</a>.
+      </p>
+    </div>
+
+    <div class="terrain" id="terrain">
+      <svg xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+
+    <div class="stats" id="stats"></div>
+
+    <details class="settings-panel visible" id="settings-panel" open>
+      <summary class="settings-title">
+        Settings <span class="details-icon-closed">▥</span>
+      </summary>
+      <div class="settings-section-title">
+        Camera
+        <button
+          class="btn-shuffle"
+          id="btn-randomize-settings"
+          title="Randomize camera"
+        >
+          ⇋
+        </button>
+      </div>
+      <div class="settings-fields">
+        <label class="control-label">
+          <span>Type</span>
+          <select class="control-select" id="cam-proj">
+            <option value="oblique">oblique</option>
+            <option value="perspective">perspective</option>
+            <option value="orthographic">orthographic</option>
+            <option value="isometric" selected>isometric</option>
+          </select>
+        </label>
+        <label class="control-label" id="cam-angle-label">
+          <span>Angle</span>
+          <input type="range" id="cam-angle" min="0" max="360" value="315" />
+          <span class="control-value">315</span>
+        </label>
+        <label class="control-label" id="cam-y-label">
+          <span>Cam Y</span>
+          <input
+            type="range"
+            id="cam-y"
+            min="-10"
+            max="20"
+            value="10"
+            step="0.5"
+          />
+          <span class="control-value">10</span>
+        </label>
+        <div class="settings-grid-panel" id="cam-perspective-control" hidden>
+          <div class="settings-grid-header">
+            <span>Angle / Cam Y</span>
+            <span class="settings-grid-values"
+              ><span id="cam-grid-angle-value">315</span>
+              <span class="settings-grid-separator">/</span>
+              <span id="cam-grid-y-value">10</span></span
+            >
+          </div>
+          <div class="settings-grid" id="cam-grid">
+            <i class="settings-grid__indicator"></i>
+            <i class="settings-grid__dot"></i>
+            <i class="settings-grid__center"></i>
+          </div>
+        </div>
+        <label class="control-label">
+          <span>Distance</span>
+          <input type="range" id="cam-dist" min="1" max="80" value="14" />
+          <span class="control-value">14</span>
+        </label>
+      </div>
+      <div class="settings-section-title">
+        Terrain
+        <button class="btn-shuffle" id="btn-reseed" title="New seed">⇋</button>
+      </div>
+      <div class="settings-fields">
+        <label class="control-label">
+          <span>Colors</span>
+          <select class="control-select" id="opt-palette">
+            <option value="earth">earth</option>
+            <option value="dusk">dusk</option>
+            <option value="plum">plum</option>
+            <option value="white">white</option>
+            <option value="paper">paper</option>
+            <option value="dark">dark</option>
+            <option value="columns">by column</option>
+          </select>
+        </label>
+        <label class="control-label">
+          <span>Surface</span>
+          <select class="control-select" id="opt-surface">
+            <option value="corners">corners</option>
+            <option value="autoslope">autoSlope</option>
+            <option value="cubes">cubes</option>
+          </select>
+        </label>
+        <label class="control-label">
+          <span>Stroke</span>
+          <input type="color" id="opt-stroke-color" value="#18191b" />
+        </label>
+        <label class="control-label">
+          <span>Width</span>
+          <input
+            type="range"
+            id="opt-stroke"
+            min="0"
+            max="3"
+            value="0.3"
+            step="0.1"
+          />
+          <span class="control-value">0.3</span>
+        </label>
+        <label class="control-label" title="Corners surface only">
+          <span>Body</span>
+          <select class="control-select" id="opt-body">
+            <option value="shell">shell</option>
+            <option value="solid">solid</option>
+          </select>
+        </label>
+        <label class="control-label">
+          <span>Size</span>
+          <input
+            type="range"
+            id="opt-size"
+            min="12"
+            max="50"
+            value="40"
+            step="2"
+          />
+          <span class="control-value">40</span>
+        </label>
+        <label class="control-label">
+          <span>Height</span>
+          <input type="range" id="opt-height" min="3" max="14" value="8" />
+          <span class="control-value">8</span>
+        </label>
+        <label class="control-label">
+          <span>Scale</span>
+          <input
+            type="range"
+            id="opt-scale"
+            min="2"
+            max="40"
+            value="20"
+            step="1"
+          />
+          <span class="control-value">20</span>
+        </label>
+        <label class="control-label">
+          <span>Sea level</span>
+          <input type="range" id="opt-sea" min="0" max="6" value="3" />
+          <span class="control-value">3</span>
+        </label>
+        <label class="control-label">
+          <span>Towers</span>
+          <input type="range" id="opt-towers" min="0" max="10" value="3" />
+          <span class="control-value">3</span>
+        </label>
+      </div>
+      <div class="settings-section-title">Travel</div>
+      <div class="settings-fields">
+        <label class="control-label">
+          <span>Autoplay</span>
+          <input type="checkbox" id="opt-autoplay" />
+        </label>
+        <label class="control-label">
+          <span>Speed</span>
+          <input type="range" id="opt-speed" min="1" max="20" value="6" />
+          <span class="control-value">6</span>
+        </label>
+      </div>
+      <div class="settings-section-title">Birds</div>
+      <div class="settings-fields">
+        <label class="control-label" title="Typical flock size; 0 for none">
+          <span>Flock</span>
+          <input type="range" id="opt-birds" min="0" max="150" value="60" />
+          <span class="control-value">60</span>
+        </label>
+      </div>
+    </details>
+
+    <script type="module">
+      import { Heerich } from "../src/heerich.js";
+      import { createNoise2D } from "https://esm.sh/simplex-noise@4.0.3";
+      import alea from "https://esm.sh/alea@1.0.1";
+
+      const $ = (id) => document.getElementById(id);
+      const svg = $("terrain").querySelector("svg");
+      // The faces go in this group; it slides by the fraction of a cell
+      // travelled since the last rebuild, so motion is smooth between cells.
+      const world = svg.appendChild(
+        document.createElementNS("http://www.w3.org/2000/svg", "g"),
+      );
+      const stats = $("stats");
+
+      // ─── Range inputs: same look as the docs page ───
+      function enhanceRange(input) {
+        const wrap = document.createElement("div");
+        wrap.className = "range-wrap";
+        const thumb = document.createElement("span");
+        thumb.className = "range-thumb";
+        const capL = document.createElement("span");
+        capL.className = "range-cap-left";
+        const capR = document.createElement("span");
+        capR.className = "range-cap-right";
+        input.parentNode.insertBefore(wrap, input);
+        wrap.append(input, thumb, capL, capR);
+        const valueSpan = wrap
+          .closest(".control-label")
+          .querySelector(".control-value");
+        const sync = () => {
+          const min = parseFloat(input.min) || 0;
+          const max = parseFloat(input.max) || 100;
+          wrap.style.setProperty(
+            "--val",
+            (parseFloat(input.value) - min) / (max - min),
+          );
+          if (valueSpan) valueSpan.textContent = input.value;
+        };
+        input.addEventListener("input", sync);
+        input._sync = sync;
+        sync();
+      }
+      document.querySelectorAll('input[type="range"]').forEach(enhanceRange);
+
+      if (window.matchMedia("(max-width: 56rem)").matches)
+        $("settings-panel").removeAttribute("open");
+
+      // ─── Camera: the docs page's controls ───
+      const camProj = $("cam-proj");
+      const camAngle = $("cam-angle");
+      const camDist = $("cam-dist");
+      const camY = $("cam-y");
+      const camGrid = $("cam-grid");
+
+      const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+      const num = (v, d) => (Number.isNaN(parseFloat(v)) ? d : parseFloat(v));
+      const roundToStep = (v, min, step) =>
+        Number((min + Math.round((v - min) / step) * step).toFixed(4));
+
+      function getCamera() {
+        const angle = parseFloat(camAngle.value);
+        const dist = parseFloat(camDist.value);
+        switch (camProj.value) {
+          case "oblique":
+            return { type: "oblique", angle, distance: dist };
+          case "orthographic":
+            return {
+              type: "orthographic",
+              angle,
+              pitch: parseFloat(camY.value) * 3,
+            };
+          case "isometric":
+            return { type: "isometric", angle };
+        }
+        // Perspective: the angle slides the eye across the terrain's width.
+        const camX = size / 2 + ((angle - 180) / 180) * size;
+        return {
+          type: "perspective",
+          position: [camX, -parseFloat(camY.value)],
+          distance: dist / 2,
+        };
+      }
+
+      function updatePerspectiveGrid() {
+        const x =
+          ((num(camAngle.value, 0) - num(camAngle.min, 0)) /
+            (num(camAngle.max, 360) - num(camAngle.min, 0))) *
+          100;
+        const y =
+          ((num(camY.value, 0) - num(camY.min, -10)) /
+            (num(camY.max, 20) - num(camY.min, -10))) *
+          100;
+        const dx = x - 50,
+          dy = y - 50;
+        camGrid.style.setProperty("--x", `${x}%`);
+        camGrid.style.setProperty("--y", `${y}%`);
+        camGrid.style.setProperty("--distance", `${Math.hypot(dx, dy)}%`);
+        camGrid.style.setProperty(
+          "--angle",
+          `${(Math.atan2(dy, dx) * 180) / Math.PI}deg`,
+        );
+        $("cam-grid-angle-value").textContent = camAngle.value;
+        $("cam-grid-y-value").textContent = camY.value;
+      }
+
+      function syncControlVisibility() {
+        const p = camProj.value;
+        $("cam-angle-label").style.display = p === "perspective" ? "none" : "";
+        $("cam-y-label").style.display = p === "orthographic" ? "" : "none";
+        camDist.closest(".control-label").style.display =
+          p === "orthographic" || p === "isometric" ? "none" : "";
+        $("cam-perspective-control").hidden = p !== "perspective";
+        if (p === "isometric") {
+          Object.assign(camAngle, { min: "45", max: "315", step: "90" });
+          const v = parseFloat(camAngle.value) || 45;
+          camAngle.value = clamp(Math.round((v - 45) / 90) * 90 + 45, 45, 315);
+        } else {
+          Object.assign(camAngle, { min: "0", max: "360", step: "1" });
+        }
+        camAngle._sync();
+        updatePerspectiveGrid();
+      }
+
+      function setPerspectiveFromGrid(clientX, clientY) {
+        const r = camGrid.getBoundingClientRect();
+        const x = clamp((clientX - r.left) / r.width, 0, 1);
+        const y = clamp((clientY - r.top) / r.height, 0, 1);
+        const aMin = num(camAngle.min, 0),
+          aMax = num(camAngle.max, 360);
+        const yMin = num(camY.min, -10),
+          yMax = num(camY.max, 20);
+        camAngle.value = roundToStep(aMin + x * (aMax - aMin), aMin, 1);
+        camY.value = roundToStep(yMin + y * (yMax - yMin), yMin, 0.5);
+        camAngle._sync();
+        camY._sync();
+        updatePerspectiveGrid();
+        cameraChanged();
+      }
+
+      camGrid.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        setPerspectiveFromGrid(e.clientX, e.clientY);
+        const move = (m) => setPerspectiveFromGrid(m.clientX, m.clientY);
+        const up = () => {
+          document.removeEventListener("pointermove", move);
+          document.removeEventListener("pointerup", up);
+        };
+        document.addEventListener("pointermove", move);
+        document.addEventListener("pointerup", up);
+      });
+
+      [camProj, camAngle, camY, camDist].forEach((el) =>
+        el.addEventListener(
+          el.tagName === "SELECT" ? "change" : "input",
+          () => {
+            if (el === camProj) syncControlVisibility();
+            else updatePerspectiveGrid();
+            cameraChanged();
+          },
+        ),
+      );
+
+      $("btn-randomize-settings").addEventListener("click", () => {
+        const projs = ["perspective", "oblique", "orthographic", "isometric"];
+        camProj.value = projs[Math.floor(Math.random() * projs.length)];
+        camAngle.value = Math.round(Math.random() * 360);
+        camDist.value = (6 + Math.random() * 20).toFixed(1);
+        camY.value = (4 + Math.random() * 12).toFixed(1);
+        [camAngle, camDist, camY].forEach((el) => el._sync());
+        syncControlVisibility();
+        cameraChanged();
+      });
+
+      // ─── Terrain ───
+      let size = +$("opt-size").value;
+      let maxH = +$("opt-height").value;
+      let scale = +$("opt-scale").value;
+      let sea = +$("opt-sea").value;
+      let surface = $("opt-surface").value;
+      let body = $("opt-body").value;
+      let towers = +$("opt-towers").value;
+      let seed = Math.random().toString(36).slice(2, 8);
+      let noise, detail, path, wind;
+
+      function reseed() {
+        // A fresh generator per noise function, as simplex-noise recommends.
+        noise = createNoise2D(alea(seed));
+        detail = createNoise2D(alea(seed + "-detail"));
+        path = createNoise2D(alea(seed + "-path"));
+        wind = createNoise2D(alea(seed + "-birds"));
+      }
+      reseed();
+
+      // Height in levels, 1..maxH, at world point (x, r): two octaves of
+      // simplex noise give n in -1..1. Above 0 is land, rising to maxH;
+      // below 0 is the bed of a lake, sinking to level 1, mirrored like a
+      // mountain upside down. Levels 1..sea are under water.
+      function field(x, r) {
+        const f = 1 / (scale * 2);
+        const n =
+          noise(x * f, r * f) * 0.75 + detail(x * f * 3, r * f * 3) * 0.25;
+        const s = Math.min(sea, maxH - 1);
+        const t = Math.pow(Math.abs(n), 1.3);
+        return clamp(
+          n >= 0 ? s + 0.5 + t * (maxH - s - 0.5) : s + 0.5 - t * s * 1.6,
+          1,
+          maxH,
+        );
+      }
+
+      // ─── Colours ───
+      // Gradient stops from the lowest level to the highest. Levels between
+      // stops are mixed in OKLCH by the browser, so the theme's variables
+      // (and dark mode) still apply.
+      const PALETTES = {
+        earth: [
+          "var(--sand)",
+          "var(--grass)",
+          "var(--forest)",
+          "var(--rock)",
+          "var(--snow)",
+        ],
+        dusk: ["#2d3561", "#7b4b94", "#c05c7e", "#f3826f", "#ffd8a8"],
+        // after a coral-on-plum illustration: deep maroon lowlands rising
+        // through plum to dusty violet
+        plum: ["#4f2c37", "#663c58", "#7c5d86", "#9888b3"],
+        // One colour all the way up: only the light shapes them. White sits
+        // a touch below pure white so faces turned to the light can still
+        // brighten; paper is the page itself.
+        white: ["#f2f2f2", "#f2f2f2"],
+        paper: ["var(--fill)", "var(--fill)"],
+        dark: ["#101010", "#262626", "#3b3b3b", "#585858"],
+      };
+      // Each palette's water, deep to shallow, and its towers.
+      const WATERS = {
+        earth: ["var(--water-deep)", "var(--water)"],
+        dusk: ["#10142e", "#4b5a96"],
+        plum: ["#2c1820", "#432633"],
+        white: ["#d9d9d9", "#e9e9e9"],
+        dark: ["#050505", "#171717"],
+        paper: [
+          // darkened toward neutral black, keeping the page's warmth
+          "color-mix(in oklab, black 12%, var(--fill))",
+          "color-mix(in oklab, black 4%, var(--fill))",
+        ],
+      };
+      // Bird colours: white with the theme's outline, except where that
+      // wouldn't read (paper: black birds, white outline).
+      const BIRDS = {
+        paper: { fill: "#000", stroke: "#fff" },
+        plum: { fill: "#ff5a47", stroke: "#1c0f17" },
+      };
+      const birdLook = () =>
+        BIRDS[palette] || { fill: "#fff", stroke: "var(--stroke-c)" };
+      const TOWERS = {
+        earth: "var(--tower)",
+        dusk: "#ffe9cf",
+        plum: "#e2412f", // darker orange-red; the pyramids are the bright coral
+        white: "#fff",
+        paper: "var(--fill)",
+        dark: "#2e2e2e",
+      };
+      let palette = $("opt-palette").value;
+
+      // Mixed in oklch (keeps colourful palettes vivid); palettes between
+      // near-neutral colours set `space: "oklab"` in LOOK, since oklch takes
+      // the short way round the hue circle between two greys, through red.
+      function gradient(stops, t, space = look().space || "oklch") {
+        const s = clamp(t, 0, 1) * (stops.length - 1);
+        const i = Math.min(Math.floor(s), stops.length - 2);
+        const p = Math.round((s - i) * 100);
+        // (a colour mixed with itself in oklch comes back with hue `none`,
+        // which a later mix reads as 0°, red: so don't mix equal stops)
+        if (p === 0 || stops[i] === stops[i + 1]) return stops[i];
+        if (p === 100) return stops[i + 1];
+        // Chrome also loses the hue mixing two color-mix() results in oklch,
+        // so stops that are mixes themselves blend in oklab.
+        if (/color-mix/.test(stops[i] + stops[i + 1])) space = "oklab";
+        return `color-mix(in ${space}, ${stops[i + 1]} ${p}%, ${stops[i]})`;
+      }
+
+      // "by column" keeps the earth water
+      const waterAt = (l) =>
+        gradient(
+          WATERS[palette] || WATERS.earth,
+          (l - 1) / Math.max(1, sea - 1),
+        );
+
+      function columnFill(h) {
+        const t = h / maxH;
+        if (h <= sea) return waterAt(h);
+        if (h === sea + 1) return "var(--sand)";
+        if (t < 0.45) return "var(--grass)";
+        if (t < 0.7) return "var(--forest)";
+        if (t < 0.9) return "var(--rock)";
+        return "var(--snow)";
+      }
+
+      // Width 0 turns them off: then each face gets a thin stroke of its own
+      // colour instead, to cover the seams (a stroke of width 0 couldn't).
+      let outlines = +$("opt-stroke").value > 0;
+      const SEAM = "0.6";
+      const face = (fill) =>
+        outlines ? { fill } : { fill, stroke: fill, strokeWidth: SEAM };
+      const baseStyle = () => ({
+        fill: "var(--fill)",
+        stroke: outlines ? "var(--stroke-c)" : "var(--fill)",
+        strokeWidth: "var(--stroke-w)",
+      });
+      // Per-palette light: how strong the slope tint is (1 = full) and how
+      // much darker side faces are. Paper stays soft, close to the page.
+      const LOOK = {
+        paper: { light: 0.35, side: "7%" },
+        plum: { space: "oklab", shadow: "#1c0f17" }, // shade toward deep plum
+        white: { space: "oklab" },
+        dark: { space: "oklab", shadow: "black" }, // grey only, no warm shade
+      };
+      const look = () => LOOK[palette] || {};
+      const shadow = () => look().shadow || "var(--shade)";
+      const shade = (c) =>
+        `color-mix(in oklab, ${shadow()} ${look().side || "var(--shade-amount)"}, ${c})`;
+
+      // One style per level (1 = bottom … maxH = top): tops and slopes in the
+      // level's colour, sides a shade darker so the strata read on cliffs.
+      // Lake beds take the water gradient, land the palette from the shore up.
+      let levelStyles = [];
+      function makeLevelStyles() {
+        const stops = PALETTES[palette] || PALETTES.earth; // "by column" has none
+        levelStyles = [];
+        const land = Math.max(1, maxH - sea - 1); // land levels above the shore
+        for (let l = 1; l <= maxH; l++) {
+          const c =
+            l <= sea ? waterAt(l) : gradient(stops, (l - sea - 1) / land);
+          levelStyles[l] = {
+            default: face(shade(c)),
+            top: face(c),
+            slope: face(c),
+          };
+        }
+      }
+      // y grows downward, the floor is y = maxH: level = maxH - y + 1.
+      const levelOf = (y) => clamp(maxH - y + 1, 1, maxH);
+      const byLevel = {
+        default: (x, y, z) => levelStyles[levelOf(y)].default,
+        top: (x, y, z) => levelStyles[levelOf(y)].top,
+        slope: (x, y, z) => levelStyles[levelOf(y)].slope,
+      };
+      // A flat lake's surface coloured by the depth of the bed below it, so
+      // it darkens away from the shore; its cut sides keep the level bands.
+      const lakeStyle = (bed) =>
+        palette === "columns"
+          ? columnStyle(bed)
+          : { ...byLevel, top: levelStyles[clamp(bed, 1, maxH)].top };
+
+      const columnCache = new Map();
+      const columnStyle = (h) => {
+        const fill = columnFill(h);
+        if (!columnCache.has(fill))
+          columnCache.set(fill, { top: face(fill), slope: face(fill) });
+        return columnCache.get(fill);
+      };
+      makeLevelStyles();
+
+      // y grows downward: the floor of the terrain is row y = maxH, and a
+      // column of L levels fills y = maxH - L + 1 … maxH.
+      const column = (h, x, z, L, style) =>
+        L > 0 &&
+        h.addGeometry({
+          type: "box",
+          position: [x, maxH - L + 1, z],
+          size: [1, L, 1],
+          style,
+        });
+
+      // ─── Towers ───
+      // A few tiles carry a building: a plain stack of blocks, or a pyramid
+      // when it's one block tall. Which tiles is
+      // decided by a hash of the world position and the seed, not by
+      // Math.random, so a tower keeps its place while it scrolls by.
+      // Returns the tower's height in blocks, or 0.
+      function towerAt(wx, wz) {
+        if (!towers) return 0;
+        let n = (wx * 374761393 + wz * 668265263 + seedHash) | 0;
+        n = Math.imul(n ^ (n >>> 13), 1274126177);
+        n = (n ^ (n >>> 16)) >>> 0;
+        if (n % 1000 >= towers) return 0; // 0.1% of tiles per step
+        return 1 + ((n >>> 10) % 4); // 1–4 blocks; 1 is a pyramid
+      }
+      let seedHash = 0;
+      const hashSeed = () => {
+        seedHash = 0;
+        for (const ch of seed)
+          seedHash = Math.imul(seedHash ^ ch.charCodeAt(0), 16777619);
+      };
+      hashSeed();
+
+      let towerStyle;
+      const makeTowerStyle = () =>
+        (towerStyle = {
+          default: face(
+            `color-mix(in oklab, ${shadow()} 12%, ${TOWERS[palette] || TOWERS.earth})`,
+          ),
+          top: face(TOWERS[palette] || TOWERS.earth),
+        });
+      makeTowerStyle();
+      // Buildings taller than two get a cap: blackish, tuned to each palette.
+      // Dark turns it around: dark buildings with white caps. On dark and
+      // white the pyramids (a building's tip on its own) take the cap
+      // colour too.
+      const CAPS = {
+        earth: "#2e2a26",
+        dusk: "#1d1a33",
+        plum: "#c7302a", // deeper red
+        white: "#e8452c", // an orange-red accent on the white model
+        paper: "color-mix(in oklab, var(--stroke-c) 88%, var(--fill))",
+        dark: "#fff",
+      };
+      // palettes whose pyramids take the cap colour too
+      const TIPS_AS_CAPS = { dark: true, white: true };
+      // palettes whose pyramids have a colour of their own
+      const TIPS = { plum: "#ff6a52" }; // bright coral
+      const capStyle = () => {
+        const c = CAPS[palette] || CAPS.earth;
+        return {
+          default: face(`color-mix(in oklab, black 25%, ${c})`),
+          top: face(c),
+        };
+      };
+      function addTower(h, x, yTop, z, n) {
+        const open = n > 2; // ends in a cap
+        h.addGeometry({
+          type: "box",
+          position: [x, yTop - n + 1 + (open ? 1 : 0), z],
+          size: [1, open ? n - 1 : n, 1],
+          style:
+            n !== 1
+              ? towerStyle
+              : TIPS[palette]
+                ? { default: face(TIPS[palette]) }
+                : TIPS_AS_CAPS[palette]
+                  ? capStyle()
+                  : towerStyle,
+          meta: { tower: 1 },
+          slope: n === 1 ? "tip" : undefined,
+        });
+        if (open)
+          h.addGeometry({
+            type: "box",
+            position: [x, yTop - n + 1, z],
+            size: 1,
+            style: capStyle(),
+            meta: { tower: 1 },
+          });
+      }
+
+      // `col`, `row`: the world column and row at the view's corner (x, z = 0).
+      function build(col, row) {
+        const h = new Heerich({
+          tile: 20,
+          camera: getCamera(),
+          style: baseStyle(),
+        });
+        const styleFor = (L) =>
+          palette === "columns" ? columnStyle(L) : byLevel;
+
+        if (surface !== "corners") {
+          // One whole height per column; autoSlope rounds off the steps it
+          // can (neighbours one level apart).
+          for (let x = 0; x < size; x++)
+            for (let z = 0; z < size; z++) {
+              const L = Math.round(field(x + col + 0.5, z + row + 0.5));
+              column(h, x, z, L, styleFor(L));
+              const t = L >= sea + 1 ? towerAt(x + col, z + row) : 0;
+              if (t) addTower(h, x, maxH - L, z, t);
+            }
+          if (surface === "autoslope")
+            h.autoSlope({ bottom: false, filter: (v) => !v.meta?.tower });
+          return h;
+        }
+
+        // Corners, after The Sentinel (Geoff Crammond, 1986), which keeps its
+        // landscape as heights at tile corners and gives each tile the shape
+        // its four corners make:
+        // https://thesentinel.bbcelite.com/deep_dives/tile_shapes.html
+        // Heights are sampled at every grid corner, in quarter levels (a few
+        // dozen distinct pieces, so the shape cache stays small).
+        const N = size + 1;
+        const g = new Float32Array(N * N);
+        for (let i = 0; i < N; i++)
+          for (let k = 0; k < N; k++)
+            g[i * N + k] = Math.round(field(i + col, k + row) * 4) / 4;
+        // Level a pad under each tower: its tile's four corners go down to a
+        // whole level (The Sentinel only puts objects on flat tiles).
+        const pads = [];
+        for (let x = 0; x < size; x++)
+          for (let z = 0; z < size; z++) {
+            const t = towerAt(x + col, z + row);
+            if (!t) continue;
+            const ids = [
+              x * N + z,
+              (x + 1) * N + z,
+              x * N + z + 1,
+              (x + 1) * N + z + 1,
+            ];
+            const lo = Math.floor(Math.min(...ids.map((id) => g[id])));
+            if (lo < sea + 1) continue; // dry land only, not in the lakes
+            for (const id of ids) g[id] = lo;
+            pads.push([x, z, t]);
+          }
+        // A cell's piece sits on whole level floor(lowest corner) and is one
+        // voxel tall, so no corner may stand above that + 1. Lower the ones
+        // that do; that can push a neighbouring cell out of range, so repeat
+        // until nothing moves (like The Sentinel's spike smoothing).
+        for (let changed = true; changed;) {
+          changed = false;
+          for (let i = 0; i < size; i++)
+            for (let k = 0; k < size; k++) {
+              const ids = [
+                i * N + k,
+                (i + 1) * N + k,
+                i * N + k + 1,
+                (i + 1) * N + k + 1,
+              ];
+              let lo = Infinity;
+              for (const id of ids) lo = Math.min(lo, g[id]);
+              const top = Math.floor(lo) + 1;
+              for (const id of ids)
+                if (g[id] > top) {
+                  g[id] = top;
+                  changed = true;
+                }
+            }
+        }
+        for (let x = 0; x < size; x++)
+          for (let z = 0; z < size; z++) {
+            const c = [
+              g[x * N + z],
+              g[(x + 1) * N + z],
+              g[x * N + z + 1],
+              g[(x + 1) * N + z + 1],
+            ];
+            const L = Math.floor(Math.min(...c));
+            const top = c.map((v) => v - L);
+            if (body === "solid") column(h, x, z, L, styleFor(L));
+            else if (top.some((v) => v < 1))
+              // A shell one level thick: the cell under the top piece holds
+              // the same shape upside down, hanging 1 − top from its ceiling,
+              // so the underside runs one level below the surface. Nothing
+              // further down.
+              h.addGeometry({
+                type: "box",
+                position: [x, maxH - L + 1, z],
+                size: 1,
+                style: styleFor(L),
+                slope: { corners: top.map((v) => 1 - v), ceiling: true },
+              });
+            // Shell lakes: flat water from the bed up to the water line, in
+            // place of the bed's top piece. The smoothing keeps every tile
+            // within a level, so a tile dipping below the line lies wholly
+            // below it and shores run along tile edges. The hanging piece
+            // above still follows the bed, so the underside keeps its
+            // upside-down mountains under the water.
+            if (body !== "solid" && Math.min(...c) < sea)
+              h.addGeometry({
+                type: "box",
+                position: [x, maxH - sea + 1, z],
+                size: [1, sea - L, 1],
+                style: lakeStyle(L + 1),
+              });
+            else if (top.some((v) => v > 0))
+              h.addGeometry({
+                type: "box",
+                position: [x, maxH - L, z],
+                size: 1,
+                style: styleFor(L + 1),
+                slope: { corners: top },
+              });
+          }
+        // Towers on pads that stayed flat through the lowering pass.
+        for (const [x, z, t] of pads) {
+          const c = [
+            g[x * N + z],
+            g[(x + 1) * N + z],
+            g[x * N + z + 1],
+            g[(x + 1) * N + z + 1],
+          ];
+          if (c.every((v) => v === c[0] && v === Math.floor(v)))
+            addTower(h, x, maxH - c[0], z, t);
+        }
+        return h;
+      }
+
+      // ─── Light ───
+      // Slanted faces share their level's colour, so without outlines the
+      // relief would vanish. Tint each one by how far it turns toward a light
+      // from the upper left (y grows downward), compared with a flat top:
+      // lighter toward it, darker away. Tints are rounded to steps of 6% so
+      // the number of distinct colours stays small.
+      const LIGHT = (() => {
+        const v = [-0.45, -1, -0.35];
+        const l = Math.hypot(...v);
+        return v.map((k) => k / l);
+      })();
+      const tinted = new Map();
+      function tint(fill, n) {
+        // a flat top (normal 0, -1, 0) gets -LIGHT[1]; compare against that
+        const d =
+          n[0] * LIGHT[0] + n[1] * LIGHT[1] + n[2] * LIGHT[2] + LIGHT[1];
+        const k = look().light ?? 1;
+        const p = Math.round(clamp(Math.abs(d) * 160 * k, 0, 48 * k) / 6) * 6;
+        if (!p) return fill;
+        const key = fill + p + (d > 0) + shadow();
+        if (!tinted.has(key))
+          tinted.set(
+            key,
+            d > 0
+              ? `color-mix(in oklab, white ${p}%, ${fill})`
+              : `color-mix(in oklab, ${shadow()} ${p}%, ${fill})`,
+          );
+        return tinted.get(key);
+      }
+      // ─── Plain colours ───
+      // Styles are written as CSS (var(), color-mix()), which the browser
+      // would parse and resolve again for every polygon it repaints. There
+      // are only a few hundred distinct colours, so each is resolved once to
+      // a plain colour and cached; a theme switch clears the cache.
+      const probe = document.createElement("i");
+      probe.style.display = "none";
+      document.body.append(probe);
+      let resolved = new Map();
+      function resolveColor(c) {
+        if (typeof c !== "string" || c === "none") return c;
+        let r = resolved.get(c);
+        if (r === undefined) {
+          probe.style.color = "";
+          probe.style.color = c;
+          r = probe.style.color ? getComputedStyle(probe).color : c;
+          resolved.set(c, r);
+        }
+        return r;
+      }
+      let plainStyles = new WeakMap(); // style object → same style, plain colours
+      function plain(style) {
+        let p = plainStyles.get(style);
+        if (!p) {
+          p = { ...style };
+          if (p.fill) p.fill = resolveColor(p.fill);
+          if (p.stroke) p.stroke = resolveColor(p.stroke);
+          plainStyles.set(style, p);
+        }
+        return p;
+      }
+      let litStyles = new WeakMap(); // style object → Map(tint → lit style)
+      function lit(style, n) {
+        const fill = tint(style.fill, n);
+        if (fill === style.fill) return style;
+        let byTint = litStyles.get(style);
+        if (!byTint) litStyles.set(style, (byTint = new Map()));
+        let l = byTint.get(fill);
+        if (!l) {
+          l = outlines
+            ? { ...style, fill }
+            : { ...style, fill, stroke: fill, strokeWidth: SEAM };
+          byTint.set(fill, l);
+        }
+        return l;
+      }
+      // Outline colour and width, as on the docs page: they set the page's
+      // --stroke-c and --stroke-w. Colours are resolved once and cached
+      // (above), so a new stroke colour clears that cache. Until you pick a
+      // colour the theme's own is used (and follows dark mode).
+      {
+        const pick = $("opt-stroke-color");
+        const toHex = (rgb) =>
+          "#" +
+          (rgb.match(/\d+/g) || [0, 0, 0])
+            .slice(0, 3)
+            .map((n) => (+n).toString(16).padStart(2, "0"))
+            .join("");
+        pick.value = toHex(resolveColor("var(--stroke-c)"));
+        pick.addEventListener("input", () => {
+          document.documentElement.style.setProperty("--stroke-c", pick.value);
+          resolved = new Map();
+          plainStyles = new WeakMap();
+          schedule(true);
+        });
+        $("opt-stroke").addEventListener("input", (e) => {
+          document.documentElement.style.setProperty(
+            "--stroke-w",
+            e.target.value,
+          );
+          const on = +e.target.value > 0;
+          if (on !== outlines) setOutlines(on);
+        });
+      }
+      matchMedia("(prefers-color-scheme: dark)").addEventListener(
+        "change",
+        () => {
+          resolved = new Map();
+          plainStyles = new WeakMap();
+          schedule(true);
+        },
+      );
+
+      function light(faces) {
+        for (const f of faces) {
+          if (!f.style) continue;
+          // the terrain's slopes catch the light; buildings keep their colour
+          const shaded = f.type === "slope" && !f.voxel?.meta?.tower;
+          f.style = plain(shaded ? lit(f.style, f.n) : f.style);
+        }
+        return faces;
+      }
+
+      // A fixed frame: the bounds of the full terrain block under this
+      // camera, so the view doesn't jump as hills come and go.
+      let viewBox = null;
+      function frame() {
+        const box = new Heerich({ tile: 20, camera: getCamera() });
+        box.addGeometry({
+          type: "box",
+          position: [0, -4, 0], // room for towers (up to 5 cells) on top
+          size: [size, maxH + 5, size],
+        });
+        const b = box.getBounds(20);
+        viewBox = [b.x, b.y, b.w, b.h];
+        svg.setAttribute("viewBox", viewBox.join(" "));
+      }
+
+      // ─── Travel: wheel, touch, keys and autoplay → position ───
+      // The page doesn't scroll (a scroll position has a start and an end);
+      // input moves our own position instead, which goes on in every
+      // direction. `travel` is forward/back in scroll pixels, `travelX`
+      // sideways in cells.
+      const PX_PER_ROW = 40;
+      let travel = 0;
+      let travelX = 0;
+      let lastAt = null;
+      let queued = false;
+
+      let shown = null; // the engine last drawn, for projecting the slide
+      function render(force = false) {
+        const rowF = travel / PX_PER_ROW;
+        const row = Math.floor(rowF);
+        const col = Math.floor(travelX);
+        const at = col + "," + row;
+        if (force || at !== lastAt || !shown) {
+          lastAt = at;
+          rebuild(col, row);
+        }
+        // Slide by the part of a cell not yet rebuilt: the projected offset
+        // of (fx, 0, fz), taken at mid height. Exact for the parallel
+        // cameras, close enough for perspective.
+        const fx = travelX - col,
+          fz = rowF - row;
+        const y = maxH / 2;
+        const a = shown.project([0, y, 0]);
+        const b = shown.project([fx, y, fz]);
+        world.setAttribute(
+          "transform",
+          `translate(${(a.x - b.x).toFixed(2)} ${(a.y - b.y).toFixed(2)})`,
+        );
+      }
+
+      function rebuild(col, row) {
+        const t0 = performance.now();
+        if (!viewBox) frame();
+        const h = build(col, row);
+        shown = h;
+        const t1 = performance.now();
+        const faces = light(h.getFaces());
+        const t2 = performance.now();
+        // nothing here reads data-* attributes, so skip writing them
+        h.updateSVG(world, { faces, dataAttributes: false });
+        const t3 = performance.now();
+        const f = (ms) => ms.toFixed(1);
+        stats.textContent =
+          `seed ${seed} · ${col}, ${row} · ${h.voxels.size} voxels · ` +
+          `${f(t3 - t0)} ms (build ${f(t1 - t0)}, faces ${f(t2 - t1)}, svg ${f(t3 - t2)})`;
+      }
+
+      function schedule(force = false) {
+        if (queued) {
+          if (force) queued = "force";
+          return;
+        }
+        queued = force ? "force" : true;
+        requestAnimationFrame(() => {
+          const f = queued === "force";
+          queued = false;
+          render(f);
+        });
+      }
+
+      function cameraChanged() {
+        viewBox = null;
+        schedule(true);
+      }
+
+      const move = (px) => {
+        travel += px;
+        schedule();
+      };
+      const inPanel = (e) => e.target.closest?.("#settings-panel");
+
+      window.addEventListener(
+        "wheel",
+        (e) => {
+          if (inPanel(e)) return;
+          e.preventDefault();
+          // deltaMode 1 is lines, 2 pages (Firefox); 0 is pixels
+          const unit = [1, PX_PER_ROW, window.innerHeight][e.deltaMode] ?? 1;
+          move(e.deltaY * unit);
+        },
+        { passive: false },
+      );
+
+      let touchY = null;
+      window.addEventListener("touchstart", (e) => {
+        if (!inPanel(e)) touchY = e.touches[0].clientY;
+      });
+      window.addEventListener(
+        "touchmove",
+        (e) => {
+          if (touchY === null) return;
+          e.preventDefault();
+          const y = e.touches[0].clientY;
+          move(touchY - y); // drag up to travel forward, like scrolling
+          touchY = y;
+        },
+        { passive: false },
+      );
+      window.addEventListener("touchend", () => (touchY = null));
+
+      const KEYS = {
+        ArrowDown: 1,
+        ArrowUp: -1,
+        PageDown: 10,
+        PageUp: -10,
+        " ": 10,
+      };
+      window.addEventListener("keydown", (e) => {
+        if (inPanel(e) || !(e.key in KEYS)) return;
+        e.preventDefault();
+        move(KEYS[e.key] * (e.shiftKey && e.key === " " ? -1 : 1) * PX_PER_ROW);
+      });
+
+      // ─── Autoplay ───
+      // Wander through a third noise field (seeded like the terrain): one
+      // slow track steers the heading, another sets the speed. The velocity
+      // eases toward them with about a second of inertia, so turns are wide
+      // and speed changes soft, and switching autoplay on or off eases in
+      // and out the same way.
+      let autoplay = false;
+      let running = false;
+      let clock = 0; // seconds of autoplay
+      let lastFrame = 0;
+      let vx = 0,
+        vz = 0; // current velocity, cells per second
+      const INERTIA = 1.1; // seconds to cover ~63% of a change
+      const speedMax = () => +$("opt-speed").value; // cells per second
+      function tick(now) {
+        const dt = Math.min(0.1, (now - (lastFrame || now)) / 1000);
+        lastFrame = now;
+        let tx = 0,
+          tz = 0;
+        if (autoplay) {
+          clock += dt;
+          const t = clock * 0.025;
+          const heading = path(t, 0) * Math.PI * 2;
+          const pace = speedMax() * (0.625 + 0.375 * path(t * 0.7, 400));
+          // Forward is weighted up: a base speed ahead plus the steering's
+          // forward part, sideways drift scaled down, so it mostly travels
+          // forward (15–115% of the pace) and wanders left and right.
+          tx = Math.sin(heading) * pace * 0.6;
+          tz = (0.65 + 0.5 * Math.cos(heading)) * pace;
+        }
+        const k = 1 - Math.exp(-dt / INERTIA);
+        vx += (tx - vx) * k;
+        vz += (tz - vz) * k;
+        travelX += vx * dt;
+        travel += vz * dt * PX_PER_ROW;
+        render();
+        // keep going until a stop has eased all the way out
+        if (autoplay || Math.hypot(vx, vz) > 0.01) requestAnimationFrame(tick);
+        else running = false;
+      }
+      $("opt-autoplay").addEventListener("change", (e) => {
+        autoplay = e.target.checked;
+        if (!running) {
+          running = true;
+          lastFrame = 0;
+          requestAnimationFrame(tick);
+        }
+      });
+
+      // ─── Terrain controls ───
+      $("opt-palette").addEventListener("change", (e) => {
+        palette = e.target.value;
+        makeLevelStyles();
+        columnCache.clear();
+        makeTowerStyle();
+        for (const d of dots) {
+          d.setAttribute("fill", birdLook().fill);
+          d.setAttribute("stroke", birdLook().stroke);
+        }
+        schedule(true);
+      });
+      $("opt-surface").addEventListener("change", (e) => {
+        surface = e.target.value;
+        schedule(true);
+      });
+      function setOutlines(on) {
+        outlines = on;
+        litStyles = new WeakMap();
+        makeLevelStyles();
+        columnCache.clear();
+        makeTowerStyle();
+        schedule(true);
+      }
+      $("opt-body").addEventListener("change", (e) => {
+        body = e.target.value;
+        schedule(true);
+      });
+      for (const [id, set, reframe] of [
+        ["opt-size", (v) => (size = v), true],
+        ["opt-height", (v) => (maxH = v), true],
+        ["opt-scale", (v) => (scale = v), false],
+        ["opt-sea", (v) => (sea = v), false],
+        ["opt-towers", (v) => (towers = v), false],
+      ])
+        $(id).addEventListener("input", (e) => {
+          set(+e.target.value);
+          if (reframe) viewBox = null;
+          if (id === "opt-height" || id === "opt-sea") makeLevelStyles();
+          schedule(true);
+        });
+      $("btn-reseed").addEventListener("click", () => {
+        seed = Math.random().toString(36).slice(2, 8);
+        reseed();
+        hashSeed();
+        schedule(true);
+      });
+
+      // ─── Birds ───
+      // Boids (Craig Reynolds, 1987, https://www.red3d.com/cwr/boids/): each
+      // bird steers by its neighbours: keep apart (separation), fly the same
+      // way (alignment), stay together (cohesion), plus a weak pull toward a
+      // goal drifting across the view. Birds cruise above the ground and
+      // climb slowly, so towers and cliffs are flown around, not over. They
+      // live in world cells, so travelling carries them with the land, and
+      // are drawn on top of the terrain.
+      const birdLayer = svg.appendChild(
+        document.createElementNS("http://www.w3.org/2000/svg", "g"),
+      );
+      const dots = [];
+      let birdCount = +$("opt-birds").value;
+      let birdClock = 0;
+      let lastBirdFrame = 0;
+      // Two flocks at a time. All their birds steer in one simulation, so
+      // when the flocks meet they see each other, mix and merge, while each
+      // bird's weak pull toward its own flock's goal can part them again.
+      const FLOCKS = 2;
+      let flocks = []; // { id, gx, gz, dx, dz, speed, wait, birds, setting }
+      let birdSeed = 0;
+
+      // Each bird only knows its few nearest neighbours in front of it, as
+      // in models of real starling flocks (each one tracks about seven), so
+      // a turn travels through the flock as a wave instead of everyone
+      // averaging the same heading. A bit of personal wander keeps it lively.
+      const BOID = {
+        see: 1.6, // cells: neighbours further than this are ignored
+        neighbours: 7, // and of those only the nearest few
+        blind: -0.55, // cos of the blind angle behind (~123° each side seen)
+        space: 0.45, // cells: closer than this, move apart
+        separation: 4.5,
+        alignment: 0.9,
+        cohesion: 2.5,
+        wander: 8, // personal sideways steering, from noise
+        wanderRate: 2.5, // how fast it changes
+        goal: 0.35, // weak pull toward the goal, only when far from it
+        avoid: 9, // how hard taller things push a bird aside
+        feel: 1.3, // cells: how far ahead it looks for them
+        climb: 1.4, // levels per second it can climb (sinks a bit faster)
+        minSpeed: 1.4, // cells per second
+        maxSpeed: 5.8,
+        maxForce: 18, // cells per second², how hard a bird can turn
+        clearance: 1.5, // cells above the ground (or tower) below
+      };
+
+      // Heights in levels. groundAt is the smooth height noise (over a lake,
+      // the water level), read where the bird is, so cruising height glides
+      // instead of stepping from tile to tile. surfAt is what's really there
+      // to bump into: the stepped columns in the cubes and autoSlope modes,
+      // and towers on top.
+      const groundAt = (px, pz) => Math.max(field(px, pz), sea + 0.5);
+      // The top of the tower on a world tile, or -Infinity. A tower stands
+      // on its pad (corners) or on its column (the other modes).
+      function towerTop(wx, wz) {
+        const g = field(wx + 0.5, wz + 0.5);
+        const base = surface === "corners" ? Math.floor(g) : Math.round(g);
+        const t = base >= sea + 1 ? towerAt(wx, wz) : 0;
+        return t ? base + t : -Infinity;
+      }
+      function surfAt(px, pz) {
+        const wx = Math.floor(px),
+          wz = Math.floor(pz);
+        const ground =
+          surface === "corners"
+            ? groundAt(px, pz)
+            : Math.round(field(wx + 0.5, wz + 0.5)); // a whole column
+        return Math.max(ground, towerTop(wx, wz));
+      }
+
+      function newFlock() {
+        birdSeed++;
+        const id = birdSeed;
+        // the goal enters from a random edge, aiming across the view at the
+        // far side (so two flocks' paths often, not always, cross); the
+        // birds start bunched around it, some further out than others so
+        // the flocks don't always arrive together
+        // evenly spread dice for this flock (noise would bunch up mid-range)
+        const r = (k) => {
+          let h =
+            Math.imul(birdSeed ^ seedHash, 2654435761) ^ Math.imul(k, 40503);
+          h = Math.imul(h ^ (h >>> 13), 3266489917);
+          return ((h ^ (h >>> 16)) >>> 0) / 4294967296; // 0..1
+        };
+        const edge = Math.floor(r(1) * 4);
+        const m = 5 + r(6) * 12; // cells outside the view
+        const at = (k) => size * (0.12 + r(k) * 0.76); // the middle 76%
+        const [x, z, tx, tz] = [
+          [-m, at(2), size + 5, at(5)],
+          [size + m, at(2), -5, at(5)],
+          [at(2), -m, at(5), size + 5],
+          [at(2), size + m, at(5), -5],
+        ][edge];
+        const len = Math.hypot(tx - x, tz - z);
+        const dx = (tx - x) / len,
+          dz = (tz - z) / len;
+        // world cells: relative to where the view is now
+        const gx = x + travelX,
+          gz = z + travel / PX_PER_ROW;
+        const speed = 2.4 + r(3) * 1.6;
+        // Flocks come in all sizes: from about a third of the Birds setting
+        // to almost three times it (capped, for speed), so you see small
+        // groups as well as big murmurations splitting and merging.
+        const count = Math.min(
+          250,
+          Math.max(3, Math.round(birdCount * 2 ** (r(4) * 3 - 1.5))),
+        );
+        const spread = 1.2 + Math.sqrt(count) * 0.3; // start radius, cells
+        const birds = [];
+        for (let i = 0; i < count; i++) {
+          const a = r(10000 + i) * Math.PI * 2;
+          const d = Math.sqrt(r(20000 + i)) * spread;
+          const x0 = gx + Math.cos(a) * d,
+            z0 = gz + Math.sin(a) * d;
+          birds.push({
+            x: x0,
+            z: z0,
+            vx: dx * speed + (r(30000 + i) - 0.5),
+            vz: dz * speed + (r(40000 + i) - 0.5),
+            y: maxH + 1 - groundAt(x0, z0) - BOID.clearance,
+            k: i * 3.1 + birdSeed * 50,
+          });
+        }
+        const f = {
+          id,
+          gx,
+          gz,
+          dx,
+          dz,
+          speed,
+          wait: 0,
+          birds,
+          setting: birdCount,
+        };
+        for (const b of birds) b.f = f;
+        return f;
+      }
+
+      function steer(B, dt) {
+        const ax = new Float32Array(B.length),
+          az = new Float32Array(B.length);
+        for (let i = 0; i < B.length; i++) {
+          const b = B[i];
+          const sp = Math.hypot(b.vx, b.vz) || 1;
+          const hx0 = b.vx / sp,
+            hz0 = b.vz / sp; // heading
+          const near = [];
+          for (let j = 0; j < B.length; j++) {
+            if (i === j) continue;
+            const o = B[j];
+            const ddx = o.x - b.x,
+              ddz = o.z - b.z;
+            const d = Math.hypot(ddx, ddz);
+            if (d > BOID.see || d < 1e-6) continue;
+            if ((ddx * hx0 + ddz * hz0) / d < BOID.blind) continue; // behind
+            if (near.length === BOID.neighbours && d >= near[near.length - 1].d)
+              continue;
+            let k = near.length;
+            if (k === BOID.neighbours) k--;
+            while (k > 0 && near[k - 1].d > d) {
+              near[k] = near[k - 1];
+              k--;
+            }
+            near[k] = { o, d, ddx, ddz };
+          }
+          let fx = 0,
+            fz = 0;
+          if (near.length) {
+            let cx = 0,
+              cz = 0,
+              hx = 0,
+              hz = 0;
+            for (const { o, d, ddx, ddz } of near) {
+              cx += ddx;
+              cz += ddz;
+              hx += o.vx;
+              hz += o.vz;
+              if (d < BOID.space) {
+                // push apart, rising steeply as they get close
+                const w = (BOID.space / d - 1) * BOID.separation;
+                fx -= (ddx / d) * w;
+                fz -= (ddz / d) * w;
+              }
+            }
+            const n = near.length;
+            fx += (cx / n) * BOID.cohesion;
+            fz += (cz / n) * BOID.cohesion;
+            fx += (hx / n - b.vx) * BOID.alignment;
+            fz += (hz / n - b.vz) * BOID.alignment;
+          }
+          const wd = wind(birdClock * BOID.wanderRate, b.k + 31) * BOID.wander;
+          fx += -hz0 * wd;
+          fz += hx0 * wd;
+          // toward the goal, weakly, and only once it's a few cells away
+          const gdx = b.f.gx - b.x,
+            gdz = b.f.gz - b.z;
+          const gd = Math.hypot(gdx, gdz) || 1;
+          const pull = BOID.goal * clamp((gd - 3) / 4, 0, 1.5);
+          fx += (gdx / gd) * pull;
+          fz += (gdz / gd) * pull;
+          // Go around what's taller than you. A bird keeps its height and
+          // only climbs slowly (below), so anything standing above it, a
+          // tower or a cliff of columns, is an obstacle, not a hill.
+          const alt = maxH + 1 - b.y; // the bird's height in levels
+          // 1. tiles taller than the bird nearby push it away
+          const tx0 = Math.floor(b.x),
+            tz0 = Math.floor(b.z);
+          for (let ox = -1; ox <= 1; ox++)
+            for (let oz = -1; oz <= 1; oz++) {
+              const wx = tx0 + ox,
+                wz = tz0 + oz;
+              const over = surfAt(wx + 0.5, wz + 0.5) + 0.3 - alt;
+              if (over <= 0) continue;
+              const ddx = b.x - (wx + 0.5),
+                ddz = b.z - (wz + 0.5);
+              const d = Math.hypot(ddx, ddz);
+              if (d < 1.4 && d > 1e-6) {
+                const w =
+                  ((1.4 - d) / 1.4) * BOID.avoid * Math.min(1, over + 0.3);
+                fx += (ddx / d) * w;
+                fz += (ddz / d) * w;
+              }
+            }
+          // 2. feelers: look ahead, a little left and right; if the way is
+          // blocked, turn toward the lower side before getting there
+          const feel = (turn) => {
+            const c = Math.cos(turn),
+              sn = Math.sin(turn);
+            const dx = hx0 * c - hz0 * sn,
+              dz = hx0 * sn + hz0 * c;
+            return (
+              surfAt(b.x + dx * BOID.feel, b.z + dz * BOID.feel) + 0.3 - alt
+            );
+          };
+          const ahead = feel(0),
+            left = feel(-0.6),
+            right = feel(0.6);
+          if (Math.max(ahead, left, right) > 0) {
+            // (-hz0, hx0) is to the right of the heading
+            const side = left < right ? -1 : 1;
+            const w = BOID.avoid * Math.min(1, Math.max(ahead, 0) + 0.4);
+            fx += -hz0 * side * w;
+            fz += hx0 * side * w;
+            if (ahead > 0) {
+              // and ease off, to make the turn
+              fx -= hx0 * w * 0.4;
+              fz -= hz0 * w * 0.4;
+            }
+          }
+          const fl = Math.hypot(fx, fz);
+          if (fl > BOID.maxForce) {
+            fx *= BOID.maxForce / fl;
+            fz *= BOID.maxForce / fl;
+          }
+          ax[i] = fx;
+          az[i] = fz;
+        }
+        for (let i = 0; i < B.length; i++) {
+          const b = B[i];
+          b.vx += ax[i] * dt;
+          b.vz += az[i] * dt;
+          const v = Math.hypot(b.vx, b.vz) || 1;
+          const c = clamp(v, BOID.minSpeed, BOID.maxSpeed) / v;
+          b.vx *= c;
+          b.vz *= c;
+          b.x += b.vx * dt;
+          b.z += b.vz * dt;
+          // Height: cruise a little above the smooth ground under the bird
+          // and just ahead of it, but climb and sink slowly: a bird doesn't
+          // hop over a building, it goes around it (above).
+          const ground = Math.max(
+            groundAt(b.x, b.z),
+            groundAt(b.x + b.vx * 0.4, b.z + b.vz * 0.4),
+          );
+          const want = maxH + 1 - ground - BOID.clearance;
+          let dy = (want - b.y) * (1 - Math.exp(-dt / 0.6));
+          dy = clamp(dy, -BOID.climb * dt, BOID.climb * 1.5 * dt);
+          b.y += dy;
+          // Safety net: never inside anything. If a bird is pushed over
+          // something taller anyway, it is lifted just above it.
+          const floor = maxH + 1 - surfAt(b.x, b.z) - 0.3;
+          if (b.y > floor) b.y = floor;
+        }
+      }
+
+      function drawBirds(now) {
+        const dt = Math.min(0.05, (now - (lastBirdFrame || now)) / 1000);
+        lastBirdFrame = now;
+        birdClock += dt;
+        if (!birdCount || !shown) {
+          for (const d of dots) d.remove();
+          dots.length = 0;
+          lastBirdFrame = 0;
+          return; // stopped; the slider restarts it
+        }
+        if (flocks.some((f) => f.setting !== birdCount)) flocks = [];
+        while (flocks.length < FLOCKS) flocks.push(newFlock());
+        const wx0 = travelX,
+          wz0 = travel / PX_PER_ROW;
+        for (let n = 0; n < flocks.length; n++) {
+          const f = flocks[n];
+          const turn = wind(birdClock * 0.15, f.id) * 0.35 * dt;
+          [f.dx, f.dz] = [
+            f.dx * Math.cos(turn) - f.dz * Math.sin(turn),
+            f.dx * Math.sin(turn) + f.dz * Math.cos(turn),
+          ];
+          f.gx += f.dx * f.speed * dt;
+          f.gz += f.dz * f.speed * dt;
+          // Once all its birds are well outside the view (they flew off, or
+          // you travelled away), a new flock comes a few seconds later.
+          const far = 12;
+          const gone = f.birds.every((b) => {
+            const x = b.x - wx0,
+              z = b.z - wz0;
+            return x < -far || z < -far || x > size + far || z > size + far;
+          });
+          f.wait = gone ? f.wait + dt : 0;
+          if (f.wait > 3) flocks[n] = newFlock();
+        }
+        const all = flocks.flatMap((f) => f.birds);
+        steer(all, dt);
+
+        while (dots.length < all.length) {
+          const tri = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "polygon",
+          );
+          tri.setAttribute("fill", birdLook().fill);
+          tri.setAttribute("stroke", birdLook().stroke);
+          // half a screen pixel, however the SVG is scaled
+          tri.setAttribute("stroke-width", "0.5");
+          tri.setAttribute("vector-effect", "non-scaling-stroke");
+          tri.setAttribute("stroke-linejoin", "round");
+          birdLayer.append(tri);
+          dots.push(tri);
+        }
+        while (dots.length > all.length) dots.pop().remove();
+
+        // The terrain on screen spans 0..size from the last rebuild's corner,
+        // slid back by the part of a cell travelled since; in view cells that
+        // is -fx..size-fx (and the same in z). Beyond an edge a bird is
+        // simply hidden, no fade, crisp like the terrain's own edges.
+        const fx = wx0 - Math.floor(wx0),
+          fz = wz0 - Math.floor(wz0);
+        const pt = (q) => {
+          const p = shown.project(q);
+          return `${p.x.toFixed(1)},${p.y.toFixed(1)}`;
+        };
+        const t = birdClock;
+        for (let i = 0; i < all.length; i++) {
+          const b = all[i];
+          const x = b.x - wx0,
+            z = b.z - wz0;
+          const inside = Math.min(x + fx, size - fx - x, z + fz, size - fz - z);
+          dots[i].setAttribute("visibility", inside > 0 ? "visible" : "hidden");
+          if (inside <= 0) continue; // off the world: nothing more to draw
+          const y = b.y;
+          const v = Math.hypot(b.vx, b.vz) || 1;
+          const hx = b.vx / v,
+            hz = b.vz / v;
+          const s = 0.11; // size in cells
+          const flap = Math.sin(t * 13 + b.k) * 0.05;
+          dots[i].setAttribute(
+            "points",
+            pt([x + hx * s, y, z + hz * s]) +
+              " " +
+              pt([
+                x - hx * s * 0.6 - hz * s * 0.8,
+                y - flap,
+                z - hz * s * 0.6 + hx * s * 0.8,
+              ]) +
+              " " +
+              pt([
+                x - hx * s * 0.6 + hz * s * 0.8,
+                y - flap,
+                z - hz * s * 0.6 - hx * s * 0.8,
+              ]),
+          );
+        }
+        requestAnimationFrame(drawBirds);
+      }
+      $("opt-birds").addEventListener("input", (e) => {
+        const was = birdCount;
+        birdCount = +e.target.value;
+        if (!was && birdCount) requestAnimationFrame(drawBirds);
+      });
+
+      syncControlVisibility();
+      render(true);
+      if (birdCount) requestAnimationFrame(drawBirds);
+    </script>
+  </body>
+</html>
