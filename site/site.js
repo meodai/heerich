@@ -3,6 +3,7 @@ import { version } from "../package.json";
 import { initHero } from "./hero.js";
 import { draw } from "./draw.js";
 import { toMatrix } from "../src/clip.js";
+import { orbitOpts as orbitFor } from "./orbit.js";
 import { parse, render } from "sugar-high/core";
 import * as javascript from "sugar-high/lang/javascript";
 
@@ -372,51 +373,17 @@ const baseStyle = {
 const orbit = { az: 0, el: 0 }; // degrees
 const camClip = document.getElementById("cam-clip");
 
-// The example's box (whole cells): what it is clipped to, and its frame.
-// `bounds` gives the box when there are no stored voxels to measure (an
-// example drawn with renderTest), and `clip: false` turns clipping off for
-// one example (renderTest can't close a cut).
-function orbitOpts(e, opts, { bounds, clip = true } = {}) {
-  if (!e || (!bounds && !e.voxels.size) || (!orbit.az && !orbit.el))
-    return opts;
-  const min = bounds ? [...bounds[0]] : [Infinity, Infinity, Infinity],
-    max = bounds ? [...bounds[1]] : [-Infinity, -Infinity, -Infinity];
-  for (const v of bounds ? [] : e.voxels.values()) {
-    if (v.x < min[0]) min[0] = v.x;
-    if (v.y < min[1]) min[1] = v.y;
-    if (v.z < min[2]) min[2] = v.z;
-    if (v.x + 1 > max[0]) max[0] = v.x + 1;
-    if (v.y + 1 > max[1]) max[1] = v.y + 1;
-    if (v.z + 1 > max[2]) max[2] = v.z + 1;
-  }
-  const c = min.map((m, i) => (m + max[i]) / 2);
-  // a turntable: spin about y, then tilt about x, around the middle
-  opts.transform = {
-    rotate: [orbit.el, orbit.az, 0],
-    order: "yxz",
-    center: c,
-  };
-  if (camClip.checked && clip) opts.clip = { min, max };
-  // A frame that holds still: the box's corners, the same frame the
-  // example has unturned, so turning or clipping never changes its size.
-  // Unclipped, what turns out past it may spill over (see .demo-canvas svg).
-  let x0 = Infinity,
-    y0 = Infinity,
-    x1 = -Infinity,
-    y1 = -Infinity;
-  for (const x of [min[0], max[0]])
-    for (const y of [min[1], max[1]])
-      for (const z of [min[2], max[2]]) {
-        const p = e.project([x, y, z]);
-        x0 = Math.min(x0, p.x);
-        y0 = Math.min(y0, p.y);
-        x1 = Math.max(x1, p.x);
-        y1 = Math.max(y1, p.y);
-      }
-  const pad = opts.padding ?? 20;
-  opts.viewBox = [x0 - pad, y0 - pad, x1 - x0 + pad * 2, y1 - y0 + pad * 2];
-  delete opts.fit;
-  return opts;
+// Turning and framing live in ./orbit.js (tested in tests/site-orbit.test.js).
+// `how.bounds` gives an example's box when its voxels don't (renderTest has
+// none; an animated scene changes), and `how.clip: false` turns clipping
+// off for one example (renderTest can't close a cut).
+function orbitOpts(e, opts, how = {}) {
+  return orbitFor(e, opts, {
+    orbit,
+    camera: getCamera(),
+    bounds: how.bounds,
+    clip: camClip.checked && how.clip !== false,
+  });
 }
 
 // A point as the Rotate control turns it (or as it is)
@@ -1975,7 +1942,18 @@ function animateHoles({ canvas, holes, drawHoles, duration, stagger, onDone }) {
       });
     }
 
-    draw(canvas, e, getSvgOpts(e));
+    // Its voxels change as it plays, so frame it by its whole block (plus
+    // the cell a tower can overflow it by), not by them
+    draw(
+      canvas,
+      e,
+      getSvgOpts(e, {
+        bounds: [
+          [0, 0, -1],
+          [cols, rows, maxDepth],
+        ],
+      }),
+    );
   }
 
   function animateIn() {
@@ -2051,8 +2029,9 @@ function animateHoles({ canvas, holes, drawHoles, duration, stagger, onDone }) {
 
   root.addEventListener("click", init);
   init();
+  // A camera change or turn re-draws the same scene (a new one is a click
+  // away), so its frame and the Rotate control's turn stay put
   demos.push(() => {
-    randomizeScene();
     drawScene(
       scene.holes.map((h) => h.targetDepth),
       scene.towers.map((t) => t.targetHeight),
