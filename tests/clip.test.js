@@ -17,7 +17,7 @@
 //     styles.
 // Run directly: node tests/clip.test.js
 
-import { Heerich } from "../src/heerich.js";
+import { Heerich, SVGRenderer } from "../src/heerich.js";
 import { toPlanes, dist, toMatrix, apply } from "../src/clip.js";
 
 // Seeded (mulberry32) so failures reproduce
@@ -1035,6 +1035,96 @@ for (let run = 0; run < 20; run++) {
     }
   }
   check("bad orders throw", threw === 4);
+}
+
+// ─── Occlusion culling on clipped, turned faces ───
+// toSVG({ occlusion: true }) keeps only what is seen: cut faces (any number
+// of corners) and walls (drawn last, so they count as frontmost) must still
+// cover everything inside the kept solid.
+{
+  const renderer = new SVGRenderer();
+  const polysOf = (f) => {
+    if (f._pathD)
+      return f._pathD
+        .split("Z")
+        .filter((t) => t.trim())
+        .map((t) =>
+          t
+            .trim()
+            .replace(/^M/, "")
+            .split("L")
+            .map((pt) => pt.trim().split(/[ ,]+/).map(Number)),
+        );
+    const d = f.points.data;
+    const P = [];
+    for (let i = 0; i < d.length; i += 2) P.push([d[i], d[i + 1]]);
+    return [P];
+  };
+  const near = (P, x, y) => {
+    const flat = P.flat();
+    return nearPolygon(flat, x, y, 0.3);
+  };
+  let tried = 0,
+    holes = 0,
+    compared = 0,
+    wrong = 0;
+  // within `tol` of one of a polygon's edges
+  const nearEdge = (P, x, y, tol) => {
+    for (let i = 0, j = P.length - 1; i < P.length; j = i++) {
+      const [ax, ay] = P[j],
+        [bx, by] = P[i];
+      const vx = bx - ax,
+        vy = by - ay;
+      const l = vx * vx + vy * vy;
+      const t = l ? Math.max(0, Math.min(1, ((x - ax) * vx + (y - ay) * vy) / l)) : 0;
+      if (Math.hypot(ax + vx * t - x, ay + vy * t - y) < tol) return true;
+    }
+    return false;
+  };
+  for (let run = 0; run < 12; run++) {
+    const specs = randomSpecs({ slopes: false });
+    const clip = randomClip();
+    const transform = { ...randomTransform(), scale: 1 };
+    for (const camera of CAMERAS) {
+      const h = build(specs, camera);
+      let shown;
+      try {
+        shown = renderer._applyOcclusion(h.getFaces({ clip, transform }), { occlusion: true });
+      } catch (err) {
+        check(`occlusion runs (${camName(camera)})`, false, err.message);
+        continue;
+      }
+      const polys = shown.filter((f) => f.points).flatMap(polysOf);
+      const planes = toPlanes(clip),
+        m = toMatrix(transform);
+      for (const v of h.voxels.values()) {
+        const local = [v.x + 0.1 + rand() * 0.8, v.y + 0.1 + rand() * 0.8, v.z + 0.1 + rand() * 0.8];
+        const p = apply(m, local);
+        if (planes.some((pl) => dist(pl, p) < 0.03)) continue;
+        tried++;
+        const q = h.project(p);
+        if (!polys.some((P) => near(P, q.x, q.y))) holes++;
+        // and what shows there is what painting back to front leaves on
+        // top (away from edges, where either neighbour is right)
+        const faces = h.getFaces({ clip, transform });
+        const top = (list) => {
+          for (let i = list.length - 1; i >= 0; i--) {
+            if (!list[i].points) continue;
+            if (polysOf(list[i]).some((P) => inPolygon(P.flat(), q.x, q.y))) return list[i];
+          }
+          return null;
+        };
+        const painted = top(faces);
+        if (!painted || polysOf(painted).some((P) => nearEdge(P, q.x, q.y, 0.5))) continue;
+        compared++;
+        const seen = top(shown);
+        if (!seen || seen.voxel !== painted.voxel || seen.type !== painted.type) wrong++;
+      }
+    }
+  }
+  check("occlusion leaves no holes", holes === 0, `${holes}/${tried}`);
+  check("occlusion sampled enough", tried > 1000 && compared > 500, `${tried} / ${compared}`);
+  check("occlusion keeps the front faces", wrong === 0, `${wrong}/${compared} show another face`);
 }
 
 // ─── 8. Errors, JSON, styles ───
