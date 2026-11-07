@@ -110,7 +110,10 @@
       <h1>Towers</h1>
       <p>
         A block of towers drawn in lines: every line is a decal, every cut a
-        clip. Made with <a href="./">heerich.js</a>.
+        clip. Inspired by the city of
+        <a href="https://loack.me/fildefer/">fil de fer</a> by
+        <a href="https://loack.me/">loackme</a>. Made with
+        <a href="./">heerich.js</a>.
       </p>
     </div>
 
@@ -153,6 +156,14 @@
         <label class="control-label" title="Shells with a floor per segment">
           <span>Hollow</span>
           <input type="checkbox" id="hollow" checked />
+        </label>
+        <label class="control-label" title="What the block stands on">
+          <span>Socket</span>
+          <select class="control-select" id="socket">
+            <option value="plate">plate</option>
+            <option value="slab">slab</option>
+            <option value="none">none</option>
+          </select>
         </label>
       </div>
       <div class="settings-section-title">Detail</div>
@@ -272,7 +283,7 @@
           <span>Walls</span>
           <select class="control-select" id="walls">
             <option value="poche">black</option>
-            <option value="plain">plain</option>
+            <option value="plain" selected>plain</option>
             <option value="paper">paper, outlined</option>
             <option value="off">off</option>
           </select>
@@ -322,6 +333,7 @@
         detail,
         holes,
         hollow,
+        socket,
       }) {
         const r = rng(seed);
         const pick = (a) => a[Math.floor(r() * a.length)];
@@ -439,8 +451,20 @@
           );
           if (wall && r() < holes * 0.04) cells.delete(k);
         }
+
+        // a slab of cells under the whole block, a cell wider all round:
+        // one block of its own, so it reads as one box, and a clip cuts it
+        // like the towers
+        if (socket === "slab") {
+          const slab = { id: 0, kind: "plain", top: "plain", slab: true };
+          for (let x = -SLAB; x < cols + SLAB; x++)
+            for (let z = -SLAB; z < rows + SLAB; z++)
+              cells.set(key(x, 0, z), { block: slab });
+        }
         return { cells, key, unkey };
       }
+
+      const SLAB = 1; // how far the slab reaches past the block
 
       // ─── Faces: which way they look, and how a decal's 0–1 square lies
       // on them. A face's own coordinates are (a, b): along the world axis
@@ -561,6 +585,7 @@
           hollow: $("hollow").checked,
           vary: +$("vary").value / 100,
           gutter: +$("gutter").value,
+          socket: $("socket").value,
         };
         const { cells, key, unkey } = plan(opts);
         h = new Heerich({ tile: 12, camera: camera() });
@@ -699,8 +724,12 @@
 
         const style = {};
         for (const type in FACES) style[type] = styleFor(type);
-        // the ground hides the undersides (a camera below it sees through)
-        style.bottom = { fill: "none", stroke: "none" };
+        // the ground hides the undersides (a camera below it sees through),
+        // but a slab has an underside of its own
+        const none = { fill: "none", stroke: "none" };
+        const slabBottom = styleFor("bottom");
+        style.bottom = (x, y, z) =>
+          at(x, y, z)?.block.slab ? slabBottom(x, y, z) : none;
         // where a cut goes through a tower: black (an architect's poché) or
         // paper with each cell outlined, switched in CSS
         style.cap = {
@@ -721,11 +750,13 @@
           style,
         });
 
-        // the block's box: the plate's footprint, up to the tallest roof
+        // the block's box: its footprint (with the slab, if any), up to
+        // the tallest roof
         const m = 1.5;
+        const s = opts.socket === "slab" ? SLAB : 0;
         box = {
-          min: [0, lo[1], 0],
-          max: [opts.cols, 0, opts.rows],
+          min: [-s, lo[1], -s],
+          max: [opts.cols + s, s ? 1 : 0, opts.rows + s],
         };
         plate = [
           [-m, 0, -m],
@@ -778,12 +809,17 @@
         // would lie in the towers' own faces and wall them over whole
         const mid = (lo, hi, t) =>
           Math.min(hi - 0.5, Math.floor(lo + (hi - lo) * t) + 0.5);
-        if (how === "box")
-          // a little larger than the block, so its outside walls stay walls
+        if (how === "box") {
+          // the block's box, drawn in from the sides and the top by the
+          // cut, through the middles of cells; at 0 a little larger than
+          // the block, so its outside walls stay walls. The floor stays put.
+          const k = (i) => Math.round(t * Math.floor((max[i] - min[i]) / 2));
+          const ks = [k(0), k(1), k(2)];
           return {
-            min: min.map((v) => v - 0.5),
-            max: max.map((v) => v + 0.5),
+            min: min.map((v, i) => v + ks[i] - 0.5),
+            max: max.map((v, i) => v + 0.5 - (i === 1 ? 0 : ks[i])),
           };
+        }
         if (how === "section")
           // a vertical cut through the block, keeping the back
           return { point: [0, 0, mid(min[2], max[2], t)], normal: [0, 0, 1] };
@@ -871,7 +907,10 @@
         const t = transform(),
           c = clip();
         svg.setAttribute("viewBox", frame().join(" "));
-        plateEl.setAttribute("d", plateD(t, c));
+        plateEl.setAttribute(
+          "d",
+          $("socket").value === "plate" ? plateD(t, c) : "",
+        );
         h.updateSVG(facesEl, {
           transform: t,
           clip: c,
@@ -1011,6 +1050,7 @@
       );
       syncControlVisibility();
       $("hollow").addEventListener("change", build);
+      $("socket").addEventListener("change", build);
       $("cut").addEventListener("input", () => $("spin").checked || render());
       $("clip").addEventListener("change", render);
       $("occlusion").addEventListener("change", render);

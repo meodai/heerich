@@ -37,44 +37,52 @@
     />
     <style>
       :root {
-        --bg: #fbf4ea;
-        --text: #0e0e0e;
-        --line: var(--text);
-        --selection-bg: var(--text);
-        --selection-text: var(--bg);
-        --fill: #fbf4ea;
-        --stroke-c: #18191b;
-        --stroke-w: 0.5;
-        --bomb-red: #c0392b;
-        --flag-gold: #d4a017;
-        --num-1: #2563eb;
-        --num-2: #16a34a;
-        --num-3: #dc2626;
-        --num-4: #7c3aed;
-        --num-5: #ea580c;
-        --num-6: #0891b2;
+        --bg: #f1ebe2;
+        --text: #1d1c1a;
+        --line: #1d1c1a;
+        --tile: #fbf7f0;
+        --tile-side: #e4dccf;
+        --tile-hover: #fff6d6;
+        --flag-side: #9c3418;
+        --pit: #e6ddcf;
+        --wall: #d9cfbf;
+        --burn: #e9a596;
+        --burn-floor: #f1c2b4;
+        --flag: #c8441f;
+        --mine: #1d1c1a;
+        --num-1: #2b5fd9;
+        --num-2: #23894a;
+        --num-3: #d2372b;
+        --num-4: #6a3fc7;
+        --num-5: #c9581a;
+        --num-6: #12808f;
         --num-7: #4b5563;
-        --num-8: #1e293b;
+        --num-8: #1d1c1a;
       }
 
       @media (prefers-color-scheme: dark) {
         :root {
-          --bg: #0e0e0e;
-          --text: #fbf4ea;
-          --line: color-mix(in oklab, var(--text) 12%, var(--bg));
-          --fill: #0e0e0e;
-          --stroke-c: #fbf4ea;
-          --stroke-w: 0.5;
-          --bomb-red: #e74c3c;
-          --flag-gold: #f0c040;
-          --num-1: #60a5fa;
-          --num-2: #4ade80;
-          --num-3: #f87171;
-          --num-4: #a78bfa;
-          --num-5: #fb923c;
-          --num-6: #22d3ee;
-          --num-7: #9ca3af;
-          --num-8: #e2e8f0;
+          --bg: #121211;
+          --text: #ece5d8;
+          --line: #ece5d8;
+          --tile: #1d1c1a;
+          --tile-side: #2c2a27;
+          --tile-hover: #3a3320;
+          --flag-side: #b5512f;
+          --pit: #161514;
+          --wall: #24221f;
+          --burn: #7a2e22;
+          --burn-floor: #5c241b;
+          --flag: #f07a4f;
+          --mine: #ece5d8;
+          --num-1: #7aa5ff;
+          --num-2: #6fd38f;
+          --num-3: #ff8a7a;
+          --num-4: #b79bff;
+          --num-5: #ffa86b;
+          --num-6: #5fd6e3;
+          --num-7: #a6adb8;
+          --num-8: #ece5d8;
         }
       }
 
@@ -85,13 +93,12 @@
       }
 
       ::selection {
-        background: var(--selection-bg);
-        color: var(--selection-text);
+        background: var(--text);
+        color: var(--bg);
       }
 
       html {
         font-size: calc(0.5rem + 0.45vw);
-        scroll-behavior: smooth;
       }
 
       body {
@@ -99,14 +106,22 @@
         font-weight: 300;
         color: var(--text);
         background: var(--bg);
-        line-height: 1.65;
+        line-height: 1.5;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
         min-height: 100vh;
-        padding: 2rem;
+        min-height: 100svh;
+        padding: 1.5rem;
         user-select: none;
+        -webkit-user-select: none;
+        overflow-x: hidden;
+      }
+
+      header {
+        text-align: center;
+        margin-bottom: 0.25rem;
       }
 
       h1 {
@@ -114,742 +129,881 @@
         font-weight: 400;
         font-size: 3rem;
         letter-spacing: -0.05em;
-        margin-bottom: 0.5rem;
+        line-height: 1.1;
       }
 
-      h1 small {
-        display: block;
-        font-size: 1rem;
-        font-family: "Work Sans", sans-serif;
-        font-weight: 300;
-        letter-spacing: 0;
+      .sub {
+        font-size: 0.95rem;
         opacity: 0.6;
       }
 
+      .sub a {
+        color: inherit;
+      }
+
+      /* the difficulty on top of the counters, one block */
+      .bar {
+        display: flex;
+        flex-direction: column;
+        margin: 0.5rem 0 1rem;
+      }
+
+      /* the two rows share one line */
+      .bar > * + * {
+        margin-top: -1px;
+      }
+
+      /* three equal columns in both rows, so their lines meet */
+      .bar .hud,
+      .bar .controls {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .hud {
+        display: flex;
+        border: 1px solid var(--line);
+      }
+
+      .hud > div {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-width: 7rem;
+        padding: 0.4rem 1rem;
+      }
+
+      .hud > div + div {
+        border-left: 1px solid var(--line);
+      }
+
+      .hud small {
+        font-size: 0.75rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        opacity: 0.6;
+      }
+
+      .hud strong {
+        font-family: "Aboreto", cursive;
+        font-weight: 400;
+        font-size: 1.6rem;
+        font-variant-numeric: tabular-nums;
+        line-height: 1.2;
+      }
+
+      .hud strong.bump {
+        animation: bump 0.35s cubic-bezier(0.3, 1.8, 0.5, 1);
+      }
+
+      @keyframes bump {
+        from {
+          transform: scale(1.35);
+        }
+      }
+
       .game-container {
-        width: min(90vw, 90vh, 700px);
+        /* whatever height is left under the header and the bar */
+        width: min(90vw, calc(100svh - 16rem), 700px);
         aspect-ratio: 1;
         cursor: pointer;
+        touch-action: manipulation;
       }
 
       .game-container svg {
         width: 100%;
         height: 100%;
         display: block;
+        overflow: visible;
       }
 
-      .hud {
-        display: flex;
-        gap: 3rem;
-        align-items: center;
-        margin: 1.5rem 0;
+      /* a flag drawn on a tile shouldn't take the tile's clicks */
+      .game-container path {
+        pointer-events: none;
+      }
+
+      .game-container.over {
+        cursor: default;
+      }
+
+      .game-container.shake {
+        animation: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+      }
+
+      @keyframes shake {
+        10%,
+        90% {
+          transform: translate(-2px, 1px);
+        }
+        20%,
+        80% {
+          transform: translate(4px, -2px);
+        }
+        30%,
+        50%,
+        70% {
+          transform: translate(-7px, 3px);
+        }
+        40%,
+        60% {
+          transform: translate(7px, -3px);
+        }
+      }
+
+      .board {
+        position: relative;
+      }
+
+      /* over the board's foot, so it takes no room */
+      .status {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: -0.5rem;
+        text-align: center;
+        pointer-events: none;
+      }
+
+      .status span {
+        display: inline-block;
         font-family: "Aboreto", cursive;
-        font-size: 1.4rem;
+        font-size: 2rem;
+        letter-spacing: 0.1em;
+        line-height: 1.2;
+        background: var(--bg);
+        border: 1px solid var(--line);
+        padding: 0.1em 0.8em;
       }
 
-      .hud span {
-        opacity: 0.7;
-        font-family: "Work Sans", sans-serif;
-        font-size: 0.9rem;
-        font-weight: 300;
-        margin-right: 0.3rem;
+      .status span:empty {
+        display: none;
+      }
+
+      .status span.show {
+        animation: rise 0.6s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+      }
+
+      @keyframes rise {
+        from {
+          opacity: 0;
+          transform: translateY(0.6em) scale(0.8);
+          letter-spacing: 0.6em;
+        }
       }
 
       .controls {
         display: flex;
-        gap: 1rem;
-        margin-top: 1rem;
+        border: 1px solid var(--line);
       }
 
       button {
         font-family: "Aboreto", cursive;
         font-size: 1rem;
-        padding: 0.5em 1.5em;
-        background: var(--text);
-        color: var(--bg);
+        padding: 0.55em 1.6em;
+        background: transparent;
+        color: var(--text);
         border: none;
         cursor: pointer;
         letter-spacing: 0.05em;
-        transition: opacity 0.2s;
+        transition:
+          background 0.2s,
+          color 0.2s;
+      }
+
+      button + button {
+        border-left: 1px solid var(--line);
       }
 
       button:hover {
-        opacity: 0.8;
+        background: color-mix(in oklab, var(--text) 10%, transparent);
       }
 
-      .mode-btn {
-        background: transparent;
-        color: var(--text);
-        border: 1px solid var(--text);
-      }
-
-      .mode-btn.active {
+      button.active {
         background: var(--text);
         color: var(--bg);
       }
 
-      .status {
-        font-family: "Aboreto", cursive;
-        font-size: 1.6rem;
-        margin-top: 1rem;
-        min-height: 2.5rem;
-      }
-
-      /* SVG hover highlight — all faces of hovered voxel */
-      .game-container polygon {
-        transition:
-          fill 0.1s,
-          stroke 0.1s;
-      }
-      .game-container polygon.voxel-hover {
-        fill: var(--stroke-c) !important;
-        stroke: var(--stroke-c) !important;
+      .hint {
+        margin-top: 0.8rem;
+        font-size: 0.85rem;
+        opacity: 0.5;
       }
     </style>
   </head>
   <body>
-    <h1>Heerichsweeper</h1>
-    <div class="hud">
-      <div><span>Mines</span> <span id="mine-count">10</span></div>
-      <div><span>Flags</span> <span id="flag-count">0</span></div>
-      <div><span>Time</span> <span id="timer">0</span></div>
+    <header>
+      <h1>Heerichsweeper</h1>
+      <p class="sub">
+        Minesweeper in voxels, made with <a href="./">heerich.js</a>
+      </p>
+    </header>
+    <div class="bar">
+      <div class="controls">
+        <button data-mode="easy" class="active">Easy</button>
+        <button data-mode="normal">Normal</button>
+        <button data-mode="veteran">Veteran</button>
+      </div>
+      <div class="hud">
+        <div><small>Mines</small><strong id="mine-count">8</strong></div>
+        <div><small>Flags</small><strong id="flag-count">0</strong></div>
+        <div><small>Time</small><strong id="timer">0</strong></div>
+      </div>
     </div>
-    <div class="game-container" id="game"></div>
-    <div class="status" id="status"></div>
-    <div class="controls">
-      <button data-mode="easy" class="mode-btn active">Easy</button>
-      <button data-mode="normal" class="mode-btn">Normal</button>
-      <button data-mode="veteran" class="mode-btn">Veteran</button>
+    <div class="board">
+      <div class="game-container" id="game"></div>
+      <div class="status"><span id="status"></span></div>
     </div>
+    <p class="hint">Click to dig · right-click or long-press to flag</p>
 
     <script type="module">
       import { Heerich } from "../src/heerich.js";
 
       // ─── Config ────────────────────────────────────
       const MODES = {
-        easy: { cols: 8, rows: 8, mines: 8, tile: 32, distance: 4 },
-        normal: { cols: 10, rows: 10, mines: 15, tile: 28, distance: 6 },
+        easy: { cols: 8, rows: 8, mines: 8, tile: 32, distance: 5 },
+        normal: { cols: 10, rows: 10, mines: 15, tile: 28, distance: 7 },
         veteran: { cols: 14, rows: 14, mines: 35, tile: 22, distance: 10 },
       };
+      const LAYERS = 4; // the board's depth, in cells
       let mode = "easy";
-      const LAYERS = 5;
 
-      // ─── Game state ────────────────────────────────
-      let grid; // grid[row][col] = { mine, count, revealed, flagged, exploded, revealT, revealStart }
-      let gameOver = false;
-      let gameWon = false;
-      let blastHoles = []; // [{cx, cy, cz, r, targetR, startTime}]
-      let animating = false;
-      let timerInterval = null;
-      let startTime = 0;
-      let elapsed = 0;
-      let timerStarted = false;
-      const timerEl = document.getElementById("timer");
-      // ViewBox animation state
-      let vb = { x: 0, y: 0, w: 0, h: 0 };
-      let vbTarget = { x: 0, y: 0, w: 0, h: 0 };
-      let vbAnimId = 0;
+      // ─── Easing ────────────────────────────────────
+      const clamp = (t) => (t < 0 ? 0 : t > 1 ? 1 : t);
+      const outCubic = (t) => 1 - (1 - t) ** 3;
+      const inCubic = (t) => t * t * t;
+      const outBack = (t) => {
+        const c = 1.9;
+        return 1 + (c + 1) * (t - 1) ** 3 + c * (t - 1) ** 2;
+      };
 
-      function animateViewBox(target) {
-        vbTarget = target;
-        const id = ++vbAnimId;
-        const start = { ...vb };
-        const startTime = performance.now();
-        const duration = 600;
+      // ─── Styles ────────────────────────────────────
+      // A tile at rest is a cube in the front layer; a revealed cell is a
+      // pit, one cell deep, with the next layer as its floor.
+      const line = { stroke: "var(--line)", strokeWidth: 0.6 };
+      const tile = (front) => ({
+        default: { fill: "var(--tile-side)", ...line },
+        front: { fill: front, ...line },
+      });
+      const TILE = tile("var(--tile)");
+      const TILE_HOVER = tile("var(--tile-hover)");
+      // a flag: a pyramid grown out of the tile
+      const PYRAMID = {
+        default: { fill: "var(--flag-side)", ...line },
+        slope: { fill: "var(--flag)", ...line },
+      };
+      const BOARD = {
+        default: { fill: "var(--wall)", ...line },
+        front: { fill: "var(--pit)", ...line },
+      };
+      const BURNT = {
+        default: { fill: "var(--burn)", ...line },
+        front: { fill: "var(--burn-floor)", ...line },
+      };
 
-        function step(now) {
-          if (id !== vbAnimId) return;
-          const t = Math.min(1, (now - startTime) / duration);
-          const e = easeOutCubic(t);
-          vb.x = start.x + (target.x - start.x) * e;
-          vb.y = start.y + (target.y - start.y) * e;
-          vb.w = start.w + (target.w - start.w) * e;
-          vb.h = start.h + (target.h - start.h) * e;
-          const svgEl = container.querySelector("svg");
-          if (svgEl)
-            svgEl.setAttribute(
-              "viewBox",
-              `${vb.x.toFixed(2)} ${vb.y.toFixed(2)} ${vb.w.toFixed(2)} ${vb.h.toFixed(2)}`,
-            );
-          if (t < 1) requestAnimationFrame(step);
-        }
-        requestAnimationFrame(step);
-      }
-
-      const REVEAL_DUR = 300; // ms per cell reveal
-      const REVEAL_STAGGER = 40; // ms stagger between flood-fill steps
-      const BLAST_DUR = 500; // ms for explosion
-
-      function easeOutCubic(t) {
-        return 1 - Math.pow(1 - t, 3);
+      // ─── State ─────────────────────────────────────
+      let grid; // grid[row][col] = { mine, count, revealed, flagged, lift, anim }
+      let placed = false; // mines go in after the first click
+      let over = false;
+      let won = false;
+      let holes = []; // blast craters: { c, r, t0 }
+      let debris = []; // flying bits: { c, r, i, t0, dir, spin }
+      let hovered = null; // the cell under the pointer
+      const cam = { x: 0, y: 0, tx: 0, ty: 0 };
+      // where the camera looks from, -1 to 1 over the board: at rest a
+      // little above and to the left, so the tiles show their depth
+      const REST = [-0.45, -0.6];
+      function lean(nx, ny) {
+        const { cols, rows } = MODES[mode];
+        cam.tx = cols / 2 + nx * cols * 0.3;
+        cam.ty = rows / 2 + ny * rows * 0.3;
+        kick();
       }
 
       const container = document.getElementById("game");
       const statusEl = document.getElementById("status");
       const mineCountEl = document.getElementById("mine-count");
       const flagCountEl = document.getElementById("flag-count");
+      const timerEl = document.getElementById("timer");
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      container.append(svg);
 
-      // ─── Init board ────────────────────────────────
+      const cells = () => grid.flat();
+      const each = (fn) =>
+        grid.forEach((row, r) => row.forEach((cell, c) => fn(cell, r, c)));
+      const neighbours = (r, c) => {
+        const out = [];
+        for (let dr = -1; dr <= 1; dr++)
+          for (let dc = -1; dc <= 1; dc++) {
+            const nr = r + dr,
+              nc = c + dc;
+            if ((dr || dc) && grid[nr]?.[nc]) out.push([nr, nc]);
+          }
+        return out;
+      };
+
+      function setText(el, text) {
+        if (el.textContent === String(text)) return;
+        el.textContent = text;
+        el.classList.remove("bump");
+        void el.offsetWidth;
+        el.classList.add("bump");
+      }
+
+      function setStatus(text) {
+        statusEl.textContent = text;
+        statusEl.classList.remove("show");
+        if (!text) return;
+        void statusEl.offsetWidth;
+        statusEl.classList.add("show");
+      }
+
+      // ─── Timer ─────────────────────────────────────
+      let timer = 0,
+        started = 0;
       function startTimer() {
-        if (timerStarted) return;
-        timerStarted = true;
-        startTime = Date.now();
-        timerInterval = setInterval(() => {
-          elapsed = Math.floor((Date.now() - startTime) / 1000);
-          timerEl.textContent = elapsed;
-        }, 1000);
+        if (timer) return;
+        started = Date.now();
+        timer = setInterval(
+          () => setText(timerEl, Math.floor((Date.now() - started) / 1000)),
+          1000,
+        );
       }
-
       function stopTimer() {
-        clearInterval(timerInterval);
-        timerInterval = null;
+        clearInterval(timer);
+        timer = 0;
       }
 
+      // ─── A new game ────────────────────────────────
       function initGame() {
-        gameOver = false;
-        gameWon = false;
-        blastHoles = [];
-        timerStarted = false;
+        const { cols, rows, mines } = MODES[mode];
+        over = won = placed = false;
+        holes = [];
+        debris = [];
         stopTimer();
-        elapsed = 0;
         timerEl.textContent = "0";
-        statusEl.textContent = "";
+        flagCountEl.textContent = "0";
+        mineCountEl.textContent = mines;
+        setStatus("");
+        container.classList.remove("over");
+        lean(REST[0], REST[1]);
+        cam.x = cam.tx;
+        cam.y = cam.ty;
 
-        const { cols: COLS, rows: ROWS, mines: MINES } = MODES[mode];
-
-        grid = Array.from({ length: ROWS }, () =>
-          Array.from({ length: COLS }, () => ({
+        // the tiles drop in, a wave from the top left
+        const now = performance.now();
+        grid = Array.from({ length: rows }, (_, r) =>
+          Array.from({ length: cols }, (_, c) => ({
             mine: false,
             count: 0,
             revealed: false,
             flagged: false,
-            exploded: false,
+            flagAt: -Infinity, // when it was last flagged or unflagged
+            lift: 0,
+            anim: {
+              kind: "intro",
+              t0: now + (r + c) * 28 + Math.random() * 60,
+              dur: 520,
+            },
           })),
         );
 
-        // Place mines
-        let placed = 0;
-        while (placed < MINES) {
-          const r = Math.floor(Math.random() * ROWS);
-          const c = Math.floor(Math.random() * COLS);
-          if (!grid[r][c].mine) {
-            grid[r][c].mine = true;
-            placed++;
-          }
-        }
-
-        // Compute neighbor counts
-        for (let r = 0; r < ROWS; r++) {
-          for (let c = 0; c < COLS; c++) {
-            if (grid[r][c].mine) continue;
-            let count = 0;
-            for (let dr = -1; dr <= 1; dr++) {
-              for (let dc = -1; dc <= 1; dc++) {
-                if (dr === 0 && dc === 0) continue;
-                const nr = r + dr,
-                  nc = c + dc;
-                if (
-                  nr >= 0 &&
-                  nr < ROWS &&
-                  nc >= 0 &&
-                  nc < COLS &&
-                  grid[nr][nc].mine
-                ) {
-                  count++;
-                }
-              }
-            }
-            grid[r][c].count = count;
-          }
-        }
-
-        mineCountEl.textContent = MINES;
-        flagCountEl.textContent = "0";
-        render();
+        // the frame: the board's front, with room for what lifts off it
+        const { tile } = MODES[mode];
+        const pad = tile * 1.4;
+        svg.setAttribute(
+          "viewBox",
+          `${-pad} ${-pad} ${cols * tile + pad * 2} ${rows * tile + pad * 2}`,
+        );
+        kick();
       }
 
-      // ─── Number colors ─────────────────────────────
-      const numColors = [
-        null,
-        "#2563eb", // 1
-        "#16a34a", // 2
-        "#dc2626", // 3
-        "#7c3aed", // 4
-        "#ea580c", // 5
-        "#0891b2", // 6
-        "#4b5563", // 7
-        "#1e293b", // 8
-      ];
-      // Dark mode handled via CSS - we use fixed colors in SVG content
-      const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      const numColorsDark = [
-        null,
-        "#60a5fa",
-        "#4ade80",
-        "#f87171",
-        "#a78bfa",
-        "#fb923c",
-        "#22d3ee",
-        "#9ca3af",
-        "#e2e8f0",
-      ];
+      // the mines, away from the first click and its neighbours
+      function placeMines(r0, c0) {
+        const { cols, rows, mines } = MODES[mode];
+        const safe = new Set(
+          [[r0, c0], ...neighbours(r0, c0)].map(([r, c]) => r * cols + c),
+        );
+        const free = [];
+        for (let i = 0; i < rows * cols; i++) if (!safe.has(i)) free.push(i);
+        for (let n = 0; n < mines && free.length; n++) {
+          const [i] = free.splice(Math.floor(Math.random() * free.length), 1);
+          grid[Math.floor(i / cols)][i % cols].mine = true;
+        }
+        each((cell, r, c) => {
+          cell.count = neighbours(r, c).filter(
+            ([nr, nc]) => grid[nr][nc].mine,
+          ).length;
+        });
+        placed = true;
+      }
 
-      function getNumColor(n) {
-        if (n < 1 || n > 8) return isDark ? "#fbf4ea" : "#0e0e0e";
-        return isDark ? numColorsDark[n] : numColors[n];
+      // ─── Motion ────────────────────────────────────
+      // How a tile is moved this frame: lifted (toward the camera, -z),
+      // turned and scaled about its middle. null: no tile.
+      function tileMotion(cell, now) {
+        const { distance } = MODES[mode];
+        const a = cell.anim;
+        let dz = cell.lift,
+          rx = 0,
+          ry = 0,
+          rz = 0,
+          s = 1;
+        const p = a ? clamp((now - a.t0) / a.dur) : 1;
+        if (a && now >= a.t0)
+          switch (a.kind) {
+            case "intro":
+              dz -= distance * 0.6 * (1 - outCubic(p));
+              s = outBack(p);
+              rz = (1 - outCubic(p)) * 40;
+              break;
+            case "reveal": {
+              if (p >= 1) return null;
+              const k = a.blast ? 1.4 : 1;
+              // toward you, tumbling, shrinking away at the end
+              dz -= distance * 0.42 * k * outCubic(p);
+              rx = a.sx * 160 * k * p;
+              ry = a.sy * 160 * k * p;
+              s = 1 - inCubic(p);
+              break;
+            }
+            case "flag":
+              dz -= 0.3 * Math.sin(p * Math.PI);
+              break;
+            case "win":
+              dz -= distance * 0.12 * Math.sin(p * Math.PI);
+              break;
+          }
+        if (a?.kind === "intro" && now < a.t0) return null;
+        if (cell.revealed && !(a?.kind === "reveal")) return null;
+        return { dz, rot: [rx, ry, rz], s };
+      }
+
+      // how far a revealed cell's number has popped in, 0 to 1+
+      function contentScale(cell, now) {
+        const a = cell.anim;
+        if (!a || a.kind !== "reveal") return 1;
+        const q = (now - (a.t0 + a.dur * 0.25)) / 320;
+        return q <= 0 ? 0 : outBack(clamp(q));
+      }
+
+      function contentFor(cell, s) {
+        const { tile } = MODES[mode];
+        const g = (inner) =>
+          `<g transform="scale(${s.toFixed(3)})">${inner}</g>`;
+        if (cell.mine) {
+          const R = tile * 0.2;
+          let spikes = "";
+          for (let i = 0; i < 8; i++) {
+            const t = (i * Math.PI) / 4;
+            spikes += `M${(Math.cos(t) * R * 0.6).toFixed(2)} ${(Math.sin(t) * R * 0.6).toFixed(2)}L${(Math.cos(t) * R * 1.45).toFixed(2)} ${(Math.sin(t) * R * 1.45).toFixed(2)}`;
+          }
+          return g(
+            `<path d="${spikes}" stroke="var(--mine)" stroke-width="${tile * 0.06}" stroke-linecap="round"/>` +
+              `<circle r="${R}" fill="var(--mine)"/>` +
+              `<circle cx="${-R * 0.35}" cy="${-R * 0.35}" r="${R * 0.25}" fill="var(--bg)"/>`,
+          );
+        }
+        if (!cell.count) return null;
+        return g(
+          `<text font-family="Aboreto, cursive" font-size="${tile * 0.6}" text-anchor="middle" dominant-baseline="central" fill="var(--num-${cell.count})">${cell.count}</text>`,
+        );
+      }
+
+      // How far a flag's pyramid has grown, 0 to 1 (a little over as it
+      // settles, in; quicker, out)
+      function growth(cell, now) {
+        const t = now - cell.flagAt;
+        if (cell.flagged) return outBack(clamp(t / 360));
+        return 1 - outCubic(clamp(t / 220));
+      }
+
+      // A flag: heerich's own 'tip' piece, a pyramid with its apex on top,
+      // turned a quarter about x so the apex points at you, and standing
+      // on the tile's front (at z = front)
+      function pyramid(h, groups, cell, r, c, front, now) {
+        const g = growth(cell, now);
+        if (g <= 0.001) return;
+        const z0 = -2; // a free cell to build it in
+        const group = `p${r}_${c}`;
+        h.applyGeometry({
+          type: "box",
+          position: [c, r, z0],
+          size: 1,
+          slope: "tip",
+          style: PYRAMID,
+          meta: { col: c, row: r },
+          group,
+        });
+        const w = 0.7 * Math.min(1, 0.35 + 0.65 * g); // its base
+        const tall = 0.62 * g; // apex to base
+        groups[group] = {
+          scale: [w, tall, w],
+          rotate: [90, 0, 0],
+          // its base half its height behind its middle
+          translate: [0, 0, front - tall / 2 - (z0 + 0.5)],
+          center: [c + 0.5, r + 0.5, z0 + 0.5],
+        };
+      }
+
+      // A flag's four sides, lit from the top left: lighter or darker by
+      // how much each faces the light, so the pyramid reads as one
+      const LIGHT = (() => {
+        const v = [-0.6, -0.8, -0.5]; // left, up (y is down), toward you
+        const l = Math.hypot(...v);
+        return v.map((x) => x / l);
+      })();
+      function shade(face) {
+        if (face.type !== "slope" || !face.n) return null;
+        const [x, y, z] = face.n;
+        const l = Math.hypot(x, y, z) || 1;
+        const lit = (x * LIGHT[0] + y * LIGHT[1] + z * LIGHT[2]) / l; // -1 to 1
+        const pct = Math.round(Math.abs(lit) * 45);
+        return {
+          fill: `color-mix(in oklab, var(--flag), ${lit > 0 ? "white" : "black"} ${pct}%)`,
+        };
       }
 
       // ─── Render ────────────────────────────────────
-      function render() {
-        const { cols: COLS, rows: ROWS, tile: TILE } = MODES[mode];
+      function render(now) {
+        const { cols, rows, tile, distance } = MODES[mode];
         const h = new Heerich({
-          tile: TILE,
+          tile,
           camera: {
             type: "perspective",
-            position: [COLS / 2, ROWS / 2],
-            distance: MODES[mode].distance,
-          },
-          style: {
-            fill: "var(--fill)",
-            stroke: "var(--stroke-c)",
-            strokeWidth: "var(--stroke-w)",
+            position: [cam.x, cam.y],
+            distance,
           },
         });
 
-        // Unrevealed cell style — same as demo: background fill, dark outline
-        const unrevealedStyle = {
-          default: {
-            fill: "var(--fill)",
-            stroke: "var(--stroke-c)",
-            strokeWidth: "var(--stroke-w)",
-          },
-          front: {
-            fill: "var(--fill)",
-            stroke: "var(--stroke-c)",
-            strokeWidth: "var(--stroke-w)",
-          },
-        };
+        // the board behind the tiles; each revealed cell a pit in it
+        h.applyGeometry({
+          type: "box",
+          position: [0, 0, 1],
+          size: [cols, rows, LAYERS - 1],
+          style: BOARD,
+        });
 
-        // Revealed floor style — same as unrevealed but one layer back
-        const revealedStyle = {
-          default: {
-            fill: "var(--fill)",
-            stroke: "var(--stroke-c)",
-            strokeWidth: "var(--stroke-w)",
-          },
-          front: {
-            fill: "var(--fill)",
-            stroke: "var(--stroke-c)",
-            strokeWidth: "var(--stroke-w)",
-          },
-        };
+        // craters, growing, their walls scorched
+        for (const hole of holes) {
+          const r = 1.7 * outCubic(clamp((now - hole.t0) / 500));
+          if (r < 0.1) continue;
+          const center = [hole.c + 0.5, hole.r + 0.5, 1.2];
+          h.removeGeometry({ type: "sphere", center, radius: r });
+          h.applyStyle({
+            type: "sphere",
+            center,
+            radius: r + 0.6,
+            style: BURNT,
+          });
+        }
 
-        // Exploded wall style — lighter red for crater walls
-        const explodedWallStyle = {
-          default: {
-            fill: isDark ? "#f0807a" : "#e8a0a0",
-            stroke: isDark ? "#f0807a" : "#e8a0a0",
-            strokeWidth: 0.7,
-          },
-          front: {
-            fill: isDark ? "#f4908a" : "#f0b0b0",
-            stroke: isDark ? "#f4908a" : "#f0b0b0",
-            strokeWidth: 0.7,
-          },
-        };
-
-        // Build the base slab (3 layers along Z)
-        // Z=0 is closest to camera (front), Z=LAYERS-1 is furthest (back)
-        for (let r = 0; r < ROWS; r++) {
-          for (let c = 0; c < COLS; c++) {
-            const cell = grid[r][c];
-
-            // Compute animation progress for this cell
-            const t = cell.revealT || 0;
-
-            if (cell.revealed || t > 0) {
-              // Full stack first, then carve away the front based on t
-              const carveDepth = Math.round(t); // 0 or 1 (snaps when animation completes)
-              const partialCarve = t > 0 && t < 1;
-
-              if (partialCarve) {
-                // During animation: full stack but subtract a growing slab from front
-                h.applyGeometry({
-                  type: "box",
-                  position: [c, r, 0],
-                  size: [1, 1, LAYERS],
-                  style: unrevealedStyle,
-                  meta: { col: c, row: r },
-                });
-                // Carve away front portion (z=0) using subtract
-                h.removeGeometry({
-                  type: "box",
-                  position: [c, r, 0],
-                  size: [1, 1, Math.max(1, Math.round(t))],
-                });
-              } else {
-                // Fully revealed
-                if (LAYERS - 1 > 0) {
-                  h.applyGeometry({
-                    type: "box",
-                    position: [c, r, 1],
-                    size: [1, 1, LAYERS - 1],
-                    style: revealedStyle,
-                  });
-                }
-              }
-
-              // Show content once animation is past halfway or complete
-              if (t >= 0.5 || carveDepth >= 1) {
-                if (cell.mine) {
-                  h.applyGeometry({
-                    type: "box",
-                    position: [c, r, 0],
-                    size: 1,
-                    opaque: false,
-                    content: `<text
-                      font-family="Aboreto, cursive"
-                      font-size="18"
-                      text-anchor="middle"
-                      dominant-baseline="central"
-                      fill="${isDark ? "#e74c3c" : "#c0392b"}"
-                    >●</text>`,
-                  });
-                } else if (cell.count > 0) {
-                  h.applyGeometry({
-                    type: "box",
-                    position: [c, r, 0],
-                    size: 1,
-                    opaque: false,
-                    content: `<text
-                      font-family="Aboreto, cursive"
-                      font-size="18"
-                      font-weight="400"
-                      text-anchor="middle"
-                      dominant-baseline="central"
-                      fill="${getNumColor(cell.count)}"
-                    >${cell.count}</text>`,
-                  });
-                }
-              }
-            } else {
-              // Unrevealed: full stack z=0 to z=LAYERS-1
+        const groups = {};
+        each((cell, r, c) => {
+          const m = tileMotion(cell, now);
+          if (m) {
+            const isHover =
+              !over && hovered && hovered[0] === r && hovered[1] === c;
+            const style = isHover ? TILE_HOVER : TILE;
+            const meta = { col: c, row: r };
+            const still =
+              Math.abs(m.dz) < 1e-3 && m.s === 1 && !m.rot.some((v) => v);
+            if (still) {
               h.applyGeometry({
                 type: "box",
                 position: [c, r, 0],
-                size: [1, 1, LAYERS],
-                style: cell.flagged
-                  ? {
-                      default: unrevealedStyle.default,
-                      front: {
-                        fill: isDark ? "#4a3a10" : "#f0e0a0",
-                        stroke: isDark ? "#6a5a20" : "#d4a017",
-                        strokeWidth: 0.5,
-                      },
-                    }
-                  : unrevealedStyle,
-                meta: { col: c, row: r },
+                size: 1,
+                style,
+                meta,
               });
-
-              // Flag content in front of the cell (z=-1)
-              if (cell.flagged) {
-                h.applyGeometry({
-                  type: "box",
-                  position: [c, r, -1],
-                  size: 1,
-                  opaque: false,
-                  content: `<text
-                    font-family="Aboreto, cursive"
-                    font-size="16"
-                    text-anchor="middle"
-                    dominant-baseline="central"
-                    fill="${isDark ? "#f0c040" : "#d4a017"}"
-                  >⚑</text>`,
-                });
-              }
-            }
-          }
-        }
-
-        // Apply blast holes (sphere subtractions) with animated radius
-        for (const hole of blastHoles) {
-          const currentR = hole.r; // animated radius set by animation loop
-          if (currentR > 0.1) {
-            h.removeGeometry({
-              type: "sphere",
-              center: [hole.cx, hole.cy, hole.cz],
-              radius: currentR,
-            });
-            h.applyStyle({
-              type: "sphere",
-              center: [hole.cx, hole.cy, hole.cz],
-              radius: currentR + 1.2,
-              style: explodedWallStyle,
-            });
-          }
-        }
-
-        const svg = h.toSVG({
-          padding: 15,
-          faceAttributes: (face) => {
-            const v = face.voxel;
-            if (v.meta && v.meta.col !== undefined) {
-              return {
-                "data-col": v.meta.col,
-                "data-row": v.meta.row,
+            } else {
+              // a tile on the move is its own group, one cell in front of
+              // its place (so its cell is free for the number behind it)
+              const group = `t${r}_${c}`;
+              h.applyGeometry({
+                type: "box",
+                position: [c, r, -1],
+                size: 1,
+                style,
+                meta,
+                group,
+              });
+              groups[group] = {
+                translate: [0, 0, 1 + m.dz],
+                rotate: m.rot,
+                scale: Math.max(0.001, m.s),
+                center: [c + 0.5, r + 0.5, -0.5],
               };
             }
-            return null;
-          },
+            pyramid(h, groups, cell, r, c, m.dz, now);
+          }
+          if (cell.revealed) {
+            const s = contentScale(cell, now);
+            const content = s > 0 && contentFor(cell, s);
+            if (content)
+              h.applyGeometry({
+                type: "box",
+                position: [c, r, 0],
+                size: 1,
+                opaque: false,
+                content,
+              });
+          }
         });
 
-        container.innerHTML = svg;
-
-        // Animate viewBox transitions
-        const svgEl = container.querySelector("svg");
-        if (svgEl) {
-          const parts = svgEl.getAttribute("viewBox").split(" ").map(Number);
-          const newVb = { x: parts[0], y: parts[1], w: parts[2], h: parts[3] };
-          if (vb.w === 0) {
-            // First render — snap
-            vb = { ...newVb };
-            vbTarget = { ...newVb };
-          } else if (
-            newVb.x !== vbTarget.x ||
-            newVb.y !== vbTarget.y ||
-            newVb.w !== vbTarget.w ||
-            newVb.h !== vbTarget.h
-          ) {
-            animateViewBox(newVb);
-          }
-          // Apply current animated viewBox
-          svgEl.setAttribute(
-            "viewBox",
-            `${vb.x.toFixed(2)} ${vb.y.toFixed(2)} ${vb.w.toFixed(2)} ${vb.h.toFixed(2)}`,
-          );
+        // bits of the blast, flying out and falling
+        for (const d of debris) {
+          const p = clamp((now - d.t0) / 900);
+          if (p <= 0 || p >= 1) continue;
+          const z = -3 - d.i;
+          const group = `d${d.r}_${d.c}_${d.i}`;
+          h.applyGeometry({
+            type: "box",
+            position: [d.c, d.r, z],
+            size: 1,
+            style: BURNT,
+            group,
+          });
+          const e = outCubic(p);
+          groups[group] = {
+            translate: [
+              d.dir[0] * 1.5 * e,
+              d.dir[1] * 1.5 * e + 2.2 * p * p,
+              -0.5 - (z + 0.5) - distance * 0.15 * e,
+            ],
+            rotate: [d.spin[0] * p, d.spin[1] * p, d.spin[2] * p],
+            scale: 0.26 * (1 - inCubic(p)) + 0.001,
+            center: [d.c + 0.5, d.r + 0.5, z + 0.5],
+          };
         }
+
+        h.updateSVG(svg, {
+          groups,
+          faceAttributes: shade,
+          viewBox: svg.getAttribute("viewBox").split(" ").map(Number),
+        });
       }
 
-      // ─── Flood-fill reveal (BFS with staggered timing) ─
-      function reveal(r, c) {
-        const { cols: COLS, rows: ROWS } = MODES[mode];
+      // ─── The loop: runs while anything moves ───────
+      let raf = 0;
+      function kick() {
+        if (!raf) raf = requestAnimationFrame(frame);
+      }
+      function frame(now) {
+        let busy = false;
+        // the camera follows the pointer, eased
+        cam.x += (cam.tx - cam.x) * 0.12;
+        cam.y += (cam.ty - cam.y) * 0.12;
+        if (Math.abs(cam.tx - cam.x) + Math.abs(cam.ty - cam.y) > 0.002)
+          busy = true;
+        else ((cam.x = cam.tx), (cam.y = cam.ty));
+        each((cell, r, c) => {
+          const want =
+            !over && !cell.revealed && hovered?.[0] === r && hovered?.[1] === c
+              ? -0.28
+              : cell.flagged && !cell.revealed
+                ? -0.1
+                : 0;
+          cell.lift += (want - cell.lift) * 0.25;
+          if (Math.abs(want - cell.lift) > 0.002) busy = true;
+          else cell.lift = want;
+          if (now < cell.flagAt + 500) busy = true;
+          const a = cell.anim;
+          if (a) {
+            if (now < a.t0 + a.dur + 400) busy = true;
+            else cell.anim = null;
+          }
+        });
+        if (holes.some((h) => now < h.t0 + 500)) busy = true;
+        if (debris.some((d) => now < d.t0 + 900)) busy = true;
+        render(now);
+        raf = busy ? requestAnimationFrame(frame) : 0;
+      }
+
+      // ─── Playing ───────────────────────────────────
+      function reveal(r0, c0) {
         const now = performance.now();
-        const queue = [[r, c, 0]]; // [row, col, depth]
-        const visited = new Set();
-        visited.add(`${r},${c}`);
-
-        while (queue.length > 0) {
-          const [cr, cc, depth] = queue.shift();
-          if (cr < 0 || cr >= ROWS || cc < 0 || cc >= COLS) continue;
-          const cell = grid[cr][cc];
+        const queue = [[r0, c0, 0]];
+        const seen = new Set([`${r0},${c0}`]);
+        while (queue.length) {
+          const [r, c, depth] = queue.shift();
+          const cell = grid[r][c];
           if (cell.revealed || cell.flagged) continue;
-
           cell.revealed = true;
-          cell.revealStart = now + depth * REVEAL_STAGGER;
-
-          if (cell.count === 0 && !cell.mine) {
-            for (let dr = -1; dr <= 1; dr++) {
-              for (let dc = -1; dc <= 1; dc++) {
-                if (dr === 0 && dc === 0) continue;
-                const key = `${cr + dr},${cc + dc}`;
-                if (!visited.has(key)) {
-                  visited.add(key);
-                  queue.push([cr + dr, cc + dc, depth + 1]);
-                }
+          cell.anim = {
+            kind: "reveal",
+            t0: now + depth * 45,
+            dur: 560,
+            sx: Math.random() * 2 - 1,
+            sy: Math.random() * 2 - 1,
+          };
+          if (cell.count === 0)
+            for (const [nr, nc] of neighbours(r, c))
+              if (!seen.has(`${nr},${nc}`)) {
+                seen.add(`${nr},${nc}`);
+                queue.push([nr, nc, depth + 1]);
               }
-            }
-          }
-        }
-
-        startAnimation();
-      }
-
-      // ─── Animation loop ────────────────────────────
-      function startAnimation() {
-        if (animating) return;
-        animating = true;
-        requestAnimationFrame(animationFrame);
-      }
-
-      function animationFrame(now) {
-        let stillAnimating = false;
-        const { cols: COLS, rows: ROWS } = MODES[mode];
-
-        // Update cell reveal progress
-        for (let r = 0; r < ROWS; r++) {
-          for (let c = 0; c < COLS; c++) {
-            const cell = grid[r][c];
-            if (cell.revealed && cell.revealStart !== undefined) {
-              const elapsed = now - cell.revealStart;
-              const t = Math.min(1, Math.max(0, elapsed / REVEAL_DUR));
-              cell.revealT = easeOutCubic(t);
-              if (t < 1) stillAnimating = true;
-              else delete cell.revealStart; // done
-            }
-          }
-        }
-
-        // Update blast hole radii
-        for (const hole of blastHoles) {
-          if (hole.startTime !== undefined) {
-            const elapsed = now - hole.startTime;
-            const t = Math.min(1, Math.max(0, elapsed / BLAST_DUR));
-            hole.r = hole.targetR * easeOutCubic(t);
-            if (t < 1) stillAnimating = true;
-            else delete hole.startTime; // done
-          }
-        }
-
-        render();
-
-        if (stillAnimating) {
-          requestAnimationFrame(animationFrame);
-        } else {
-          animating = false;
         }
       }
 
-      // ─── Check win ─────────────────────────────────
-      function checkWin() {
-        const { cols: COLS, rows: ROWS } = MODES[mode];
-        for (let r = 0; r < ROWS; r++) {
-          for (let c = 0; c < COLS; c++) {
-            if (!grid[r][c].mine && !grid[r][c].revealed) return false;
-          }
+      function blast(r, c, t0) {
+        const cell = grid[r][c];
+        cell.revealed = true;
+        cell.anim = {
+          kind: "reveal",
+          t0,
+          dur: 520,
+          blast: true,
+          sx: Math.random() * 2 - 1,
+          sy: Math.random() * 2 - 1,
+        };
+        holes.push({ r, c, t0 });
+        for (let i = 0; i < 7; i++) {
+          const a = Math.random() * Math.PI * 2;
+          debris.push({
+            r,
+            c,
+            i,
+            t0,
+            dir: [Math.cos(a), Math.sin(a) - 0.6],
+            spin: [0, 0, 0].map(() => (Math.random() * 2 - 1) * 540),
+          });
         }
-        return true;
+        setTimeout(
+          () => {
+            container.classList.remove("shake");
+            void container.offsetWidth;
+            container.classList.add("shake");
+          },
+          Math.max(0, t0 - performance.now()),
+        );
       }
 
-      // ─── Handle click ──────────────────────────────
-      container.addEventListener("click", (e) => {
-        if (gameOver || gameWon) return;
-        const poly = e.target.closest("polygon[data-col]");
-        if (!poly) return;
+      function lose(r, c) {
+        over = true;
+        stopTimer();
+        container.classList.add("over");
+        const now = performance.now();
+        blast(r, c, now);
+        // the other mines go off one by one, nearest first; flags that
+        // were right stay
+        const rest = [];
+        each((cell, mr, mc) => {
+          if (cell.mine && !cell.revealed && !cell.flagged)
+            rest.push([Math.hypot(mr - r, mc - c), mr, mc]);
+        });
+        rest.sort((a, b) => a[0] - b[0]);
+        rest.forEach(([, mr, mc], i) => blast(mr, mc, now + 350 + i * 110));
+        setStatus("Boom");
+      }
 
-        const c = parseInt(poly.dataset.col);
-        const r = parseInt(poly.dataset.row);
-        if (isNaN(c) || isNaN(r)) return;
+      function win(r, c) {
+        won = true;
+        stopTimer();
+        container.classList.add("over");
+        // every mine flagged, and a wave goes over the tiles left
+        const now = performance.now();
+        each((cell, mr, mc) => {
+          if (cell.revealed) return;
+          const t0 = now + 300 + Math.hypot(mr - r, mc - c) * 70;
+          // its pyramid grows as the wave reaches it
+          if (!cell.flagged) cell.flagAt = t0;
+          cell.flagged = true;
+          cell.anim = { kind: "win", t0, dur: 800 };
+        });
+        setText(flagCountEl, MODES[mode].mines);
+        setStatus("Cleared");
+      }
 
+      const cellAt = (target) => {
+        const el = target.closest?.("[data-col]");
+        return el ? [+el.dataset.row, +el.dataset.col] : null;
+      };
+
+      function dig(r, c) {
+        if (over || won) return;
         const cell = grid[r][c];
         if (cell.flagged || cell.revealed) return;
-
+        if (!placed) placeMines(r, c);
         startTimer();
-
-        if (cell.mine) {
-          // BOOM — punch a sphere hole with animated radius
-          cell.revealed = true;
-          cell.exploded = true;
-          cell.revealT = 1;
-
-          const now = performance.now();
-          blastHoles.push({
-            cx: c + 0.5,
-            cy: r + 0.5,
-            cz: LAYERS * 0.5,
-            r: 0, // starts at 0, animates to targetR
-            targetR: 1.8,
-            startTime: now,
-          });
-
-          // Reveal all mines with staggered animation
-          gameOver = true;
-          const { cols: COLS, rows: ROWS } = MODES[mode];
-          let delay = 0;
-          for (let mr = 0; mr < ROWS; mr++) {
-            for (let mc = 0; mc < COLS; mc++) {
-              if (grid[mr][mc].mine && !(mr === r && mc === c)) {
-                grid[mr][mc].revealed = true;
-                grid[mr][mc].revealT = 1;
-                grid[mr][mc].revealStart = now + 300 + delay;
-                blastHoles.push({
-                  cx: mc + 0.5,
-                  cy: mr + 0.5,
-                  cz: LAYERS * 0.5,
-                  r: 0,
-                  targetR: 1.8,
-                  startTime: now + 300 + delay,
-                });
-                delay += 120;
-              }
-            }
-          }
-
-          stopTimer();
-          statusEl.textContent = "BOOM";
-          startAnimation();
-          return;
+        if (cell.mine) lose(r, c);
+        else {
+          reveal(r, c);
+          if (cells().every((x) => x.mine || x.revealed)) win(r, c);
         }
+        kick();
+      }
 
-        reveal(r, c);
-
-        if (checkWin()) {
-          gameWon = true;
-          stopTimer();
-          statusEl.textContent = "CLEARED";
-        }
-      });
-
-      // ─── Right-click flag ──────────────────────────
-      container.addEventListener("contextmenu", (e) => {
-        e.preventDefault();
-        if (gameOver || gameWon) return;
-
-        const poly = e.target.closest("polygon[data-col]");
-        if (!poly) return;
-
-        const c = parseInt(poly.dataset.col);
-        const r = parseInt(poly.dataset.row);
-        if (isNaN(c) || isNaN(r)) return;
-
+      function flag(r, c) {
+        if (over || won) return;
         const cell = grid[r][c];
         if (cell.revealed) return;
-
         cell.flagged = !cell.flagged;
+        cell.flagAt = performance.now();
+        cell.anim = { kind: "flag", t0: cell.flagAt, dur: 450 };
+        setText(flagCountEl, cells().filter((x) => x.flagged).length);
+        kick();
+      }
 
-        // Update flag count
-        const { cols: COLS, rows: ROWS } = MODES[mode];
-        let flags = 0;
-        for (let mr = 0; mr < ROWS; mr++)
-          for (let mc = 0; mc < COLS; mc++) if (grid[mr][mc].flagged) flags++;
-        flagCountEl.textContent = flags;
-
-        render();
+      // ─── Input ─────────────────────────────────────
+      let pressTimer = 0,
+        pressed = false;
+      container.addEventListener("click", (e) => {
+        if (pressed) return (pressed = false);
+        const at = cellAt(e.target);
+        if (at) dig(...at);
       });
-
-      // ─── Hover — highlight all faces of same voxel ──
-      let hoveredPolys = [];
-      container.addEventListener("mouseover", (e) => {
-        const poly = e.target.closest("polygon[data-voxel]");
-        // Clear previous
-        for (const p of hoveredPolys) p.classList.remove("voxel-hover");
-        hoveredPolys = [];
-        if (!poly || !poly.dataset.col) return;
-        const voxelId = poly.dataset.voxel;
-        const svg = container.querySelector("svg");
-        if (!svg) return;
-        hoveredPolys = [
-          ...svg.querySelectorAll(`polygon[data-voxel="${voxelId}"]`),
-        ];
-        for (const p of hoveredPolys) p.classList.add("voxel-hover");
+      container.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        const at = cellAt(e.target);
+        if (at) flag(...at);
       });
-      container.addEventListener("mouseleave", () => {
-        for (const p of hoveredPolys) p.classList.remove("voxel-hover");
-        hoveredPolys = [];
+      // a long press flags, on touch
+      container.addEventListener("pointerdown", (e) => {
+        if (e.pointerType !== "touch") return;
+        const at = cellAt(e.target);
+        if (!at) return;
+        pressTimer = setTimeout(() => {
+          pressed = true;
+          flag(...at);
+        }, 420);
       });
+      for (const type of ["pointerup", "pointercancel", "pointerleave"])
+        container.addEventListener(type, () => clearTimeout(pressTimer));
 
-      // ─── Mode buttons ────────────────────────────────
-      document.querySelectorAll(".mode-btn").forEach((btn) => {
+      container.addEventListener("pointermove", (e) => {
+        const at = cellAt(e.target);
+        if (String(at) !== String(hovered)) {
+          hovered = at;
+          kick();
+        }
+      });
+      container.addEventListener("pointerleave", () => {
+        hovered = null;
+        kick();
+      });
+      // the camera leans toward the pointer, and back to rest when it
+      // leaves the page
+      window.addEventListener("pointermove", (e) => {
+        const box = container.getBoundingClientRect();
+        lean(
+          clamp((e.clientX - box.left) / box.width) * 2 - 1,
+          clamp((e.clientY - box.top) / box.height) * 2 - 1,
+        );
+      });
+      document.documentElement.addEventListener("pointerleave", () =>
+        lean(REST[0], REST[1]),
+      );
+
+      document.querySelectorAll("[data-mode]").forEach((btn) => {
         btn.addEventListener("click", () => {
           document
-            .querySelectorAll(".mode-btn")
-            .forEach((b) => b.classList.remove("active"));
-          btn.classList.add("active");
+            .querySelectorAll("[data-mode]")
+            .forEach((b) => b.classList.toggle("active", b === btn));
           mode = btn.dataset.mode;
           initGame();
         });
       });
 
-      // ─── Start ─────────────────────────────────────
       initGame();
     </script>
   </body>
