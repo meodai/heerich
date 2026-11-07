@@ -116,6 +116,13 @@
           <div class="settings-grid-header">
             <span>Rotate</span>
             <span class="settings-grid-values"
+              ><button
+                type="button"
+                class="settings-x"
+                id="orbit-reset"
+                title="Reset the rotation"
+              >
+                &times;</button
               ><span id="orbit-az-value">0</span>°
               <span class="settings-grid-separator">/</span>
               <span id="orbit-el-value">0</span>°</span
@@ -159,17 +166,9 @@
           <input type="color" id="cam-fill" value="#fbf4ea" />
           <button
             type="button"
+            class="settings-x"
             id="cam-fill-clear"
             title="Set fill to transparent"
-            style="
-              padding: 0 0.3em;
-              font-size: 0.7rem;
-              line-height: 1;
-              cursor: pointer;
-              border: 1px solid var(--line);
-              background: transparent;
-              color: var(--text);
-            "
           >
             &times;
           </button>

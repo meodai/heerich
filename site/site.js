@@ -577,12 +577,14 @@ camClip.addEventListener("change", () => rerenderAll());
     dragging = false;
     el.releasePointerCapture(e.pointerId);
   });
-  el.addEventListener("dblclick", () => {
+  const reset = () => {
     orbit.az = 0;
     orbit.el = 0;
     show();
     rerenderAll();
-  });
+  };
+  el.addEventListener("dblclick", reset);
+  document.getElementById("orbit-reset").addEventListener("click", reset);
   show();
 }
 syncStyleVars();

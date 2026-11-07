@@ -720,6 +720,21 @@ button:hover {
   padding: 0 0.35em;
 }
 
+/* The little × buttons: clear the fill, reset the rotation */
+.settings-panel .settings-x {
+  padding: 0 0.3em;
+  font-size: 0.7rem;
+  line-height: 1;
+  cursor: pointer;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+}
+
+.settings-panel .settings-grid-values .settings-x {
+  margin-right: 0.5em;
+}
+
 .settings-panel .settings-orbit {
   position: relative;
   width: 62%;
