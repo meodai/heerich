@@ -167,6 +167,13 @@
           <input type="range" id="holes" min="0" max="100" value="30" />
           <span class="control-value">30</span>
         </label>
+        <label
+          class="control-label"
+          title="Leave out the faces other faces hide (far fewer elements)"
+        >
+          <span>Cull hidden</span>
+          <input type="checkbox" id="occlusion" checked />
+        </label>
       </div>
       <div class="settings-section-title">Camera</div>
       <div class="settings-fields">
@@ -343,7 +350,14 @@
         })(0, 0, cols, rows);
 
         const cells = new Map();
-        const key = (x, y, z) => `${x},${y},${z}`;
+        // a number per cell (a string key costs more than the drawing)
+        const key = (x, y, z) =>
+          ((x + 512) * 1024 + (y + 512)) * 1024 + z + 512;
+        const unkey = (k) => [
+          Math.floor(k / 1048576) - 512,
+          (Math.floor(k / 1024) % 1024) - 512,
+          (k % 1024) - 512,
+        ];
         let blockId = 0;
         for (const lot of lots) {
           // now and then a narrow alley along one side
@@ -418,14 +432,14 @@
           [0, -1],
         ];
         for (const k of [...cells.keys()]) {
-          const [x, y, z] = k.split(",").map(Number);
+          const [x, y, z] = unkey(k);
           if (y === -1 || !cells.has(key(x, y - 1, z))) continue;
           const wall = around.some(
             ([dx, dz]) => !cells.has(key(x + dx, y, z + dz)),
           );
           if (wall && r() < holes * 0.04) cells.delete(k);
         }
-        return { cells, key };
+        return { cells, key, unkey };
       }
 
       // ─── Faces: which way they look, and how a decal's 0–1 square lies
@@ -548,7 +562,7 @@
           vary: +$("vary").value / 100,
           gutter: +$("gutter").value,
         };
-        const { cells, key } = plan(opts);
+        const { cells, key, unkey } = plan(opts);
         h = new Heerich({ tile: 12, camera: camera() });
 
         // decals are shared by name, one per distinct drawing
@@ -564,8 +578,12 @@
         };
 
         const at = (x, y, z) => cells.get(key(x, y, z));
+        // a face against another cell is never drawn (a clip draws walls
+        // there instead), so it needs no lines
+        const hidden = { fill: "var(--paper)" };
         const styleFor = (type) => (x, y, z) => {
           const f = FACES[type];
+          if (at(x + f.n[0], y + f.n[1], z + f.n[2])) return hidden;
           const cell = at(x, y, z);
           const pos = [x, y, z];
           const step = (axis, dir, extra) => {
@@ -692,7 +710,7 @@
           // the cut's outline (cell seams inside it aren't drawn)
           cutLine: { class: "edge" },
         };
-        const keys = [...cells.keys()].map((k) => k.split(",").map(Number));
+        const keys = [...cells.keys()].map(unkey);
         if (!keys.length) return;
         const lo = [0, 1, 2].map((i) => Math.min(...keys.map((k) => k[i])));
         const hi = [0, 1, 2].map((i) => Math.max(...keys.map((k) => k[i])) + 1);
@@ -859,6 +877,8 @@
           clip: c,
           caps: $("walls").value !== "off",
           dataAttributes: false,
+          // leave out the faces other faces hide: a tall block has thousands
+          occlusion: $("occlusion").checked,
         });
       }
 
@@ -993,6 +1013,7 @@
       $("hollow").addEventListener("change", build);
       $("cut").addEventListener("input", () => $("spin").checked || render());
       $("clip").addEventListener("change", render);
+      $("occlusion").addEventListener("change", render);
       $("walls").addEventListener("change", () => {
         document.body.dataset.walls = $("walls").value;
         render();
