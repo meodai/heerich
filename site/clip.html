@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Heerich · Clip</title>
+    <style>
+      :root {
+        --bg: #fbf4ea;
+        --ink: #2b2620;
+        --cut: #111;
+        --cut-line: #fff;
+        --face: #f2ebe0;
+        --side: #d9cfbf;
+        --shade: #bfb3a0;
+        color-scheme: light;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          14px/1.4 system-ui,
+          sans-serif;
+      }
+      main {
+        height: 100%;
+        display: grid;
+        grid-template-rows: auto 1fr;
+      }
+      header {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem 1.5rem;
+        align-items: center;
+        padding: 1rem 1.5rem;
+      }
+      header h1 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin: 0 1rem 0 0;
+      }
+      label {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+      }
+      output {
+        min-width: 3ch;
+        font-variant-numeric: tabular-nums;
+      }
+      svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      .box {
+        fill: none;
+        stroke: var(--ink);
+        stroke-width: 1;
+        stroke-dasharray: 4 4;
+        vector-effect: non-scaling-stroke;
+        opacity: 0.45;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Clip</h1>
+        <label
+          >Size
+          <input id="size" type="range" min="3" max="8" value="6" />
+          <output id="size-out">6</output></label
+        >
+        <label
+          >Turn x
+          <input id="speed-x" type="range" min="-60" max="60" value="23" />
+          <output id="speed-x-out">23</output>°/s</label
+        >
+        <label
+          >Turn y
+          <input id="speed-y" type="range" min="-60" max="60" value="37" />
+          <output id="speed-y-out">37</output>°/s</label
+        >
+        <label
+          >Walls
+          <select id="walls">
+            <option value="black">black</option>
+            <option value="same">same as shape</option>
+            <option value="off">off</option>
+          </select></label
+        >
+        <label><input id="box" type="checkbox" checked /> Box</label>
+        <label><input id="pause" type="checkbox" /> Pause</label>
+      </header>
+      <svg id="view"></svg>
+    </main>
+
+    <script type="module">
+      import { Heerich } from "../src/heerich.js";
+
+      // ─── The shape, from the docs' Custom shapes: an s × s × s cube with
+      // its corners taken out, a cross on every face. One group, so it can
+      // turn. The box it is clipped to is the cube itself, and stays put
+      // while the shape turns around the cube's centre.
+      const svg = document.getElementById("view");
+      const NS = "http://www.w3.org/2000/svg";
+      const faces = svg.appendChild(document.createElementNS(NS, "g"));
+      const outline = svg.appendChild(document.createElementNS(NS, "path"));
+      outline.setAttribute("class", "box");
+
+      let h, clip, centre;
+      const wallLook = () => document.getElementById("walls").value;
+      function build(s) {
+        h = new Heerich({
+          tile: 28,
+          camera: { type: "isometric", angle: 30 },
+          style: { stroke: "var(--ink)", strokeWidth: 0.6 },
+        });
+        h.applyGeometry({
+          type: "fill",
+          bounds: [
+            [0, 0, 0],
+            [s, s, s],
+          ],
+          test: (x, y, z) => {
+            const c = Math.ceil(s / 4);
+            const nearEdge = [x, y, z].filter(
+              (v) => v < c || v >= s - c,
+            ).length;
+            return nearEdge < 3;
+          },
+          style: {
+            default: { fill: "var(--side)" },
+            top: { fill: "var(--face)" },
+            bottom: { fill: "var(--shade)" },
+            // The walls where the box cuts: black with white lines, or (no
+            // `cap` style) each in the style of the side it faces
+            ...(wallLook() === "black"
+              ? { cap: { fill: "var(--cut)", stroke: "var(--cut-line)" } }
+              : {}),
+          },
+          group: "shape",
+        });
+        const min = [0, 0, 0],
+          max = [s, s, s];
+        clip = { min, max };
+        centre = [s / 2, s / 2, s / 2];
+
+        // The box's corners and edges: its outline, and a frame that holds
+        // still (nothing drawn reaches past the box)
+        const corners = [];
+        for (const x of [min[0], max[0]])
+          for (const y of [min[1], max[1]])
+            for (const z of [min[2], max[2]]) corners.push([x, y, z]);
+        const pts = corners.map((c) => h.project(c));
+        const xs = pts.map((p) => p.x),
+          ys = pts.map((p) => p.y);
+        const pad = 24;
+        svg.setAttribute(
+          "viewBox",
+          [
+            Math.min(...xs) - pad,
+            Math.min(...ys) - pad,
+            Math.max(...xs) - Math.min(...xs) + pad * 2,
+            Math.max(...ys) - Math.min(...ys) + pad * 2,
+          ].join(" "),
+        );
+        let d = "";
+        for (let a = 0; a < 8; a++)
+          for (let b = a + 1; b < 8; b++)
+            if ([1, 2, 4].includes(a ^ b))
+              // corners that differ on one axis make an edge
+              d += `M${pts[a].x},${pts[a].y}L${pts[b].x},${pts[b].y}`;
+        outline.setAttribute("d", d);
+      }
+      build(6);
+
+      // ─── Controls ───
+      const $ = (id) => document.getElementById(id);
+      $("size").addEventListener("input", (e) => {
+        $("size-out").value = e.target.value;
+        build(+e.target.value);
+      });
+      $("walls").addEventListener("change", () => build(+$("size").value));
+      for (const id of ["speed-x", "speed-y"])
+        $(id).addEventListener("input", (e) => {
+          $(id + "-out").value = e.target.value;
+        });
+      $("box").addEventListener("change", (e) => {
+        outline.style.display = e.target.checked ? "" : "none";
+      });
+
+      // ─── Turn ───
+      let ax = 0,
+        ay = 0,
+        last = 0;
+      function frame(now) {
+        const dt = Math.min(0.1, (now - (last || now)) / 1000);
+        last = now;
+        if (!$("pause").checked) {
+          ax += +$("speed-x").value * dt;
+          ay += +$("speed-y").value * dt;
+        }
+        h.updateSVG(faces, {
+          transforms: {
+            shape: { rotate: [ax, ay, 0], origin: centre },
+          },
+          clip,
+          caps: wallLook() !== "off",
+          dataAttributes: false,
+        });
+        requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    </script>
+  </body>
+</html>

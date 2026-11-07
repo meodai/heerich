@@ -17,6 +17,7 @@ export default defineConfig({
           new URL("./minesweeper.html", import.meta.url),
         ),
         terrain: fileURLToPath(new URL("./terrain.html", import.meta.url)),
+        clip: fileURLToPath(new URL("./clip.html", import.meta.url)),
       },
     },
   },
