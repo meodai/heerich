@@ -372,9 +372,7 @@ const baseStyle = {
 const orbit = { az: 0, el: 0 }; // degrees
 const camClip = document.getElementById("cam-clip");
 
-// The example's box (whole cells) and, for the frame, what it can reach:
-// the box itself if clipped, else a cube around its middle as wide as its
-// diagonal (anything turning inside it stays inside that).
+// The example's box (whole cells): what it is clipped to, and its frame.
 // `bounds` gives the box when there are no stored voxels to measure (an
 // example drawn with renderTest), and `clip: false` turns clipping off for
 // one example (renderTest can't close a cut).
@@ -398,23 +396,17 @@ function orbitOpts(e, opts, { bounds, clip = true } = {}) {
     order: "yxz",
     center: c,
   };
-  let lo = min,
-    hi = max;
   if (camClip.checked && clip) opts.clip = { min, max };
-  else {
-    const half =
-      Math.hypot(max[0] - min[0], max[1] - min[1], max[2] - min[2]) / 2;
-    lo = c.map((v) => v - half);
-    hi = c.map((v) => v + half);
-  }
-  // a frame that holds still while it turns: the reach's corners
+  // A frame that holds still: the box's corners, the same frame the
+  // example has unturned, so turning or clipping never changes its size.
+  // Unclipped, what turns out past it may spill over (see .demo-canvas svg).
   let x0 = Infinity,
     y0 = Infinity,
     x1 = -Infinity,
     y1 = -Infinity;
-  for (const x of [lo[0], hi[0]])
-    for (const y of [lo[1], hi[1]])
-      for (const z of [lo[2], hi[2]]) {
+  for (const x of [min[0], max[0]])
+    for (const y of [min[1], max[1]])
+      for (const z of [min[2], max[2]]) {
         const p = e.project([x, y, z]);
         x0 = Math.min(x0, p.x);
         y0 = Math.min(y0, p.y);
