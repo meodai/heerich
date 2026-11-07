@@ -52,8 +52,8 @@
         scroll-behavior: auto;
       }
 
-      /* Nothing scrolls: wheel, touch and keys move the terrain instead, with
-         no start or end. */
+      /* Nothing scrolls: the pointer, touch and keys move the terrain
+         instead, with no start or end. */
       body {
         height: 100vh;
         overflow: hidden;
@@ -64,8 +64,7 @@
         touch-action: none;
       }
 
-      /* The panel is taller than short screens: let it scroll on its own
-         (the wheel over it scrolls the panel, not the terrain). */
+      /* The panel is taller than short screens: let it scroll on its own. */
       .settings-panel {
         max-height: calc(100vh - 2.4rem);
         overflow-y: auto;
@@ -129,7 +128,7 @@
     <div class="title">
       <h1>Terrain</h1>
       <p>
-        Scroll or swipe to travel. Simplex noise, with tiles shaped by their
+        Point or swipe to travel. Simplex noise, with tiles shaped by their
         corner heights as in
         <a href="https://thesentinel.bbcelite.com/deep_dives/tile_shapes.html"
           >The Sentinel</a
@@ -324,8 +323,7 @@
 
       const $ = (id) => document.getElementById(id);
       const svg = $("terrain").querySelector("svg");
-      // The faces go in this group; it slides by the fraction of a cell
-      // travelled since the last rebuild, so motion is smooth between cells.
+      // The faces go in this group.
       const world = svg.appendChild(
         document.createElementNS("http://www.w3.org/2000/svg", "g"),
       );
@@ -680,11 +678,16 @@
       };
       makeLevelStyles();
 
+      // Everything built is one group, so it can be moved by the part of a
+      // cell travelled (see render()).
+      const LAND = "land";
+
       // y grows downward: the floor of the terrain is row y = maxH, and a
       // column of L levels fills y = maxH - L + 1 … maxH.
       const column = (h, x, z, L, style) =>
         L > 0 &&
         h.addGeometry({
+          group: LAND,
           type: "box",
           position: [x, maxH - L + 1, z],
           size: [1, L, 1],
@@ -748,6 +751,7 @@
       function addTower(h, x, yTop, z, n) {
         const open = n > 2; // ends in a cap
         h.addGeometry({
+          group: LAND,
           type: "box",
           position: [x, yTop - n + 1 + (open ? 1 : 0), z],
           size: [1, open ? n - 1 : n, 1],
@@ -764,6 +768,7 @@
         });
         if (open)
           h.addGeometry({
+            group: LAND,
             type: "box",
             position: [x, yTop - n + 1, z],
             size: 1,
@@ -774,6 +779,10 @@
 
       // `col`, `row`: the world column and row at the view's corner (x, z = 0).
       function build(col, row) {
+        // One cell more than shown on each axis: the view slides by up to a
+        // cell before the next rebuild, and the clip (see frame()) cuts the
+        // drawing back to the fixed size × size window.
+        const span = size + 1;
         const h = new Heerich({
           tile: 20,
           camera: getCamera(),
@@ -785,8 +794,8 @@
         if (surface !== "corners") {
           // One whole height per column; autoSlope rounds off the steps it
           // can (neighbours one level apart).
-          for (let x = 0; x < size; x++)
-            for (let z = 0; z < size; z++) {
+          for (let x = 0; x < span; x++)
+            for (let z = 0; z < span; z++) {
               const L = Math.round(field(x + col + 0.5, z + row + 0.5));
               column(h, x, z, L, styleFor(L));
               const t = L >= sea + 1 ? towerAt(x + col, z + row) : 0;
@@ -803,28 +812,37 @@
         // https://thesentinel.bbcelite.com/deep_dives/tile_shapes.html
         // Heights are sampled at every grid corner, in quarter levels (a few
         // dozen distinct pieces, so the shape cache stays small).
-        const N = size + 1;
+        // The levelling below looks at neighbours, so it runs over a margin
+        // of M cells around what is built: then a tile's shape doesn't
+        // depend on where the window is, and doesn't change as it comes in.
+        const M = 6;
+        const N = span + 1 + 2 * M;
         const g = new Float32Array(N * N);
         for (let i = 0; i < N; i++)
           for (let k = 0; k < N; k++)
-            g[i * N + k] = Math.round(field(i + col, k + row) * 4) / 4;
+            g[i * N + k] = Math.round(field(i - M + col, k - M + row) * 4) / 4;
+        // a corner by built cell, (0, 0) the window's corner
+        const G = (x, z) => g[(x + M) * N + z + M];
         // Level a pad under each tower: its tile's four corners go down to a
         // whole level (The Sentinel only puts objects on flat tiles).
         const pads = [];
-        for (let x = 0; x < size; x++)
-          for (let z = 0; z < size; z++) {
+        for (let i = 0; i < N - 1; i++)
+          for (let k = 0; k < N - 1; k++) {
+            const x = i - M,
+              z = k - M;
             const t = towerAt(x + col, z + row);
             if (!t) continue;
             const ids = [
-              x * N + z,
-              (x + 1) * N + z,
-              x * N + z + 1,
-              (x + 1) * N + z + 1,
+              i * N + k,
+              (i + 1) * N + k,
+              i * N + k + 1,
+              (i + 1) * N + k + 1,
             ];
             const lo = Math.floor(Math.min(...ids.map((id) => g[id])));
             if (lo < sea + 1) continue; // dry land only, not in the lakes
             for (const id of ids) g[id] = lo;
-            pads.push([x, z, t]);
+            // towers in the margin level their pad but aren't built
+            if (x >= 0 && z >= 0 && x < span && z < span) pads.push([x, z, t]);
           }
         // A cell's piece sits on whole level floor(lowest corner) and is one
         // voxel tall, so no corner may stand above that + 1. Lower the ones
@@ -832,8 +850,8 @@
         // until nothing moves (like The Sentinel's spike smoothing).
         for (let changed = true; changed;) {
           changed = false;
-          for (let i = 0; i < size; i++)
-            for (let k = 0; k < size; k++) {
+          for (let i = 0; i < N - 1; i++)
+            for (let k = 0; k < N - 1; k++) {
               const ids = [
                 i * N + k,
                 (i + 1) * N + k,
@@ -850,14 +868,9 @@
                 }
             }
         }
-        for (let x = 0; x < size; x++)
-          for (let z = 0; z < size; z++) {
-            const c = [
-              g[x * N + z],
-              g[(x + 1) * N + z],
-              g[x * N + z + 1],
-              g[(x + 1) * N + z + 1],
-            ];
+        for (let x = 0; x < span; x++)
+          for (let z = 0; z < span; z++) {
+            const c = [G(x, z), G(x + 1, z), G(x, z + 1), G(x + 1, z + 1)];
             const L = Math.floor(Math.min(...c));
             const top = c.map((v) => v - L);
             if (body === "solid") column(h, x, z, L, styleFor(L));
@@ -867,6 +880,7 @@
               // so the underside runs one level below the surface. Nothing
               // further down.
               h.addGeometry({
+                group: LAND,
                 type: "box",
                 position: [x, maxH - L + 1, z],
                 size: 1,
@@ -881,6 +895,7 @@
             // upside-down mountains under the water.
             if (body !== "solid" && Math.min(...c) < sea)
               h.addGeometry({
+                group: LAND,
                 type: "box",
                 position: [x, maxH - sea + 1, z],
                 size: [1, sea - L, 1],
@@ -888,6 +903,7 @@
               });
             else if (top.some((v) => v > 0))
               h.addGeometry({
+                group: LAND,
                 type: "box",
                 position: [x, maxH - L, z],
                 size: 1,
@@ -897,12 +913,7 @@
           }
         // Towers on pads that stayed flat through the lowering pass.
         for (const [x, z, t] of pads) {
-          const c = [
-            g[x * N + z],
-            g[(x + 1) * N + z],
-            g[x * N + z + 1],
-            g[(x + 1) * N + z + 1],
-          ];
+          const c = [G(x, z), G(x + 1, z), G(x, z + 1), G(x + 1, z + 1)];
           if (c.every((v) => v === c[0] && v === Math.floor(v)))
             addTower(h, x, maxH - c[0], z, t);
         }
@@ -1021,14 +1032,14 @@
         },
       );
 
+      // Lit copies of the faces: the engine keeps (and reuses) its own.
       function light(faces) {
-        for (const f of faces) {
-          if (!f.style) continue;
+        return faces.map((f) => {
+          if (!f.style) return f;
           // the terrain's slopes catch the light; buildings keep their colour
           const shaded = f.type === "slope" && !f.voxel?.meta?.tower;
-          f.style = plain(shaded ? lit(f.style, f.n) : f.style);
-        }
-        return faces;
+          return { ...f, style: plain(shaded ? lit(f.style, f.n) : f.style) };
+        });
       }
 
       // A fixed frame: the bounds of the full terrain block under this
@@ -1046,10 +1057,10 @@
         svg.setAttribute("viewBox", viewBox.join(" "));
       }
 
-      // ─── Travel: wheel, touch, keys and autoplay → position ───
+      // ─── Travel: pointer, touch, keys and autoplay → position ───
       // The page doesn't scroll (a scroll position has a start and an end);
       // input moves our own position instead, which goes on in every
-      // direction. `travel` is forward/back in scroll pixels, `travelX`
+      // direction. `travel` is forward/back in rows × PX_PER_ROW, `travelX`
       // sideways in cells.
       const PX_PER_ROW = 40;
       let travel = 0;
@@ -1057,45 +1068,35 @@
       let lastAt = null;
       let queued = false;
 
-      let shown = null; // the engine last drawn, for projecting the slide
+      let shown = null; // the engine last drawn, for projecting
       function render(force = false) {
+        const t0 = performance.now();
         const rowF = travel / PX_PER_ROW;
         const row = Math.floor(rowF);
         const col = Math.floor(travelX);
         const at = col + "," + row;
         if (force || at !== lastAt || !shown) {
           lastAt = at;
-          rebuild(col, row);
+          if (!viewBox) frame();
+          shown = build(col, row);
         }
-        // Slide by the part of a cell not yet rebuilt: the projected offset
-        // of (fx, 0, fz), taken at mid height. Exact for the parallel
-        // cameras, close enough for perspective.
+        // The land is built one cell larger than shown, at whole cells.
+        // Move it back by the part of a cell travelled since, and cut it to
+        // the fixed window: in 3D, so it is exact under every camera, and
+        // the cut sides are closed with walls of the land's own layers.
         const fx = travelX - col,
           fz = rowF - row;
-        const y = maxH / 2;
-        const a = shown.project([0, y, 0]);
-        const b = shown.project([fx, y, fz]);
-        world.setAttribute(
-          "transform",
-          `translate(${(a.x - b.x).toFixed(2)} ${(a.y - b.y).toFixed(2)})`,
+        const faces = light(
+          shown.getFaces({
+            transforms: { [LAND]: { translate: [-fx, 0, -fz] } },
+            clip: { min: [0, -50, 0], max: [size, 50, size] },
+          }),
         );
-      }
-
-      function rebuild(col, row) {
-        const t0 = performance.now();
-        if (!viewBox) frame();
-        const h = build(col, row);
-        shown = h;
-        const t1 = performance.now();
-        const faces = light(h.getFaces());
-        const t2 = performance.now();
         // nothing here reads data-* attributes, so skip writing them
-        h.updateSVG(world, { faces, dataAttributes: false });
-        const t3 = performance.now();
-        const f = (ms) => ms.toFixed(1);
+        shown.updateSVG(world, { faces, dataAttributes: false });
         stats.textContent =
-          `seed ${seed} · ${col}, ${row} · ${h.voxels.size} voxels · ` +
-          `${f(t3 - t0)} ms (build ${f(t1 - t0)}, faces ${f(t2 - t1)}, svg ${f(t3 - t2)})`;
+          `seed ${seed} · ${lastAt} · ${shown.voxels.size} voxels · ` +
+          `${(performance.now() - t0).toFixed(1)} ms`;
       }
 
       function schedule(force = false) {
@@ -1116,7 +1117,7 @@
         schedule(true);
       }
 
-      // forward/back in scroll pixels, sideways in cells
+      // forward/back in rows × PX_PER_ROW, sideways in cells
       const move = (px, cells = 0) => {
         travel += px;
         travelX += cells;
@@ -1124,25 +1125,74 @@
       };
       const inPanel = (e) => e.target.closest?.("#settings-panel");
 
-      window.addEventListener(
-        "wheel",
-        (e) => {
-          if (inPanel(e)) return;
-          e.preventDefault();
-          // deltaMode 1 is lines, 2 pages (Firefox); 0 is pixels
-          const unit = [1, PX_PER_ROW, window.innerHeight][e.deltaMode] ?? 1;
-          // vertical scrolling travels forward and back, sideways scrolling
-          // (trackpads, shift+wheel) sideways
-          move(e.deltaY * unit, (e.deltaX * unit) / PX_PER_ROW);
-        },
-        { passive: false },
-      );
-
       // Touch: grab the land and drag it, in any direction. The finger's
       // move on screen is turned into a move across the ground through the
       // current camera: x and z one cell along, projected, give two screen
       // vectors, and solving for the pair that matches the drag gives how
       // far to travel along each.
+      // A move on screen (in SVG units) as a move across the ground, in
+      // cells along x and z, or null where the camera looks straight along it.
+      // Measured in the middle of the view: under perspective the ground's
+      // directions on screen change across it.
+      // Ground x and z, one cell each, on screen. A camera can squash one
+      // of them flat (oblique at distance 0, an edge-on view), and then no
+      // move on screen reaches it: so the shorter one is kept at least a
+      // MAX_BOOST-th of the longer one's length across it, pointing up the
+      // screen if it has no side of its own. Views that show both are left
+      // as they are.
+      const MAX_BOOST = 4;
+      function groundAxes() {
+        const y = maxH / 2,
+          c = size / 2;
+        const o = shown.project([c, y, c]),
+          ex = shown.project([c + 1, y, c]),
+          ez = shown.project([c, y, c + 1]);
+        const a = [ex.x - o.x, ex.y - o.y],
+          b = [ez.x - o.x, ez.y - o.y];
+        const swap = Math.hypot(...a) < Math.hypot(...b);
+        const [p, q] = swap ? [b, a] : [a, b]; // p the longer
+        const L = Math.hypot(...p);
+        if (L > 0) {
+          // unit vector across p, pointing up the screen (y grows down)
+          let nx = -p[1] / L,
+            ny = p[0] / L;
+          if (ny > 0 || (ny === 0 && nx < 0)) ((nx = -nx), (ny = -ny));
+          const across = q[0] * nx + q[1] * ny;
+          const min = L / MAX_BOOST;
+          if (Math.abs(across) < min) {
+            const want = across < 0 ? -min : min;
+            q[0] += nx * (want - across);
+            q[1] += ny * (want - across);
+          }
+        }
+        return swap ? [...q, ...p] : [...p, ...q];
+      }
+      function groundFrom(dx, dy) {
+        const [ax, ay, bx, by] = groundAxes();
+        const det = ax * by - bx * ay;
+        if (Math.abs(det) < 1e-6) return null;
+        return [(dx * by - bx * dy) / det, (ax * dy - dx * ay) / det];
+      }
+
+      // The velocity, in cells per second, that travels toward the screen
+      // direction (dx, dy) and moves the land on screen as fast as `speed`
+      // cells a second along the ground's clearer axis would. So travel
+      // looks as fast in every direction: where the camera squashes depth
+      // (oblique at a short distance, a low pitch or eye) going forward
+      // covers more ground. Capped at 4 × speed, so a nearly flat view
+      // doesn't race through the land.
+      function travelToward(dx, dy, speed) {
+        const m = Math.hypot(dx, dy);
+        if (!m || !speed || !shown) return null;
+        const [ax, ay, bx, by] = groundAxes();
+        const px = speed * Math.max(Math.hypot(ax, ay), Math.hypot(bx, by));
+        const g = groundFrom((dx / m) * px, (dy / m) * px);
+        if (!g) return null;
+        const len = Math.hypot(g[0], g[1]);
+        const k = len > MAX_BOOST * speed ? (MAX_BOOST * speed) / len : 1;
+        return [g[0] * k, g[1] * k];
+      }
+
       let touch = null;
       const toSVG = (t) => {
         const m = svg.getScreenCTM()?.inverse();
@@ -1164,24 +1214,48 @@
           const dx = p[0] - touch[0],
             dy = p[1] - touch[1];
           touch = p;
-          const y = maxH / 2;
-          const o = shown.project([0, y, 0]),
-            ex = shown.project([1, y, 0]),
-            ez = shown.project([0, y, 1]);
-          const ax = ex.x - o.x,
-            ay = ex.y - o.y,
-            bx = ez.x - o.x,
-            by = ez.y - o.y;
-          const det = ax * by - bx * ay;
-          if (Math.abs(det) < 1e-6) return;
+          const g = groundFrom(dx, dy);
           // the land follows the finger, so the view moves the other way
-          const cx = -(dx * by - bx * dy) / det,
-            cz = -(ax * dy - dx * ay) / det;
-          move(cz * PX_PER_ROW, cx);
+          if (g) move(-g[1] * PX_PER_ROW, -g[0]);
         },
         { passive: false },
       );
       window.addEventListener("touchend", () => (touch = null));
+
+      // Mouse: point where to go. Away from the middle of the view you
+      // travel toward the pointer, faster the further out it is; a calm
+      // zone in the middle stands still. The pointer's direction on screen
+      // becomes one across the ground through the current camera, as for
+      // touch, and the speed eases in like autoplay's (see tick()).
+      let pointer = null; // from the view's middle, in half its short side
+      window.addEventListener("pointermove", (e) => {
+        if (e.pointerType !== "mouse") return;
+        if (inPanel(e)) {
+          pointer = null;
+          return;
+        }
+        const r = svg.getBoundingClientRect();
+        const half = Math.min(r.width, r.height) / 2;
+        pointer = [
+          (e.clientX - r.left - r.width / 2) / half,
+          (e.clientY - r.top - r.height / 2) / half,
+        ];
+        startTicking();
+      });
+      document.documentElement.addEventListener(
+        "pointerleave",
+        () => (pointer = null),
+      );
+      window.addEventListener("blur", () => (pointer = null));
+      const CALM = 0.2; // the still middle, as a share of the half side
+      // The velocity the pointer asks for, in cells per second, or null
+      function pointerVelocity() {
+        if (!pointer || !shown) return null;
+        const m = Math.hypot(pointer[0], pointer[1]);
+        if (m < CALM) return null;
+        const t = Math.min(1, (m - CALM) / (1 - CALM));
+        return travelToward(pointer[0], pointer[1], speedMax() * t * t);
+      }
 
       const KEYS = {
         ArrowDown: 1,
@@ -1195,6 +1269,38 @@
         e.preventDefault();
         move(KEYS[e.key] * (e.shiftKey && e.key === " " ? -1 : 1) * PX_PER_ROW);
       });
+
+      // W A S D: hold to travel up, left, down and right on screen, turned
+      // into the ground's directions through the current camera like the
+      // pointer, at full speed. By key position (e.code), so they sit in
+      // the same place on any keyboard layout.
+      const WASD = {
+        KeyW: [0, -1],
+        KeyA: [-1, 0],
+        KeyS: [0, 1],
+        KeyD: [1, 0],
+      };
+      const held = new Set();
+      window.addEventListener("keydown", (e) => {
+        if (!(e.code in WASD) || inPanel(e)) return;
+        if (e.metaKey || e.ctrlKey || e.altKey) return; // shortcuts, e.g. ⌘W
+        e.preventDefault();
+        held.add(e.code);
+        startTicking();
+      });
+      window.addEventListener("keyup", (e) => held.delete(e.code));
+      window.addEventListener("blur", () => held.clear());
+      // The velocity the held keys ask for, in cells per second, or null
+      function keyVelocity() {
+        if (!held.size || !shown) return null;
+        let dx = 0,
+          dy = 0;
+        for (const code of held) {
+          dx += WASD[code][0];
+          dy += WASD[code][1];
+        }
+        return travelToward(dx, dy, speedMax());
+      }
 
       // ─── Autoplay ───
       // Wander through a third noise field (seeded like the terrain): one
@@ -1215,7 +1321,9 @@
         lastFrame = now;
         let tx = 0,
           tz = 0;
-        if (autoplay) {
+        const aim = keyVelocity() || pointerVelocity();
+        if (aim) [tx, tz] = aim;
+        else if (autoplay) {
           clock += dt;
           const t = clock * 0.025;
           const heading = path(t, 0) * Math.PI * 2;
@@ -1233,16 +1341,19 @@
         travel += vz * dt * PX_PER_ROW;
         render();
         // keep going until a stop has eased all the way out
-        if (autoplay || Math.hypot(vx, vz) > 0.01) requestAnimationFrame(tick);
+        if (autoplay || aim || Math.hypot(vx, vz) > 0.01)
+          requestAnimationFrame(tick);
         else running = false;
+      }
+      function startTicking() {
+        if (running) return;
+        running = true;
+        lastFrame = 0;
+        requestAnimationFrame(tick);
       }
       $("opt-autoplay").addEventListener("change", (e) => {
         autoplay = e.target.checked;
-        if (!running) {
-          running = true;
-          lastFrame = 0;
-          requestAnimationFrame(tick);
-        }
+        startTicking();
       });
 
       // ─── Terrain controls ───
@@ -1631,12 +1742,9 @@
         }
         while (dots.length > all.length) dots.pop().remove();
 
-        // The terrain on screen spans 0..size from the last rebuild's corner,
-        // slid back by the part of a cell travelled since; in view cells that
-        // is -fx..size-fx (and the same in z). Beyond an edge a bird is
-        // simply hidden, no fade, crisp like the terrain's own edges.
-        const fx = wx0 - Math.floor(wx0),
-          fz = wz0 - Math.floor(wz0);
+        // The terrain is clipped to the fixed window 0..size in view cells
+        // (see frame()). Beyond an edge a bird is simply hidden, no fade,
+        // crisp like the terrain's own edges.
         const pt = (q) => {
           const p = shown.project(q);
           return `${p.x.toFixed(1)},${p.y.toFixed(1)}`;
@@ -1646,7 +1754,7 @@
           const b = all[i];
           const x = b.x - wx0,
             z = b.z - wz0;
-          const inside = Math.min(x + fx, size - fx - x, z + fz, size - fz - z);
+          const inside = Math.min(x, size - x, z, size - z);
           dots[i].setAttribute("visibility", inside > 0 ? "visible" : "hidden");
           if (inside <= 0) continue; // off the world: nothing more to draw
           const y = b.y;
