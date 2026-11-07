@@ -739,8 +739,10 @@ button:hover {
   transform: none;
 }
 
+/* next to a colour input (1.2rem, at the row's end): on its middle */
 .settings-panel .control-label .settings-x {
-  align-self: center;
+  align-self: end;
+  margin-bottom: calc((1.2rem - 0.95rem) / 2);
 }
 
 .settings-panel .settings-x[hidden] {
