@@ -4,6 +4,16 @@ A tiny engine for 3D voxel scenes rendered to SVG. Build shapes with CSG-like bo
 
 Named after [Erwin Heerich](https://en.wikipedia.org/wiki/Erwin_Heerich), the German sculptor known for geometric cardboard sculptures.
 
+## When to use it
+
+Every face is an ordinary SVG polygon in the page. That is the point:
+
+- **Style it with CSS.** Fills, strokes, hover states, transitions, CSS variables and dark mode work on faces like on any other element.
+- **Use the DOM.** Attach event listeners to faces, find them with `querySelector`, read `data-voxel` and `data-face` to know what was clicked, and inspect them in dev tools.
+- **Keep it vector.** It stays sharp at any size, prints well, exports to Figma or Illustrator, and with [occlusion culling](#occlusion-culling-for-pen-plotters) it can go to a pen plotter.
+
+The price is speed. Projecting and sorting every face in JavaScript and redrawing the SVG DOM is far slower than a GPU: a few thousand faces animate fine, hundreds of thousands won't. For big scenes, real-time 3D, lighting or textures, use [Three.js](https://threejs.org) or WebGL. The [`GPURenderer`](#gpurenderer) can hand your voxels over to them.
+
 ## Install
 
 ```bash
