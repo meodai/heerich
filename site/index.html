@@ -112,6 +112,36 @@
           <span>Fixed frame</span>
           <input type="checkbox" id="cam-fit" />
         </label>
+        <div class="settings-grid-panel">
+          <div class="settings-grid-header">
+            <span>Rotate</span>
+            <span class="settings-grid-values"
+              ><span id="orbit-az-value">0</span>°
+              <span class="settings-grid-separator">/</span>
+              <span id="orbit-el-value">0</span>°</span
+            >
+          </div>
+          <div
+            class="settings-orbit"
+            id="orbit"
+            title="Drag to turn every example. Double-click to reset"
+          >
+            <svg viewBox="0 0 100 100" aria-hidden="true">
+              <path id="arc-pb" class="back"></path>
+              <path id="arc-mb" class="back"></path>
+              <path id="arc-pf" class="front"></path>
+              <path id="arc-mf" class="front"></path>
+            </svg>
+            <i class="settings-orbit__dot" id="orbit-dot"></i>
+          </div>
+        </div>
+        <label
+          class="control-label"
+          title="Cut each example to the box it started in while it turns"
+        >
+          <span>Clip to bounds</span>
+          <input type="checkbox" id="cam-clip" checked />
+        </label>
       </div>
       <div class="settings-section-title">
         Style

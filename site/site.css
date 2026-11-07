@@ -573,7 +573,15 @@ button:hover {
   border: 1px solid var(--line);
   z-index: 100;
   font-size: 0.8rem;
-  overflow: hidden;
+  /* taller than short screens: scroll inside, not the page behind it */
+  max-height: calc(100vh - 2.4rem);
+  max-height: calc(100dvh - 2.4rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--text) 25%, var(--bg)) transparent;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s ease;
@@ -618,7 +626,24 @@ button:hover {
   outline-offset: 2px;
 }
 
+.settings-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.settings-panel::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--text) 25%, var(--bg));
+}
+
+.settings-panel::-webkit-scrollbar-thumb:hover {
+  background: var(--text);
+}
+
 .settings-panel summary.settings-title {
+  /* stays in view while the panel scrolls */
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg);
   font-family: "Aboreto", cursive;
   font-size: 0.8rem;
   padding: 0.6rem 0.8rem;
@@ -691,6 +716,71 @@ button:hover {
 .settings-panel .settings-grid-separator {
   opacity: 0.5;
   padding: 0 0.35em;
+}
+
+.settings-panel .settings-orbit {
+  position: relative;
+  width: 62%;
+  aspect-ratio: 1;
+  margin: 0 auto;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  cursor: grab;
+  touch-action: none;
+}
+
+.settings-panel .settings-orbit:active {
+  cursor: grabbing;
+}
+
+.settings-panel .settings-orbit svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.settings-panel .settings-orbit path {
+  fill: none;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.settings-panel .settings-orbit .front {
+  stroke: color-mix(in srgb, currentColor 55%, transparent);
+}
+
+.settings-panel .settings-orbit .back {
+  stroke: color-mix(in srgb, currentColor 15%, transparent);
+}
+
+/* The handle: the same as the perspective grid's, a ring with a dot */
+.settings-panel .settings-orbit__dot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  background: var(--bg);
+  box-shadow:
+    0 0 0 1px currentColor,
+    0 0 0 0.22rem var(--bg);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.settings-panel .settings-orbit__dot::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 50%;
+  background: currentColor;
+  transform: translate(-50%, -50%);
 }
 
 .settings-panel .settings-grid {

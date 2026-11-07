@@ -363,7 +363,94 @@ const baseStyle = {
   stroke: "var(--stroke-c)",
   strokeWidth: "var(--stroke-w)",
 };
-function getSvgOpts() {
+// ─── Rotate: turn every example around its own middle ───
+// A globe you drag, as in color-names-timeline: the dot's longitude spins
+// the examples about the vertical axis, its latitude tilts them toward you.
+// Each example's voxels go through the engine's whole-scene `transform`;
+// "Clip to bounds" keeps them cut to the box they started in.
+const orbit = { az: 0, el: 0 }; // degrees
+const camClip = document.getElementById("cam-clip");
+
+// The example's box (whole cells) and, for the frame, what it can reach:
+// the box itself if clipped, else a cube around its middle as wide as its
+// diagonal (anything turning inside it stays inside that).
+// `bounds` gives the box when there are no stored voxels to measure (an
+// example drawn with renderTest), and `clip: false` turns clipping off for
+// one example (renderTest can't close a cut).
+function orbitOpts(e, opts, { bounds, clip = true } = {}) {
+  if (!e || (!bounds && !e.voxels.size) || (!orbit.az && !orbit.el))
+    return opts;
+  const min = bounds ? [...bounds[0]] : [Infinity, Infinity, Infinity],
+    max = bounds ? [...bounds[1]] : [-Infinity, -Infinity, -Infinity];
+  for (const v of bounds ? [] : e.voxels.values()) {
+    if (v.x < min[0]) min[0] = v.x;
+    if (v.y < min[1]) min[1] = v.y;
+    if (v.z < min[2]) min[2] = v.z;
+    if (v.x + 1 > max[0]) max[0] = v.x + 1;
+    if (v.y + 1 > max[1]) max[1] = v.y + 1;
+    if (v.z + 1 > max[2]) max[2] = v.z + 1;
+  }
+  const c = min.map((m, i) => (m + max[i]) / 2);
+  // spin about y, then tilt about x, around the middle
+  const a = (orbit.az * Math.PI) / 180,
+    b = (orbit.el * Math.PI) / 180;
+  const ca = Math.cos(a),
+    sa = Math.sin(a),
+    cb = Math.cos(b),
+    sb = Math.sin(b);
+  const R = [
+    [ca, 0, sa],
+    [sb * sa, cb, -sb * ca],
+    [-cb * sa, sb, cb * ca],
+  ];
+  const matrix = [];
+  for (let r = 0; r < 3; r++)
+    matrix.push(
+      ...R[r],
+      c[r] - (R[r][0] * c[0] + R[r][1] * c[1] + R[r][2] * c[2]),
+    );
+  opts.transform = { matrix };
+  let lo = min,
+    hi = max;
+  if (camClip.checked && clip) opts.clip = { min, max };
+  else {
+    const half =
+      Math.hypot(max[0] - min[0], max[1] - min[1], max[2] - min[2]) / 2;
+    lo = c.map((v) => v - half);
+    hi = c.map((v) => v + half);
+  }
+  // a frame that holds still while it turns: the reach's corners
+  let x0 = Infinity,
+    y0 = Infinity,
+    x1 = -Infinity,
+    y1 = -Infinity;
+  for (const x of [lo[0], hi[0]])
+    for (const y of [lo[1], hi[1]])
+      for (const z of [lo[2], hi[2]]) {
+        const p = e.project([x, y, z]);
+        x0 = Math.min(x0, p.x);
+        y0 = Math.min(y0, p.y);
+        x1 = Math.max(x1, p.x);
+        y1 = Math.max(y1, p.y);
+      }
+  const pad = opts.padding ?? 20;
+  opts.viewBox = [x0 - pad, y0 - pad, x1 - x0 + pad * 2, y1 - y0 + pad * 2];
+  delete opts.fit;
+  return opts;
+}
+
+// A point as the Rotate control turns it (or as it is)
+function turned(opts) {
+  const m = opts.transform?.matrix;
+  if (!m) return (p) => p;
+  return ([x, y, z]) => [
+    m[0] * x + m[1] * y + m[2] * z + m[3],
+    m[4] * x + m[5] * y + m[6] * z + m[7],
+    m[8] * x + m[9] * y + m[10] * z + m[11],
+  ];
+}
+
+function getSvgOpts(e, orbitHow) {
   const r = parseFloat(camOutline.value);
   const opts = {
     padding: r > 0 ? 30 + r * 2 : 30,
@@ -393,7 +480,7 @@ function getSvgOpts() {
     opts.append = `</g>`;
   }
 
-  return opts;
+  return orbitOpts(e, opts, orbitHow);
 }
 
 // Style via CSS variables — no re-render needed
@@ -435,6 +522,122 @@ camOutline.addEventListener("input", () => {
 camOutlineColor.addEventListener("input", () => debouncedRerenderAll());
 camGap.addEventListener("input", () => debouncedRerenderAll());
 camFit.addEventListener("change", () => rerenderAll());
+camClip.addEventListener("change", () => rerenderAll());
+
+// The globe: a tilted orthographic sphere with the meridian and parallel
+// through the dot, front halves bright and back halves dim.
+{
+  const el = document.getElementById("orbit");
+  const dot = document.getElementById("orbit-dot");
+  const arcs = ["mf", "mb", "pf", "pb"].map((id) =>
+    document.getElementById("arc-" + id),
+  );
+  const azOut = document.getElementById("orbit-az-value");
+  const elOut = document.getElementById("orbit-el-value");
+  const R = 44,
+    C = 50,
+    TILT = 0.34;
+  const CB = Math.cos(TILT),
+    SB = Math.sin(TILT);
+  const EL_MAX = 85;
+  // unit sphere point → [x, y] in the 100 × 100 box, and depth (> 0 faces you)
+  const proj = (x, y, z) => [
+    C + x * R,
+    C - (y * CB - z * SB) * R,
+    y * SB + z * CB,
+  ];
+  const ring = (fn, n) => {
+    let front = "",
+      back = "",
+      inF = false,
+      inB = false;
+    for (let i = 0; i <= n; i++) {
+      const [x, y, d] = proj(...fn(i / n));
+      const pt = `${x.toFixed(1)} ${y.toFixed(1)} `;
+      if (d >= 0) {
+        front += (inF ? "L" : "M") + pt;
+        inF = true;
+        inB = false;
+      } else {
+        back += (inB ? "L" : "M") + pt;
+        inB = true;
+        inF = false;
+      }
+    }
+    return [front, back];
+  };
+  function show() {
+    const la = (orbit.az * Math.PI) / 180,
+      fi = (orbit.el * Math.PI) / 180;
+    const sl = Math.sin(la),
+      cl = Math.cos(la),
+      sf = Math.sin(fi),
+      cf = Math.cos(fi);
+    const [mf, mb] = ring((u) => {
+      const t = (u - 0.5) * Math.PI;
+      return [Math.cos(t) * sl, Math.sin(t), Math.cos(t) * cl];
+    }, 32);
+    const [pf, pb] = ring((u) => {
+      const s = (u * 2 - 1) * Math.PI;
+      return [cf * Math.sin(s), sf, cf * Math.cos(s)];
+    }, 48);
+    [mf, mb, pf, pb].forEach((d, i) => arcs[i].setAttribute("d", d));
+    const [x, y] = proj(cf * sl, sf, cf * cl);
+    dot.style.left = x + "%";
+    dot.style.top = y + "%";
+    azOut.textContent = Math.round(orbit.az);
+    elOut.textContent = Math.round(orbit.el);
+  }
+  // Arcball: the pointer → a point on the (tilted) sphere → longitude and
+  // latitude
+  function from(e) {
+    const r = el.getBoundingClientRect();
+    let sx = (((e.clientX - r.left) / r.width) * 100 - C) / R;
+    let sy = (C - ((e.clientY - r.top) / r.height) * 100) / R;
+    const rr = Math.hypot(sx, sy);
+    if (rr > 1) {
+      sx /= rr;
+      sy /= rr;
+    }
+    const d = Math.sqrt(Math.max(0, 1 - sx * sx - sy * sy));
+    const y = sy * CB + d * SB,
+      z = -sy * SB + d * CB;
+    orbit.el = clamp(
+      (Math.asin(clamp(y, -1, 1)) * 180) / Math.PI,
+      -EL_MAX,
+      EL_MAX,
+    );
+    orbit.az = (Math.atan2(sx, z) * 180) / Math.PI;
+    show();
+    // every example re-renders, so at most once a frame
+    if (!queued) {
+      queued = true;
+      requestAnimationFrame(() => {
+        queued = false;
+        rerenderAll();
+      });
+    }
+  }
+  let queued = false;
+  let dragging = false;
+  el.addEventListener("pointerdown", (e) => {
+    dragging = true;
+    el.setPointerCapture(e.pointerId);
+    from(e);
+  });
+  el.addEventListener("pointermove", (e) => dragging && from(e));
+  el.addEventListener("pointerup", (e) => {
+    dragging = false;
+    el.releasePointerCapture(e.pointerId);
+  });
+  el.addEventListener("dblclick", () => {
+    orbit.az = 0;
+    orbit.el = 0;
+    show();
+    rerenderAll();
+  });
+  show();
+}
 syncStyleVars();
 
 function setupDemo(id, buildFn) {
@@ -486,7 +689,7 @@ setupDemo("demo-box", (v) => {
   });
   e.applyGeometry({ type: "box", position: [0, 0, 0], size: [v.w, v.h, v.d] });
   if (v.slopes === "on") e.autoSlope();
-  return e.toSVG(getSvgOpts());
+  return e.toSVG(getSvgOpts(e));
 });
 
 // ─── Alignment ───────────────────────
@@ -523,7 +726,7 @@ setupDemo("demo-align", (v) => {
     style: { default: { fill: "#18191b", stroke: "var(--fill)" } },
   });
 
-  return e.toSVG(getSvgOpts());
+  return e.toSVG(getSvgOpts(e));
 });
 
 // ─── 4. Spheres ──────────────────────
@@ -536,7 +739,7 @@ setupDemo("demo-sphere", (v) => {
     gap: getGap(),
   });
   e.applyGeometry({ type: "sphere", center: [r, r, r], radius: r });
-  return e.toSVG(getSvgOpts());
+  return e.toSVG(getSvgOpts(e));
 });
 
 // ─── 5. Lines ────────────────────────
@@ -555,7 +758,7 @@ setupDemo("demo-line", (v) => {
     shape: v.shape,
   });
   if (v.slopes === "on") e.autoSlope();
-  return e.toSVG(getSvgOpts());
+  return e.toSVG(getSvgOpts(e));
 });
 
 // ─── Custom shapes ──────────────────
@@ -580,7 +783,7 @@ setupDemo("demo-custom-shape", (v) => {
     },
   });
   if (v.slopes === "on") e.autoSlope();
-  return e.toSVG(getSvgOpts());
+  return e.toSVG(getSvgOpts(e));
 });
 
 // ─── 6. Boolean operations ──────────────
@@ -600,7 +803,7 @@ setupDemo("demo-boolean", (v) => {
     style: { default: { fill: "#18191b", stroke: "var(--fill)" } },
   });
   if (v.slopes === "on") e.autoSlope();
-  return e.toSVG(getSvgOpts());
+  return e.toSVG(getSvgOpts(e));
 });
 
 // ─── 7. Rotation ────────────────────────
@@ -616,7 +819,7 @@ setupDemo("demo-rotation", (v) => {
   if (v.turns > 0) {
     e.rotate({ axis: v.axis, turns: v.turns });
   }
-  return e.toSVG(getSvgOpts());
+  return e.toSVG(getSvgOpts(e));
 });
 
 // ─── 8. Grouped voxels ──────────────────
@@ -647,7 +850,7 @@ setupDemo("demo-group", (v) => {
     e.applyGeometry({ type: "box", position: [gs, i - 1, 1], size: [1, 1, 1] }); // right edge
   }
 
-  return e.toSVG(getSvgOpts());
+  return e.toSVG(getSvgOpts(e));
 });
 
 // ─── 9. Styles ───────────────────────
@@ -687,13 +890,25 @@ setupDemo("demo-style", (v) => {
     // For each face we project the two real 3D endpoints of its gradient axis
     // and aim a userSpaceOnUse gradient between them — project() handles the
     // perspective divide, so this stays correct across every camera.
-    const defs = [];
+    // Turned by the Rotate control, the endpoints turn with the box.
     const style = {};
+    for (const face of Object.keys(STYLE_FACES))
+      style[face] = { fill: `url(#style-grad-${face})` };
+    e.applyGeometry({
+      type: "box",
+      position: [0, 0, 0],
+      size: [5, 5, 5],
+      style,
+    });
+    const opts = getSvgOpts(e);
+    const turn = turned(opts);
+    const defs = [];
     for (const [face, cfg] of Object.entries(STYLE_FACES)) {
       const color = v[cfg.axis];
-      const a = e.project(cfg.a);
-      const b = e.project(cfg.b);
-      const x2 = cfg.flat ? a.x : b.x;
+      const a = e.project(turn(cfg.a));
+      const b = e.project(turn(cfg.b));
+      // unturned, a top/bottom gradient runs straight up the screen
+      const x2 = cfg.flat && !opts.transform ? a.x : b.x;
       const id = `style-grad-${face}`;
       defs.push(
         `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" ` +
@@ -702,16 +917,7 @@ setupDemo("demo-style", (v) => {
           `<stop offset="1" style="stop-color:color-mix(in oklab, ${color}, var(--bg) 60%)"/>` +
           `</linearGradient>`,
       );
-      style[face] = { fill: `url(#${id})` };
     }
-    e.applyGeometry({
-      type: "box",
-      position: [0, 0, 0],
-      size: [5, 5, 5],
-      style,
-    });
-
-    const opts = getSvgOpts();
     // Concatenate onto any existing prepend (e.g. the cel-shading outline defs).
     opts.prepend = `<defs>${defs.join("")}</defs>` + (opts.prepend || "");
     return e.toSVG(opts);
@@ -724,7 +930,8 @@ setupDemo("demo-style", (v) => {
     // polygon automatically — no projection needed. We render off getFaces() so
     // only on-screen faces get a def (no bloat from hidden interior voxels).
     e.applyGeometry({ type: "box", position: [0, 0, 0], size: [5, 5, 5] });
-    const faces = e.getFaces();
+    const opts = getSvgOpts(e);
+    const faces = e.getFaces(opts); // as drawn: turned and cut
     const defs = [];
     const fills = new Map();
     for (const f of faces) {
@@ -747,7 +954,6 @@ setupDemo("demo-style", (v) => {
       fills.set(`${x},${y},${z},${f.type}`, `url(#${id})`);
     }
 
-    const opts = getSvgOpts();
     const baseAttrs = opts.faceAttributes;
     opts.faces = faces;
     opts.faceAttributes = (f) => {
@@ -778,7 +984,9 @@ setupDemo("demo-style", (v) => {
         z: { fill: `color-mix(in oklab, ${v.z}, var(--bg) 78%)` },
       },
     });
-    const faces = e.getFaces();
+    const opts = getSvgOpts(e);
+    // as drawn: turned and cut, so vertices and normals are where they show
+    const faces = e.getFaces(opts);
     const D = 0.2; // world units the plane floats off its face
     const planes = [];
     for (const f of faces) {
@@ -798,7 +1006,6 @@ setupDemo("demo-style", (v) => {
       );
     }
 
-    const opts = getSvgOpts();
     opts.faces = faces;
     opts.append = (opts.append || "") + `<g>${planes.join("")}</g>`;
     return e.toSVG(opts);
@@ -815,7 +1022,7 @@ setupDemo("demo-style", (v) => {
       z: { fill: v.z },
     },
   });
-  return e.toSVG(getSvgOpts());
+  return e.toSVG(getSvgOpts(e));
 });
 
 // ─── 9b. Decals ─────────────────────────
@@ -872,7 +1079,7 @@ setupDemo("demo-decals", (v) => {
     });
   }
 
-  return e.toSVG({ ...getSvgOpts(), padding: 50 });
+  return e.toSVG({ ...getSvgOpts(e), padding: 50 });
 });
 
 // ─── 9c. Hatching ────────────────────
@@ -907,7 +1114,7 @@ setupDemo("demo-hatching", (v) => {
     },
   });
 
-  return e.toSVG(getSvgOpts());
+  return e.toSVG(getSvgOpts(e));
 });
 
 // ─── 10. SVG styles ───────────────────
@@ -938,7 +1145,7 @@ setupDemo("demo-svg-styles", (v) => {
     size: [4, 4, 4],
     style: { default: { opacity: 1 } },
   });
-  return e.toSVG(getSvgOpts());
+  return e.toSVG(getSvgOpts(e));
 });
 
 // ─── 11. Functional ───────────────────
@@ -967,7 +1174,7 @@ setupDemo("demo-functional", (v) => {
       },
     },
   });
-  return e.toSVG(getSvgOpts());
+  return e.toSVG(getSvgOpts(e));
 });
 
 // ─── 12. Voxel scaling ──────────────────
@@ -1018,7 +1225,7 @@ setupDemo("demo-scale", (v) => {
     });
   }
 
-  return e.toSVG(getSvgOpts());
+  return e.toSVG(getSvgOpts(e));
 });
 
 // ─── 13. Functional scale ───────────────
@@ -1047,7 +1254,7 @@ setupDemo("demo-functional-scale", (v) => {
     },
     scaleOrigin: (x, y, z) => [0.5, y % 2 === 0 ? 0 : 1, 0.5],
   });
-  return e.toSVG(getSvgOpts());
+  return e.toSVG(getSvgOpts(e));
 });
 
 // ─── Slopes ──────────────────────────
@@ -1127,7 +1334,7 @@ setupDemo("demo-slopes", (v) => {
         scaleOrigin: [0.5, prefix ? 0 : 1, 0.5],
       });
   }
-  return e.toSVG(getSvgOpts());
+  return e.toSVG(getSvgOpts(e));
 });
 
 // ─── Gentle slopes ───────────────────
@@ -1183,7 +1390,7 @@ setupDemo("demo-gentle-slopes", (v) => {
         },
       });
     }
-  return e.toSVG(getSvgOpts());
+  return e.toSVG(getSvgOpts(e));
 });
 
 // ─── Content voxels ──────────────────
@@ -1220,7 +1427,7 @@ setupDemo("demo-gentle-slopes", (v) => {
       }
     }
 
-    canvas.innerHTML = e.toSVG(getSvgOpts());
+    canvas.innerHTML = e.toSVG(getSvgOpts(e));
   }
 
   render();
@@ -1258,7 +1465,7 @@ setupDemo("demo-gentle-slopes", (v) => {
     // Solid core — added after so it overwrites the cage cells in the overlap
     e.applyGeometry({ type: "box", position: [1, 1, 1], size: [3, 3, 3] });
 
-    canvas.innerHTML = e.toSVG(getSvgOpts());
+    canvas.innerHTML = e.toSVG(getSvgOpts(e));
   }
   render();
   demos.push(render);
@@ -1302,7 +1509,7 @@ setupDemo("demo-queries", (v) => {
     }
   }
 
-  return e.toSVG(getSvgOpts());
+  return e.toSVG(getSvgOpts(e));
 });
 
 // ─── 18. findVoxels ──────────────────
@@ -1351,11 +1558,12 @@ setupDemo("demo-find-voxels", (v) => {
     }
   }
 
-  return e.toSVG(getSvgOpts());
+  return e.toSVG(getSvgOpts(e));
 });
 
 // ─── 19. findByPosition / getVoxelInfo ───────────────
 let _posQueryEngine = null;
+let _posQueryOpts = {};
 
 setupDemo("demo-find-by-pos", () => {
   _posQueryEngine = new Heerich({
@@ -1379,7 +1587,9 @@ setupDemo("demo-find-by-pos", () => {
     position: [2, 0, 2],
     size: [3, 2, 3],
   });
-  return _posQueryEngine.toSVG(getSvgOpts());
+  // the mouse is looked up in the faces as drawn (turned and cut)
+  _posQueryOpts = getSvgOpts(_posQueryEngine);
+  return _posQueryEngine.toSVG(_posQueryOpts);
 });
 
 {
@@ -1399,7 +1609,7 @@ setupDemo("demo-find-by-pos", () => {
       svg.getScreenCTM().inverse(),
     );
 
-    const hit = _posQueryEngine.findByPosition([svgX, svgY]);
+    const hit = _posQueryEngine.findByPosition([svgX, svgY], _posQueryOpts);
 
     let overlay = svg.querySelector("#heerich-hit-overlay");
     if (!overlay) {
@@ -1411,8 +1621,8 @@ setupDemo("demo-find-by-pos", () => {
 
     if (hit) {
       const { center2D, bounds2D, normalizedCenter2D } =
-        _posQueryEngine.getVoxelInfo(hit.voxel);
-      const allFaces = _posQueryEngine.getFaces();
+        _posQueryEngine.getVoxelInfo(hit.voxel, _posQueryOpts);
+      const allFaces = _posQueryEngine.getFaces(_posQueryOpts);
       let svg_parts = "";
       for (const face of allFaces) {
         if (face.voxel !== hit.voxel || face === hit.face) continue;
@@ -1532,15 +1742,23 @@ function animateHoles({ canvas, holes, drawHoles, duration, stagger, onDone }) {
           size: [h.w, h.h, d],
         });
     });
-    draw(canvas, e, getSvgOpts());
+    draw(canvas, e, getSvgOpts(e));
   }
 
   // Smooth: keep the fractional depth and let nearZ place the floor there.
   // A gap needs whole voxels, so this mode ignores it.
   function drawSmooth(depths) {
     const e = new Heerich({ tile: 26, camera: getCamera(), style: baseStyle });
-    const opts = getSvgOpts();
+    // no stored voxels to measure, and renderTest can't close a cut
+    const opts = getSvgOpts(e, {
+      bounds: [
+        [0, 0, 0],
+        [10, 8, 7],
+      ],
+      clip: false,
+    });
     opts.faces = e.renderTest({
+      transform: opts.transform,
       bounds: [
         [0, 0, 0],
         [10, 8, 7],
@@ -1777,7 +1995,7 @@ function animateHoles({ canvas, holes, drawHoles, duration, stagger, onDone }) {
       });
     }
 
-    draw(canvas, e, getSvgOpts());
+    draw(canvas, e, getSvgOpts(e));
   }
 
   function animateIn() {
@@ -1928,7 +2146,7 @@ galleryDemo("demo-heerich-cross", () => {
     rotate: { axis: "x", turns: 1, center: c },
   });
 
-  return e.toSVG(getSvgOpts());
+  return e.toSVG(getSvgOpts(e));
 });
 
 // ─── Favicon from cross demo ─────────────
@@ -1990,7 +2208,7 @@ galleryDemo("demo-heerich-checker", () => {
       }
     }
   }
-  return e.toSVG(getSvgOpts());
+  return e.toSVG(getSvgOpts(e));
 });
 
 // 3. Stepped Block
@@ -2008,7 +2226,7 @@ galleryDemo("demo-heerich-stepped", () => {
   e.removeGeometry({ type: "box", position: [0, -4, -4], size: [2, 2, 2] });
   e.removeGeometry({ type: "box", position: [2, -4, -4], size: [2, 4, 2] });
 
-  return e.toSVG(getSvgOpts());
+  return e.toSVG(getSvgOpts(e));
 });
 
 // ─── Footer heart ────────────────────
@@ -2040,7 +2258,7 @@ galleryDemo("demo-heerich-stepped", () => {
       },
     });
 
-    heartContainer.innerHTML = e.toSVG(getSvgOpts());
+    heartContainer.innerHTML = e.toSVG(getSvgOpts(e));
   }
 
   renderHeart();

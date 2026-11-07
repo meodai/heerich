@@ -25,9 +25,19 @@ export function draw(container, engine, opts) {
     else live.group.removeAttribute("filter");
   }
 
-  const faces = opts.faces || engine.getFaces();
+  // turned and cut as asked (the global Rotate control)
+  const faces =
+    opts.faces ||
+    engine.getFaces({
+      clip: opts.clip,
+      caps: opts.caps,
+      transform: opts.transform,
+      transforms: opts.transforms,
+    });
   let viewBox;
-  if (opts.fit) {
+  if (opts.viewBox) {
+    viewBox = opts.viewBox.join(" ");
+  } else if (opts.fit) {
     viewBox = engine
       .getFitViewBox(opts.fit, { padding: opts.padding, faces })
       .join(" ");
