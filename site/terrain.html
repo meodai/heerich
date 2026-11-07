@@ -1088,7 +1088,7 @@
           fz = rowF - row;
         const faces = light(
           shown.getFaces({
-            transforms: { [LAND]: { translate: [-fx, 0, -fz] } },
+            groups: { [LAND]: { translate: [-fx, 0, -fz] } },
             clip: { min: [0, -50, 0], max: [size, 50, size] },
           }),
         );

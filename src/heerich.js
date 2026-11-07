@@ -100,7 +100,7 @@ const AXIS_FACES = {
  * @property {[number,number,number]} [scale] - Per-axis scale factors [sx, sy, sz] (0-1)
  * @property {[number,number,number]} [scaleOrigin] - Scale transform origin within voxel
  * @property {SlopeDir} [slope] - Wedge rising toward this direction instead of a full cube
- * @property {string} [group] - Name of the group it moves with (see `transforms`)
+ * @property {string} [group] - Name of the group it moves with (see `groups` in `setView()`)
  */
 
 /**
@@ -125,6 +125,15 @@ const AXIS_FACES = {
  * @property {number} [pitch=35.264] - Orthographic only: vertical tilt in degrees
  * @property {number} [distance=15] - Oblique/perspective: camera distance
  * @property {[number,number]} [position] - Perspective camera position [x, y]
+ */
+
+/**
+ * How the scene is shown: set with `setView()`, or per render.
+ * @typedef {Object} View
+ * @property {import('./clip.js').ClipOption} [clip] - Keep only what is inside
+ * @property {boolean} [caps=true] - Close the clip's cut with walls
+ * @property {import('./clip.js').Transform} [transform] - Move, turn or scale the whole scene
+ * @property {Object<string, import('./clip.js').Transform>} [groups] - Move groups by name (after which, `transform`)
  */
 
 /**
@@ -796,17 +805,15 @@ function area(pts) {
   return Math.hypot(x, y, z) / 2;
 }
 
-/** The getFaces() options among toSVG()/updateSVG()'s. */
+/** The view options (see setView()) given in a render's or lookup's options. */
 function shapeOptions(o) {
-  return o.clip || o.transforms || o.transform
-    ? {
-        clip: o.clip,
-        caps: o.caps,
-        transforms: o.transforms,
-        transform: o.transform,
-      }
-    : undefined;
+  const out = {};
+  for (const k of VIEW_KEYS) if (k in o) out[k] = o[k];
+  return out;
 }
+
+/** What a view (setView()) holds. */
+const VIEW_KEYS = ["clip", "caps", "transform", "groups"];
 
 /** The 3×4 matrix that applies b, then a. */
 function compose(a, b) {
@@ -879,6 +886,7 @@ export class Heerich {
    * @param {number|[number,number]|[number,number,number]} [options.tile=10] - Tile size in pixels. Single number for uniform, [x,y] or [x,y,z] for independent axes.
    * @param {StyleObject} [options.style] - Default face style
    * @param {CameraOptions} [options.camera] - Camera configuration
+   * @param {View} [options.view] - How to show the scene: clip, transform, groups (see `setView()`)
    */
   constructor(options = {}) {
     const t = options.tile || 10;
@@ -914,6 +922,9 @@ export class Heerich {
     this.defaultGap = options.gap || 0;
 
     this.setCamera(cam);
+    /** @type {View|null} */
+    this._view = null;
+    if (options.view) this.setView(options.view);
     /** @type {Map<number, Voxel>} */
     this.voxels = new Map();
     /** @type {Map<string, DecalDef>} */
@@ -957,6 +968,65 @@ export class Heerich {
 
     if (this._faceCache3D) this._clearFaceCaches();
     this._invalidate();
+  }
+
+  /**
+   * Set how the scene is shown, like `setCamera()`: kept until changed, and
+   * used by every render (`getFaces()`, `toSVG()`, `updateSVG()`,
+   * `renderTest()`) and lookup (`findByPosition()`, `getVoxelInfo()`). A
+   * call can override any of them by passing it (`null` turns it off for
+   * that call). The voxels don't change, so the scene's faces stay cached.
+   *
+   * @example
+   * h.setView({
+   *   clip: { min: [0, 0, 0], max: [8, 8, 8] },
+   *   transform: { rotate: [20, 35, 0], center: [4, 4, 4] },
+   *   groups: { wheel: { rotate: [0, 0, 90], center: [1.5, 1.5, 1.5] } },
+   * })
+   * h.updateSVG(svg)               // turned, cut
+   * h.findByPosition([x, y])       // finds what is drawn there
+   * h.toSVG({ clip: null })        // this once, uncut
+   *
+   * @param {View|null} [view] - Nothing or `null` resets it
+   */
+  setView(view) {
+    if (!view) {
+      this._view = null;
+      return;
+    }
+    for (const key of Object.keys(view)) {
+      if (!VIEW_KEYS.includes(key))
+        throw new Error(
+          `Heerich: a view has ${VIEW_KEYS.join(", ")}, not "${key}"`,
+        );
+    }
+    this._view = { ...view };
+  }
+
+  /**
+   * How the scene is shown (see `setView()`).
+   * @returns {View} A copy; empty if nothing is set
+   */
+  getView() {
+    return { ...(this._view || {}) };
+  }
+
+  /**
+   * The view to draw with: the one set with `setView()`, with any key given
+   * in `options` taking its place. Null if it moves and cuts nothing.
+   * @param {Object} [options]
+   * @returns {View|null}
+   */
+  _viewFor(options = {}) {
+    const v = this._view || {};
+    const pick = (k) => (k in options ? options[k] : v[k]);
+    const view = {
+      clip: pick("clip"),
+      caps: pick("caps"),
+      transform: pick("transform"),
+      groups: pick("groups"),
+    };
+    return view.clip || view.transform || view.groups ? view : null;
   }
 
   /**
@@ -1548,6 +1618,7 @@ export class Heerich {
               distance: this.renderOptions.cameraDistance,
             },
       style: { ...this.defaultStyle },
+      view: this._view ? { ...this._view } : undefined,
       gap: this.defaultGap || undefined,
       voxels: voxelData,
       decals:
@@ -1568,6 +1639,7 @@ export class Heerich {
       camera: data.camera,
       style: data.style,
       gap: data.gap,
+      view: data.view,
     });
 
     for (const v of data.voxels) {
@@ -1669,7 +1741,7 @@ export class Heerich {
    * @param {[number,number,number]|((x: number, y: number, z: number) => [number,number,number])} [opts.scaleOrigin=[0.5,0,0.5]] - Scale origin
    * @param {number} [opts.gap] - Gap between voxels (0–<0.5). Overrides constructor default.
    * @param {SlopeDir|((x: number, y: number, z: number) => SlopeDir|null)} [opts.slope] - Turn voxels into wedges rising toward this direction (a function picks per voxel; return null for a cube). Ignored, with a warning, together with `content`
-   * @param {string} [opts.group] - Put the voxels in a named group, which `transforms` can move as one. Voxels in different groups never hide each other's faces, since either may move
+   * @param {string} [opts.group] - Put the voxels in a named group, which `groups` (in `setView()` or a render's options) can move as one. Voxels in different groups never hide each other's faces, since either may move
    *
    * Box params: position, size
    * Sphere params: center, radius
@@ -2167,19 +2239,25 @@ export class Heerich {
    *
    * @param {Object} [options]
    * @param {boolean} [options.raw=false] - Return raw 3D faces instead of projected 2D faces.
-   * @param {import('./clip.js').ClipOption} [options.clip] - Keep only what is inside: a `{ min, max }` box, a `{ point, normal }` plane (keeps the side the normal points into), or a list of them (inside all; so the kept shape is convex). Bounds can fall anywhere, not just on cell edges. Applied after `transforms`, in world space
+   * @param {import('./clip.js').ClipOption} [options.clip] - Keep only what is inside: a `{ min, max }` box, a `{ point, normal }` plane (keeps the side the normal points into), or a list of them (inside all; so the kept shape is convex). Bounds can fall anywhere, not just on cell edges. Applied after `transform` and `groups`, in world space
    * @param {boolean} [options.caps=true] - Close the cut with walls: each cut voxel's cross-section, in its style for the side the wall faces (or its `cap` style)
-   * @param {Object<string, import('./clip.js').GroupTransform>} [options.transforms] - Move, turn or scale groups (see `group` in `applyGeometry`) by name, smoothly and off the grid
-   * @param {import('./clip.js').GroupTransform} [options.transform] - Move, turn or scale the whole scene (after any group's own transform). Before `clip`, so the scene can turn inside a fixed cut
+   * @param {import('./clip.js').Transform} [options.transform] - Move, turn or scale the whole scene (after any group's own transform). Before `clip`, so the scene can turn inside a fixed cut
+   * @param {Object<string, import('./clip.js').Transform>} [options.groups] - Move, turn or scale groups (see `group` in `applyGeometry`) by name, smoothly and off the grid
+   *
+   * `clip`, `caps`, `transform` and `groups` default to the view set with
+   * `setView()`; pass one to override it (`null` for none). `raw` faces
+   * ignore the view.
    * @returns {Face[]}
    */
   getFaces(options = {}) {
-    if (options.clip || options.transforms || options.transform) {
-      if (options.raw)
+    if (options.raw) {
+      if (options.clip || options.transform || options.groups)
         throw new Error(
-          "Heerich: `clip` and `transforms`/`transform` apply to projected faces, not `raw`",
+          "Heerich: `clip`, `transform` and `groups` apply to projected faces, not `raw`",
         );
-      return this._shapedFaces(options);
+    } else {
+      const view = this._viewFor(options);
+      if (view) return this._shapedFaces(view);
     }
     if (options.raw) {
       if (this._cachedRawEpoch === this._epoch && this._cachedRawFaces) {
@@ -2217,7 +2295,7 @@ export class Heerich {
   }
 
   /**
-   * getFaces() with `clip` and/or `transforms`: the cached 3D faces, moved by
+   * getFaces() with `clip`, `transform` and/or `groups`: the cached 3D faces, moved by
    * their group's transform and cut by the clip planes (as copies, so the
    * cache is left alone), projected and sorted; then the walls of the cut.
    * @param {Object} options - See getFaces()
@@ -2286,9 +2364,9 @@ export class Heerich {
   }
 
   /**
-   * Each voxel's move under the `transform`/`transforms` options: its
+   * Each voxel's move under the `transform`/`groups` options: its
    * group's transform, then the scene's.
-   * @param {Object} options - `transform` and/or `transforms`
+   * @param {Object} options - `transform` and/or `groups`
    * @returns {(voxel: Voxel) => {m: number[], nm: Object, shift: boolean}|null}
    */
   _movesFor(options) {
@@ -2312,8 +2390,8 @@ export class Heerich {
     const sceneM = options.transform ? toMatrix(options.transform) : null;
     const sceneMove = sceneM ? move(sceneM) : null;
     const moves = new Map();
-    if (options.transforms) {
-      for (const [name, t] of Object.entries(options.transforms)) {
+    if (options.groups) {
+      for (const [name, t] of Object.entries(options.groups)) {
         if (!t) continue;
         const m = toMatrix(t);
         moves.set(name, move(sceneM ? compose(sceneM, m) : m));
@@ -2704,7 +2782,7 @@ export class Heerich {
    * @param {StyleParam|((x: number, y: number, z: number, face: string) => StyleObject)} [opts.style] - Style per voxel or per face
    * @param {number} [opts.gap] - Gap override (defaults to constructor gap)
    * @param {(x: number, y: number, z: number) => number} [opts.nearZ] - Fractional z of a voxel's camera-facing side (default `z`). Moves its front face and stretches its side faces, so a surface can animate smoothly between layers.
-   * @param {import('./clip.js').GroupTransform} [opts.transform] - Move, turn or scale the whole result (see `getFaces()`)
+   * @param {import('./clip.js').Transform} [opts.transform] - Move, turn or scale the whole result (see `getFaces()`). Like `clip`, defaults to the view (`setView()`)
    * @param {import('./clip.js').ClipOption} [opts.clip] - Keep only what is inside (see `getFaces()`). The cut is left open: there are no stored voxels to close it with walls
    * @returns {Face[]}
    */
@@ -2743,7 +2821,8 @@ export class Heerich {
     const inset = (gp || 0) + 1e-9;
     // Turned by a transform, any side may face the camera: keep them all
     // (the turned faces are culled by their normal in _projectAndSort)
-    const all = !!opts.transform;
+    const view = this._viewFor(opts);
+    const all = !!(view && view.transform);
 
     let x = 0,
       y = 0,
@@ -2929,11 +3008,12 @@ export class Heerich {
       }
     }
 
-    if (opts.transform || opts.clip) {
-      // No stored voxels to slice, so a cut is left open (no walls)
+    if (view && (view.transform || view.clip)) {
+      // No stored voxels to slice, so a cut is left open (no walls); no
+      // groups either, so only the scene's transform applies
       const shape = this._shaper(
-        opts.clip ? toPlanes(opts.clip) : [],
-        this._movesFor({ transform: opts.transform }),
+        view.clip ? toPlanes(view.clip) : [],
+        this._movesFor({ transform: view.transform }),
         !nearZ,
       );
       const out = [];
@@ -3543,7 +3623,7 @@ export class Heerich {
    * i.e. before any SVG viewBox offset or padding is applied.
    *
    * @param {[number,number,number]|Voxel} posOrVoxel - Coordinate array or voxel reference
-   * @param {Object} [options] - The faces it is drawn with: `faces`, or the `clip`/`transform`/`transforms` it was drawn with. `center3D` stays the cell's centre; `center2D` is where that centre is drawn
+   * @param {Object} [options] - The faces it is drawn with: `faces`, or `clip`/`transform`/`groups` (default: the view, see `setView()`). `center3D` stays the cell's centre; `center2D` is where that centre is drawn
    * @returns {{
    *   voxel: Voxel|null,
    *   center3D: [number,number,number],
@@ -3575,9 +3655,10 @@ export class Heerich {
       cz = z + 0.5;
 
     const center3D = /** @type {[number,number,number]} */ ([cx, cy, cz]);
+    const view = this._viewFor(options);
     const mv =
-      options.transform || options.transforms
-        ? this._movesFor(options)(voxel)
+      view && (view.transform || view.groups)
+        ? this._movesFor(view)(voxel)
         : null;
     const c = mv ? apply(mv.m, center3D) : center3D;
     const center2D = this._projectPoint(c[0], c[1], c[2]);
@@ -3651,8 +3732,8 @@ export class Heerich {
    * @param {[number, number]} [options.offset] - [dx, dy] added to pos before testing (e.g. viewBox origin from getBounds())
    * @param {Face[]} [options.faces] - The faces to search, e.g. the ones just drawn
    * @param {import('./clip.js').ClipOption} [options.clip] - As drawn with (see `getFaces()`)
-   * @param {import('./clip.js').GroupTransform} [options.transform] - As drawn with
-   * @param {Object<string, import('./clip.js').GroupTransform>} [options.transforms] - As drawn with
+   * @param {import('./clip.js').Transform} [options.transform] - As drawn with (default: the view, see `setView()`)
+   * @param {Object<string, import('./clip.js').Transform>} [options.groups] - As drawn with
    * @returns {{ voxel: Voxel, face: Face } | null}
    */
   findByPosition(pos, options = {}) {
@@ -3703,8 +3784,10 @@ export class Heerich {
    * @param {(polygon: number[][], occluders: number[][][]) => string|null} [options.resolveOcclusion] - Custom occlusion resolver (overrides built-in). Providing this implicitly enables occlusion.
    * @param {import('./clip.js').ClipOption} [options.clip] - Keep only what is inside (see `getFaces()`)
    * @param {boolean} [options.caps=true] - Close the clip's cut with walls
-   * @param {Object<string, import('./clip.js').GroupTransform>} [options.transforms] - Move groups (see `getFaces()`)
-   * @param {import('./clip.js').GroupTransform} [options.transform] - Move the whole scene (see `getFaces()`)
+   * @param {import('./clip.js').Transform} [options.transform] - Move the whole scene (see `getFaces()`)
+   * @param {Object<string, import('./clip.js').Transform>} [options.groups] - Move groups (see `getFaces()`)
+   *
+   * `clip`, `caps`, `transform` and `groups` default to the view (`setView()`).
    * @returns {string} SVG markup
    */
   toSVG(options = {}) {

@@ -209,8 +209,8 @@
           ay += +$("speed-y").value * dt;
         }
         h.updateSVG(faces, {
-          transforms: {
-            shape: { rotate: [ax, ay, 0], origin: centre },
+          groups: {
+            shape: { rotate: [ax, ay, 0], center: centre },
           },
           clip,
           caps: wallLook() !== "off",

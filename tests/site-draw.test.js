@@ -85,7 +85,7 @@ for (const camera of [
   e.addGeometry({ type: "box", position: [0, 0, 0], size: [5, 4, 3] });
   const name = JSON.stringify(camera);
   const opts = {
-    transform: { rotate: [20, 35, 0], origin: [2.5, 2, 1.5] },
+    transform: { rotate: [20, 35, 0], center: [2.5, 2, 1.5] },
     clip: { min: [0, 0, 0], max: [5, 4, 3] },
     viewBox: [-50, -60, 300, 280],
     dataAttributes: false,
@@ -93,18 +93,30 @@ for (const camera of [
 
   const c = new El("div");
   draw(c, e, opts);
-  const want = pointsOf(e.getFaces({ transform: opts.transform, clip: opts.clip }));
+  const want = pointsOf(
+    e.getFaces({ transform: opts.transform, clip: opts.clip }),
+  );
   const plain = pointsOf(e.getFaces());
   const got = drawn(c);
-  check(`draws the turned, cut faces ${name}`, got.join("|") === want.join("|"), `${got.length} vs ${want.length}`);
+  check(
+    `draws the turned, cut faces ${name}`,
+    got.join("|") === want.join("|"),
+    `${got.length} vs ${want.length}`,
+  );
   check(`not the plain ones ${name}`, got.join("|") !== plain.join("|"));
-  check(`given viewBox ${name}`, c.children[0].getAttribute("viewBox") === "-50 -60 300 280");
+  check(
+    `given viewBox ${name}`,
+    c.children[0].getAttribute("viewBox") === "-50 -60 300 280",
+  );
 
   // faces given directly are drawn as they are
   const c2 = new El("div");
   const faces = e.getFaces();
   draw(c2, e, { faces, dataAttributes: false });
-  check(`faces passed through ${name}`, drawn(c2).join("|") === pointsOf(faces).join("|"));
+  check(
+    `faces passed through ${name}`,
+    drawn(c2).join("|") === pointsOf(faces).join("|"),
+  );
 }
 
 if (failures.length) {

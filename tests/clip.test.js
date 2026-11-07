@@ -1,4 +1,5 @@
-// Clip planes and group transforms (getFaces({ clip, caps, transforms })),
+// Clip planes, group and scene transforms, and setView()
+// (getFaces({ clip, caps, transform, groups })),
 // exits non-zero on failure:
 //  1. A clip around the whole scene, or a transform that changes nothing,
 //     gives exactly the faces getFaces() gives.
@@ -143,7 +144,7 @@ function key(f) {
   )
     pts.pop();
   // drop corners in line with their neighbours (a cut may add some)
-  for (let i = 0; pts.length > 3 && i < pts.length; ) {
+  for (let i = 0; pts.length > 3 && i < pts.length;) {
     const a = pts[(i + pts.length - 1) % pts.length],
       b = pts[i],
       c = pts[(i + 1) % pts.length];
@@ -179,8 +180,12 @@ function sameSets(name, a, b) {
     inB = new Map();
   for (const k of A) inA.set(k, (inA.get(k) || 0) + 1);
   for (const k of B) inB.set(k, (inB.get(k) || 0) + 1);
-  const onlyA = [...inA].filter(([k, n]) => (inB.get(k) || 0) < n).map(([k]) => k);
-  const onlyB = [...inB].filter(([k, n]) => (inA.get(k) || 0) < n).map(([k]) => k);
+  const onlyA = [...inA]
+    .filter(([k, n]) => (inB.get(k) || 0) < n)
+    .map(([k]) => k);
+  const onlyB = [...inB]
+    .filter(([k, n]) => (inA.get(k) || 0) < n)
+    .map(([k]) => k);
   check(
     name,
     false,
@@ -189,7 +194,9 @@ function sameSets(name, a, b) {
 }
 
 const facesString = (faces) =>
-  faces.map((f) => `${f.type}:${Array.from(f.points.data).join(",")}`).join(";");
+  faces
+    .map((f) => `${f.type}:${Array.from(f.points.data).join(",")}`)
+    .join(";");
 
 // ─── 1. A clip around everything, or no move, changes nothing ───
 for (let run = 0; run < 12; run++) {
@@ -205,23 +212,32 @@ for (let run = 0; run < 12; run++) {
     // unmoved one, a rounding error the other side of 0, stays: so compare
     // what is drawn.
     const g = build(specs, camera, { group: "all" });
-    const still = g.getFaces({ transforms: { all: { translate: [0, 0, 0] } } });
+    const still = g.getFaces({ groups: { all: { translate: [0, 0, 0] } } });
     sameSets(`identity transform (${camName(camera)})`, still, g.getFaces());
-    sameSets(`grouped = ungrouped (${camName(camera)})`, g.getFaces(), h.getFaces());
+    sameSets(
+      `grouped = ungrouped (${camName(camera)})`,
+      g.getFaces(),
+      h.getFaces(),
+    );
   }
 }
 
 // ─── 2. The caches are left alone ───
 for (let run = 0; run < 6; run++) {
-  const specs = randomSpecs().map((s, i) => ({ ...s, group: i % 2 ? "a" : undefined }));
+  const specs = randomSpecs().map((s, i) => ({
+    ...s,
+    group: i % 2 ? "a" : undefined,
+  }));
   for (const camera of CAMERAS) {
     const h = build(specs, camera);
     h.getFaces();
     h.getFaces({ clip: { min: [0.3, -2.5, 2.7], max: [3.6, 1.2, 5.2] } });
-    h.getFaces({ transforms: { a: { rotate: [10, 30, 0], translate: [0.5, 0, 0] } } });
+    h.getFaces({
+      groups: { a: { rotate: [10, 30, 0], translate: [0.5, 0, 0] } },
+    });
     h.getFaces({
       clip: [{ point: [2, 0, 4], normal: [1, 0.3, -0.5] }],
-      transforms: { a: { translate: [0.25, 0.5, 0] } },
+      groups: { a: { translate: [0.25, 0.5, 0] } },
     });
     const after = facesString(h.getFaces());
     const fresh = facesString(build(specs, camera).getFaces());
@@ -236,14 +252,21 @@ for (let run = 0; run < 30; run++) {
   const max = [min[0] + 1 + rnd(4), min[1] + 1 + rnd(4), min[2] + 1 + rnd(4)];
   const inside = specs.filter(
     (s) =>
-      s.x >= min[0] && s.x < max[0] &&
-      s.y >= min[1] && s.y < max[1] &&
-      s.z >= min[2] && s.z < max[2],
+      s.x >= min[0] &&
+      s.x < max[0] &&
+      s.y >= min[1] &&
+      s.y < max[1] &&
+      s.z >= min[2] &&
+      s.z < max[2],
   );
   for (const camera of CAMERAS) {
     const clipped = build(specs, camera).getFaces({ clip: { min, max } });
     const reference = build(inside, camera).getFaces();
-    sameSets(`edge clip = inside scene, run ${run} (${camName(camera)})`, clipped, reference);
+    sameSets(
+      `edge clip = inside scene, run ${run} (${camName(camera)})`,
+      clipped,
+      reference,
+    );
   }
 }
 
@@ -272,18 +295,39 @@ for (const slope of [
           slope: x === 1 && y === 1 && z === 3 ? slope : null,
         });
   for (const [min, max] of [
-    [[1, -5, 0], [9, 9, 9]], // cut at x = 1
-    [[-5, -5, 0], [2, 9, 9]], // cut at x = 2
-    [[-5, -5, 3], [9, 9, 9]], // cut at z = 3
-    [[-5, -5, 0], [9, 9, 4]], // cut at z = 4
-    [[-5, 1, 0], [9, 9, 9]], // cut at y = 1 (over the piece)
-    [[-5, -5, 0], [9, 2, 9]], // cut at y = 2 (under it)
+    [
+      [1, -5, 0],
+      [9, 9, 9],
+    ], // cut at x = 1
+    [
+      [-5, -5, 0],
+      [2, 9, 9],
+    ], // cut at x = 2
+    [
+      [-5, -5, 3],
+      [9, 9, 9],
+    ], // cut at z = 3
+    [
+      [-5, -5, 0],
+      [9, 9, 4],
+    ], // cut at z = 4
+    [
+      [-5, 1, 0],
+      [9, 9, 9],
+    ], // cut at y = 1 (over the piece)
+    [
+      [-5, -5, 0],
+      [9, 2, 9],
+    ], // cut at y = 2 (under it)
   ]) {
     const inside = specs.filter(
       (s) =>
-        s.x >= min[0] && s.x < max[0] &&
-        s.y >= min[1] && s.y < max[1] &&
-        s.z >= min[2] && s.z < max[2],
+        s.x >= min[0] &&
+        s.x < max[0] &&
+        s.y >= min[1] &&
+        s.y < max[1] &&
+        s.z >= min[2] &&
+        s.z < max[2],
     );
     for (const camera of CAMERAS) {
       sameSets(
@@ -299,10 +343,15 @@ for (const slope of [
 for (let run = 0; run < 10; run++) {
   const specs = randomSpecs({ slopes: run % 2 === 0 });
   const t = [rnd(5) - 2, rnd(3) - 1, rnd(3)];
-  const moved = specs.map((s) => ({ ...s, x: s.x + t[0], y: s.y + t[1], z: s.z + t[2] }));
+  const moved = specs.map((s) => ({
+    ...s,
+    x: s.x + t[0],
+    y: s.y + t[1],
+    z: s.z + t[2],
+  }));
   for (const camera of CAMERAS) {
     const a = build(specs, camera, { group: "g" }).getFaces({
-      transforms: { g: { translate: t } },
+      groups: { g: { translate: t } },
     });
     const b = build(moved, camera, { group: "g" }).getFaces();
     sameSets(`translate ${t} run ${run} (${camName(camera)})`, a, b);
@@ -311,7 +360,10 @@ for (let run = 0; run < 10; run++) {
 // 90° about y, around the cell corner (2, 0, 4): cell (x, y, z) goes to
 // (2 + (z − 4), y, 4 − (x − 2) − 1). Cubes only (a slope would turn too).
 for (let run = 0; run < 10; run++) {
-  const specs = randomSpecs({ slopes: false }).map((s) => ({ ...s, style: STYLES[0] }));
+  const specs = randomSpecs({ slopes: false }).map((s) => ({
+    ...s,
+    style: STYLES[0],
+  }));
   const turned = specs.map((s) => ({
     ...s,
     x: 2 + (s.z - 4),
@@ -319,7 +371,7 @@ for (let run = 0; run < 10; run++) {
   }));
   for (const camera of CAMERAS) {
     const a = build(specs, camera, { group: "g" }).getFaces({
-      transforms: { g: { rotate: [0, 90, 0], origin: [2, 0, 4] } },
+      groups: { g: { rotate: [0, 90, 0], center: [2, 0, 4] } },
     });
     const b = build(turned, camera, { group: "g" }).getFaces();
     // The turned faces keep their own names, so compare shapes only
@@ -336,7 +388,10 @@ const mul = (a, b) => {
   for (let r = 0; r < 3; r++)
     for (let c = 0; c < 4; c++)
       out.push(
-        a[r * 4] * b[c] + a[r * 4 + 1] * b[4 + c] + a[r * 4 + 2] * b[8 + c] + (c === 3 ? a[r * 4 + 3] : 0),
+        a[r * 4] * b[c] +
+          a[r * 4 + 1] * b[4 + c] +
+          a[r * 4 + 2] * b[8 + c] +
+          (c === 3 ? a[r * 4 + 3] : 0),
       );
   return out;
 };
@@ -350,15 +405,25 @@ for (let run = 0; run < 12; run++) {
     sameSets(
       `scene transform = one group ${name}`,
       build(specs, camera).getFaces({ transform: scene, clip }),
-      build(specs, camera, { group: "all" }).getFaces({ transforms: { all: scene }, clip }),
+      build(specs, camera, { group: "all" }).getFaces({
+        groups: { all: scene },
+        clip,
+      }),
     );
-    const mixed = specs.map((s, i) => ({ ...s, group: i % 3 ? undefined : "g" }));
+    const mixed = specs.map((s, i) => ({
+      ...s,
+      group: i % 3 ? undefined : "g",
+    }));
     const named = mixed.map((s) => ({ ...s, group: s.group || "rest" }));
     sameSets(
       `group then scene ${name}`,
-      build(mixed, camera).getFaces({ transform: scene, transforms: { g: own }, clip }),
+      build(mixed, camera).getFaces({
+        transform: scene,
+        groups: { g: own },
+        clip,
+      }),
       build(named, camera).getFaces({
-        transforms: {
+        groups: {
           g: { matrix: mul(toMatrix(scene), toMatrix(own)) },
           rest: scene,
         },
@@ -382,7 +447,10 @@ for (let run = 0; run < 12; run++) {
 // ─── renderTest, findByPosition and getVoxelInfo take them too ───
 for (let run = 0; run < 10; run++) {
   // cubes only: renderTest has no slopes
-  const specs = randomSpecs({ slopes: false }).map((s) => ({ ...s, style: STYLES[0] }));
+  const specs = randomSpecs({ slopes: false }).map((s) => ({
+    ...s,
+    style: STYLES[0],
+  }));
   const cells = new Set(specs.map((s) => `${s.x},${s.y},${s.z}`));
   const test = (x, y, z) => cells.has(`${x},${y},${z}`);
   const bounds = [
@@ -429,7 +497,8 @@ for (let run = 0; run < 10; run++) {
       const want = stored.project(apply(m, [v.x + 0.5, v.y + 0.5, v.z + 0.5]));
       check(
         `getVoxelInfo centre where drawn ${name}`,
-        Math.abs(info.center2D.x - want.x) < 1e-3 && Math.abs(info.center2D.y - want.y) < 1e-3,
+        Math.abs(info.center2D.x - want.x) < 1e-3 &&
+          Math.abs(info.center2D.y - want.y) < 1e-3,
       );
       check(`getVoxelInfo bounds from drawn faces ${name}`, !!info.bounds2D);
     }
@@ -478,7 +547,8 @@ function inPolygon(d, x, y) {
       yi = d[i * 2 + 1],
       xj = d[j * 2],
       yj = d[j * 2 + 1];
-    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) c = !c;
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi)
+      c = !c;
   }
   return c;
 }
@@ -494,7 +564,9 @@ function nearPolygon(d, x, y, tol) {
     const vx = bx - ax,
       vy = by - ay;
     const l = vx * vx + vy * vy;
-    const t = l ? Math.max(0, Math.min(1, ((x - ax) * vx + (y - ay) * vy) / l)) : 0;
+    const t = l
+      ? Math.max(0, Math.min(1, ((x - ax) * vx + (y - ay) * vy) / l))
+      : 0;
     if (Math.hypot(ax + vx * t - x, ay + vy * t - y) < tol) return true;
   }
   return false;
@@ -508,7 +580,11 @@ function randomClip() {
     const min = [rand() * 3 - 0.5, -2 + rand() * 2, 2 + rand() * 3];
     list.push({
       min,
-      max: [min[0] + 0.6 + rand() * 4, min[1] + 0.6 + rand() * 4, min[2] + 0.6 + rand() * 4],
+      max: [
+        min[0] + 0.6 + rand() * 4,
+        min[1] + 0.6 + rand() * 4,
+        min[2] + 0.6 + rand() * 4,
+      ],
     });
   }
   if (kinds !== 0) {
@@ -525,15 +601,24 @@ function randomClip() {
 function randomTransform() {
   return {
     translate: [rand() * 2 - 1, rand() * 2 - 1, rand() * 2],
-    rotate: [rnd(4) ? 0 : rand() * 60 - 30, rand() * 360, rnd(3) ? 0 : rand() * 40 - 20],
-    scale: rnd(4) ? 1 : [0.6 + rand() * 0.8, 0.6 + rand() * 0.8, rnd(2) ? -1 : 1],
-    origin: [2, 0, 4],
+    rotate: [
+      rnd(4) ? 0 : rand() * 60 - 30,
+      rand() * 360,
+      rnd(3) ? 0 : rand() * 40 - 20,
+    ],
+    scale: rnd(4)
+      ? 1
+      : [0.6 + rand() * 0.8, 0.6 + rand() * 0.8, rnd(2) ? -1 : 1],
+    center: [2, 0, 4],
   };
 }
 
 let sampled = 0;
 for (let run = 0; run < 150; run++) {
-  const specs = randomSpecs({ odd: true }).map((s) => ({ ...s, group: rnd(3) === 0 ? "m" : undefined }));
+  const specs = randomSpecs({ odd: true }).map((s) => ({
+    ...s,
+    group: rnd(3) === 0 ? "m" : undefined,
+  }));
   const clip = run % 5 === 4 ? undefined : randomClip();
   const transforms = rnd(2) ? { m: randomTransform() } : undefined;
   const transform = rnd(3) === 0 ? randomTransform() : undefined;
@@ -549,7 +634,7 @@ for (let run = 0; run < 150; run++) {
   };
   for (const camera of CAMERAS) {
     const h = build(specs, camera);
-    const faces = h.getFaces({ clip, transforms, transform });
+    const faces = h.getFaces({ clip, groups: transforms, transform });
     const name = `run ${run} (${camName(camera)})`;
     // 6: nothing outside, walls on a plane, no broken points
     let bad = "";
@@ -560,9 +645,15 @@ for (let run = 0; run < 150; run++) {
         break;
       }
       for (const v of f.vertices) {
-        for (const pl of planes) if (dist(pl, v) < -1e-6) bad = `point outside clip ${v}`;
+        for (const pl of planes)
+          if (dist(pl, v) < -1e-6) bad = `point outside clip ${v}`;
       }
-      if (f.cap && !planes.some((pl) => f.vertices.every((v) => Math.abs(dist(pl, v)) < 1e-6)))
+      if (
+        f.cap &&
+        !planes.some((pl) =>
+          f.vertices.every((v) => Math.abs(dist(pl, v)) < 1e-6),
+        )
+      )
         bad = "wall off its plane";
       if (bad) break;
     }
@@ -594,9 +685,23 @@ for (let run = 0; run < 150; run++) {
             example = `voxel ${voxel.x},${voxel.y},${voxel.z} ${voxel.slope || "cube"} at ${p.map((v) => v.toFixed(2))}`;
             if (process.env.DEBUG) {
               const nb = [];
-              for (const [dx, dy, dz] of [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]]) {
-                const v = h.getVoxel([voxel.x + dx, voxel.y + dy, voxel.z + dz]);
-                if (v) nb.push(`${dx},${dy},${dz}:${v.slope || "cube"}${v.scale ? " scale" : ""}${v.gap ? " gap" : ""}${v.group ? " g" : ""}`);
+              for (const [dx, dy, dz] of [
+                [1, 0, 0],
+                [-1, 0, 0],
+                [0, 1, 0],
+                [0, -1, 0],
+                [0, 0, 1],
+                [0, 0, -1],
+              ]) {
+                const v = h.getVoxel([
+                  voxel.x + dx,
+                  voxel.y + dy,
+                  voxel.z + dz,
+                ]);
+                if (v)
+                  nb.push(
+                    `${dx},${dy},${dz}:${v.slope || "cube"}${v.scale ? " scale" : ""}${v.gap ? " gap" : ""}${v.group ? " g" : ""}`,
+                  );
               }
               example += ` [self scale=${!!voxel.scale} gap=${!!voxel.gap} group=${voxel.group}] clip=${JSON.stringify(clip)} tf=${!!transforms} nb=${nb.join(" ")}`;
             }
@@ -605,7 +710,11 @@ for (let run = 0; run < 150; run++) {
       }
     }
     sampled += tried;
-    check(`no holes ${name}`, holes === 0, `${holes}/${tried} points uncovered, e.g. ${example}`);
+    check(
+      `no holes ${name}`,
+      holes === 0,
+      `${holes}/${tried} points uncovered, e.g. ${example}`,
+    );
   }
 }
 check("sampled enough points", sampled > 12000, `${sampled}`);
@@ -613,26 +722,41 @@ check("sampled enough points", sampled > 12000, `${sampled}`);
 // Walls show only where the cut faces the camera, and nothing drawn faces
 // away from it: every face drawn faces the camera.
 for (let run = 0; run < 20; run++) {
-  const specs = randomSpecs().map((s) => ({ ...s, group: run % 2 ? "m" : undefined }));
+  const specs = randomSpecs().map((s) => ({
+    ...s,
+    group: run % 2 ? "m" : undefined,
+  }));
   const clip = randomClip();
   const transforms = { m: randomTransform() };
   for (const camera of CAMERAS) {
     const h = build(specs, camera);
     const r = h.renderOptions;
-    for (const f of h.getFaces({ clip, transforms })) {
+    for (const f of h.getFaces({ clip, groups: transforms })) {
       if (f.type === "content") continue;
       let toward;
       if (r.projection === "perspective")
         toward = dot(sub([r.cameraX, r.cameraY, -r.cameraDistance], f.c), f.n);
       else if (r.projection === "oblique")
-        toward = -(f.n[2] - (f.n[0] * r.depthOffsetX) / r.tileW - (f.n[1] * r.depthOffsetY) / r.tileH);
+        toward = -(
+          f.n[2] -
+          (f.n[0] * r.depthOffsetX) / r.tileW -
+          (f.n[1] * r.depthOffsetY) / r.tileH
+        );
       else
         toward = -dot(
-          [Math.sin(r.angle) * Math.cos(r.pitch), Math.sin(r.pitch), Math.cos(r.angle) * Math.cos(r.pitch)],
+          [
+            Math.sin(r.angle) * Math.cos(r.pitch),
+            Math.sin(r.pitch),
+            Math.cos(r.angle) * Math.cos(r.pitch),
+          ],
           f.n,
         );
       if (!(toward > -1e-9)) {
-        check(`faces the camera run ${run} (${camName(camera)})`, false, `${f.type}${f.cap ? " (wall)" : ""} n=${f.n}`);
+        check(
+          `faces the camera run ${run} (${camName(camera)})`,
+          false,
+          `${f.type}${f.cap ? " (wall)" : ""} n=${f.n}`,
+        );
         break;
       }
     }
@@ -644,12 +768,19 @@ for (let run = 0; run < 20; run++) {
 {
   const specs = [];
   for (let x = 0; x < 4; x++)
-    for (let z = 2; z < 5; z++) specs.push({ x, y: 0, z, style: STYLES[0], group: x < 2 ? "a" : "b" });
+    for (let z = 2; z < 5; z++)
+      specs.push({ x, y: 0, z, style: STYLES[0], group: x < 2 ? "a" : "b" });
   // angle 315 sees the right sides
   const h = build(specs, { type: "isometric", angle: 315 });
-  const alone = build(specs.map((s) => ({ ...s, group: undefined })), { type: "isometric", angle: 315 });
-  check("groups draw their shared walls", h.getFaces().length > alone.getFaces().length);
-  const apart = h.getFaces({ transforms: { b: { translate: [1.5, 0, 0] } } });
+  const alone = build(
+    specs.map((s) => ({ ...s, group: undefined })),
+    { type: "isometric", angle: 315 },
+  );
+  check(
+    "groups draw their shared walls",
+    h.getFaces().length > alone.getFaces().length,
+  );
+  const apart = h.getFaces({ groups: { b: { translate: [1.5, 0, 0] } } });
   check(
     "moved group shows the wall between",
     apart.some((f) => f.voxel.group === "a" && f.type === "right"),
@@ -658,15 +789,23 @@ for (let run = 0; run < 20; run++) {
 
 // ─── 7. Renderers write every point ───
 {
-  const h = new Heerich({ tile: 10, camera: { type: "oblique", angle: 45, distance: 10 } });
+  const h = new Heerich({
+    tile: 10,
+    camera: { type: "oblique", angle: 45, distance: 10 },
+  });
   h.addGeometry({ type: "box", position: [0, 0, 0], size: 2 });
   const clip = [{ point: [1, 0, 0.5], normal: [-1, 0, -1] }]; // cuts corners off quads
   const faces = h.getFaces({ clip });
   const big = faces.find((f) => f.points.length > 4);
   check("a cut face has more than four points", !!big);
   const svg = h.toSVG({ clip });
-  const counts = [...svg.matchAll(/points="([^"]+)"/g)].map((m) => m[1].trim().split(/\s+/).length);
-  check("toSVG writes them all", counts.some((n) => n > 4) && counts.length === faces.length);
+  const counts = [...svg.matchAll(/points="([^"]+)"/g)].map(
+    (m) => m[1].trim().split(/\s+/).length,
+  );
+  check(
+    "toSVG writes them all",
+    counts.some((n) => n > 4) && counts.length === faces.length,
+  );
 
   // updateSVG on a tiny fake DOM
   class El {
@@ -700,29 +839,202 @@ for (let run = 0; run < 20; run++) {
   const doc = { createElementNS: (_ns, tag) => new El(doc, tag) };
   const root = new El(doc, "g");
   h.updateSVG(root, { clip });
-  const written = root.children[0].children.map((p) => p.attrs.get("points").split(" ").length);
-  check("updateSVG writes them all", written.some((n) => n > 4) && written.length === faces.length);
+  const written = root.children[0].children.map(
+    (p) => p.attrs.get("points").split(" ").length,
+  );
+  check(
+    "updateSVG writes them all",
+    written.some((n) => n > 4) && written.length === faces.length,
+  );
 }
 
 // ─── Decals on cut faces: laid on the whole face, clipped to the cut ───
 {
-  const h = new Heerich({ tile: 40, camera: { type: "oblique", angle: 45, distance: 15 } });
-  h.defineDecal("x", '<path d="M0 0 L1 1 M1 0 L0 1" fill="none" stroke="#000"/>');
-  h.addGeometry({ type: "box", position: [0, 0, 2], size: 1, style: { front: { decal: "x" } } });
+  const h = new Heerich({
+    tile: 40,
+    camera: { type: "oblique", angle: 45, distance: 15 },
+  });
+  h.defineDecal(
+    "x",
+    '<path d="M0 0 L1 1 M1 0 L0 1" fill="none" stroke="#000"/>',
+  );
+  h.addGeometry({
+    type: "box",
+    position: [0, 0, 2],
+    size: 1,
+    style: { front: { decal: "x" } },
+  });
   const decalPath = (svg) => svg.match(/<path d="([^"]+)"/)?.[1];
   const whole = h.toSVG();
   const cut = h.toSVG({ clip: { min: [0.3, -9, -9], max: [9, 9, 9] } });
   check("cut face keeps its decal", !!decalPath(cut));
-  check("decal laid on the whole face", decalPath(cut) === decalPath(whole), `${decalPath(cut)} vs ${decalPath(whole)}`);
-  check("decal clipped to the cut", /<clipPath id="heerich-cut-\d+"><polygon/.test(cut) && /clip-path="url\(#heerich-cut-/.test(cut));
+  check(
+    "decal laid on the whole face",
+    decalPath(cut) === decalPath(whole),
+    `${decalPath(cut)} vs ${decalPath(whole)}`,
+  );
+  check(
+    "decal clipped to the cut",
+    /<clipPath id="heerich-cut-\d+"><polygon/.test(cut) &&
+      /clip-path="url\(#heerich-cut-/.test(cut),
+  );
   check("uncut face isn't clipped", !/clipPath/.test(whole));
   // a cut leaving five corners still gets its decal
   const five = h.toSVG({ clip: [{ point: [0.3, 0.3, 2], normal: [1, 1, 0] }] });
   check("five-cornered cut keeps its decal", !!decalPath(five));
   // walls don't take the face's decal
-  h.addGeometry({ type: "box", position: [3, 0, 2], size: 1, style: { default: { decal: "x" } } });
-  const walls = h.getFaces({ clip: { min: [-9, -9, 2.5], max: [9, 9, 9] } }).filter((f) => f.cap);
-  check("walls have no decal", walls.length > 0 && walls.every((f) => !f.style.decal));
+  h.addGeometry({
+    type: "box",
+    position: [3, 0, 2],
+    size: 1,
+    style: { default: { decal: "x" } },
+  });
+  const walls = h
+    .getFaces({ clip: { min: [-9, -9, 2.5], max: [9, 9, 9] } })
+    .filter((f) => f.cap);
+  check(
+    "walls have no decal",
+    walls.length > 0 && walls.every((f) => !f.style.decal),
+  );
+}
+
+// ─── setView(): kept like the camera, used by every render and lookup ───
+{
+  const specs = randomSpecs().map((s, i) => ({
+    ...s,
+    group: i % 2 ? "g" : undefined,
+  }));
+  const view = {
+    clip: { min: [0.4, -3, 2.3], max: [3.7, 2, 6.1] },
+    transform: { rotate: [15, 40, 0], center: [2, 0, 4] },
+    groups: { g: { translate: [0.3, 0, 0] } },
+  };
+  for (const camera of CAMERAS) {
+    const name = camName(camera);
+    const h = build(specs, camera);
+    const passed = h.getFaces(view);
+    h.setView(view);
+    sameSets(`view = passing it ${name}`, h.getFaces(), passed);
+    check(`toSVG uses the view ${name}`, h.toSVG() === h.toSVG(view));
+    // a call overrides one key, null turns it off
+    sameSets(
+      `override one key ${name}`,
+      h.getFaces({ clip: null }),
+      h.getFaces({
+        clip: undefined,
+        transform: view.transform,
+        groups: view.groups,
+      }),
+    );
+    sameSets(
+      `null turns it off ${name}`,
+      h.getFaces({ clip: null, transform: null, groups: null }),
+      build(specs, camera).getFaces(),
+    );
+    // lookups find what the view draws
+    const top = passed[passed.length - 1];
+    if (top) {
+      const d = top.points.data;
+      let x = 0,
+        y = 0;
+      for (let i = 0; i < d.length; i += 2) {
+        x += d[i];
+        y += d[i + 1];
+      }
+      const hit = h.findByPosition([(x * 2) / d.length, (y * 2) / d.length]);
+      check(
+        `findByPosition uses the view ${name}`,
+        hit && hit.voxel === top.voxel,
+      );
+      const info = h.getVoxelInfo(top.voxel);
+      const same = h.getVoxelInfo(top.voxel, view);
+      check(
+        `getVoxelInfo uses the view ${name}`,
+        info.center2D.x === same.center2D.x &&
+          info.center2D.y === same.center2D.y,
+      );
+    }
+    // the scene's faces stay cached: the view isn't a scene edit
+    const epoch = h.epoch;
+    h.setView({ ...view, transform: { rotate: [0, 10, 0] } });
+    check(`setView keeps the epoch ${name}`, h.epoch === epoch);
+    h.setView(null);
+    check(
+      `setView(null) clears ${name}`,
+      Object.keys(h.getView()).length === 0,
+    );
+    sameSets(
+      `cleared = plain ${name}`,
+      h.getFaces(),
+      build(specs, camera).getFaces(),
+    );
+  }
+  // renderTest uses it too
+  const cells = new Set(specs.map((s) => `${s.x},${s.y},${s.z}`));
+  const test = (x, y, z) => cells.has(`${x},${y},${z}`);
+  const r = new Heerich({ tile: 20, camera: CAMERAS[3] });
+  const free = r.renderTest({
+    bounds: [
+      [-3, -4, 0],
+      [10, 6, 12],
+    ],
+    test,
+    transform: view.transform,
+  });
+  r.setView({ transform: view.transform });
+  sameSets(
+    "renderTest uses the view",
+    r.renderTest({
+      bounds: [
+        [-3, -4, 0],
+        [10, 6, 12],
+      ],
+      test,
+    }),
+    free,
+  );
+  // given to the constructor, kept by JSON, wrong keys throw
+  const c = new Heerich({ view: { transform: view.transform } });
+  check("view from the constructor", !!c.getView().transform);
+  c.addGeometry({ type: "box", position: [0, 0, 2], size: 2 });
+  const back = Heerich.fromJSON(JSON.parse(JSON.stringify(c.toJSON())));
+  check(
+    "view survives JSON",
+    JSON.stringify(back.getView()) === JSON.stringify(c.getView()),
+  );
+  let threw = false;
+  try {
+    c.setView({ transforms: {} });
+  } catch {
+    threw = true;
+  }
+  check("unknown view key throws", threw);
+}
+
+// ─── Rotation order ───
+{
+  const close = (a, b) => a.every((v, i) => Math.abs(v - b[i]) < 1e-12);
+  // "yxz": spin about y, then tilt about x
+  const turntable = toMatrix({ rotate: [30, 50, 0], order: "yxz" });
+  const spin = toMatrix({ rotate: [0, 50, 0] }),
+    tilt = toMatrix({ rotate: [30, 0, 0] });
+  check("order yxz = y then x", close(turntable, mul(tilt, spin)));
+  check(
+    "default order is xyz",
+    close(toMatrix({ rotate: [30, 50, 0] }), mul(spin, tilt)),
+  );
+  // center as in grid rotate(): a quarter turn about y around (2, 0, 4)
+  const q = toMatrix({ rotate: [0, 90, 0], center: [2, 0, 4] });
+  check("center is the pivot", close(apply(q, [2, 5, 4]), [2, 5, 4]));
+  let threw = 0;
+  for (const order of ["xy", "xxz", "abc", "xyzz"]) {
+    try {
+      toMatrix({ rotate: [1, 2, 3], order });
+    } catch {
+      threw++;
+    }
+  }
+  check("bad orders throw", threw === 4);
 }
 
 // ─── 8. Errors, JSON, styles ───
@@ -737,31 +1049,78 @@ for (let run = 0; run < 20; run++) {
       return true;
     }
   };
-  check("clip with raw throws", throws(() => h.getFaces({ raw: true, clip: { min: [0, 0, 0], max: [1, 1, 1] } })));
-  check("plane without normal throws", throws(() => h.getFaces({ clip: [{ point: [0, 0, 0], normal: [0, 0, 0] }] })));
-  check("unknown clip throws", throws(() => h.getFaces({ clip: [{ foo: 1 }] })));
-  check("short matrix throws", throws(() => h.getFaces({ transforms: { g: { matrix: [1, 0, 0] } } })));
+  check(
+    "clip with raw throws",
+    throws(() =>
+      h.getFaces({ raw: true, clip: { min: [0, 0, 0], max: [1, 1, 1] } }),
+    ),
+  );
+  check(
+    "plane without normal throws",
+    throws(() =>
+      h.getFaces({ clip: [{ point: [0, 0, 0], normal: [0, 0, 0] }] }),
+    ),
+  );
+  check(
+    "unknown clip throws",
+    throws(() => h.getFaces({ clip: [{ foo: 1 }] })),
+  );
+  check(
+    "short matrix throws",
+    throws(() => h.getFaces({ groups: { g: { matrix: [1, 0, 0] } } })),
+  );
+  check(
+    "clip with raw throws via groups",
+    throws(() => h.getFaces({ raw: true, groups: {} })),
+  );
 
   const back = Heerich.fromJSON(JSON.parse(JSON.stringify(h.toJSON())));
-  check("group survives JSON", [...back.voxels.values()].every((v) => v.group === "g"));
+  check(
+    "group survives JSON",
+    [...back.voxels.values()].every((v) => v.group === "g"),
+  );
 
-  check("clipBox gives six planes", Heerich.clipBox([0, 0, 0], [1, 1, 1]).length === 6);
+  check(
+    "clipBox gives six planes",
+    Heerich.clipBox([0, 0, 0], [1, 1, 1]).length === 6,
+  );
 
-  const s = new Heerich({ camera: { type: "oblique", angle: 45, distance: 10 } });
+  const s = new Heerich({
+    camera: { type: "oblique", angle: 45, distance: 10 },
+  });
   s.addGeometry({
     type: "box",
     position: [0, 0, 2],
     size: 3,
-    style: { default: { fill: "#111" }, front: { fill: "#222" }, cap: { fill: "#f0f" } },
+    style: {
+      default: { fill: "#111" },
+      front: { fill: "#222" },
+      cap: { fill: "#f0f" },
+    },
   });
-  s.addGeometry({ type: "box", position: [4, 0, 2], size: 3, style: { default: { fill: "#111" }, front: { fill: "#222" } } });
-  const walls = s.getFaces({ clip: { min: [-1, -1, 3.5], max: [9, 9, 9] } }).filter((f) => f.cap);
+  s.addGeometry({
+    type: "box",
+    position: [4, 0, 2],
+    size: 3,
+    style: { default: { fill: "#111" }, front: { fill: "#222" } },
+  });
+  const walls = s
+    .getFaces({ clip: { min: [-1, -1, 3.5], max: [9, 9, 9] } })
+    .filter((f) => f.cap);
   check("walls drawn", walls.length > 0);
-  check("cap style used", walls.filter((f) => f.voxel.x < 3).every((f) => f.style.fill === "#f0f"));
-  check("side style otherwise", walls.filter((f) => f.voxel.x >= 4).every((f) => f.style.fill === "#222"));
+  check(
+    "cap style used",
+    walls.filter((f) => f.voxel.x < 3).every((f) => f.style.fill === "#f0f"),
+  );
+  check(
+    "side style otherwise",
+    walls.filter((f) => f.voxel.x >= 4).every((f) => f.style.fill === "#222"),
+  );
   check(
     "caps: false draws none",
-    !s.getFaces({ clip: { min: [-1, -1, 3.5], max: [9, 9, 9] }, caps: false }).some((f) => f.cap),
+    !s
+      .getFaces({ clip: { min: [-1, -1, 3.5], max: [9, 9, 9] }, caps: false })
+      .some((f) => f.cap),
   );
 }
 

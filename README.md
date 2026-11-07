@@ -677,7 +677,7 @@ Since every plane keeps everything on one side, what is kept is always convex: a
 
 A decal on a cut face stays where it was: it is laid on the whole face and clipped to what is left. Walls don't take decals.
 
-`clip` works with `getFaces()`, `toSVG()` and `updateSVG()`, and `renderTest()` (which has no stored voxels to slice, so its cuts stay open). It isn't available with `getFaces({ raw: true })` (for `GPURenderer`). Pass the same options to `findByPosition()` and `getVoxelInfo()` to look things up as they are drawn.
+`clip` works with `getFaces()`, `toSVG()` and `updateSVG()`, and `renderTest()` (which has no stored voxels to slice, so its cuts stay open). It isn't available with `getFaces({ raw: true })` (for `GPURenderer`). To keep a clip until you change it, and have lookups use it too, set it as the [view](#setting-the-view).
 
 ## Moving groups
 
@@ -688,14 +688,14 @@ h.addGeometry({ type: 'box', position: [0, 0, 0], size: [4, 2, 2], group: 'car' 
 
 function frame(t) {
   h.updateSVG(svg, {
-    transforms: {
-      car: { translate: [t * 2, 0, 0], rotate: [0, t * 30, 0], origin: [2, 1, 1] },
+    groups: {
+      car: { translate: [t * 2, 0, 0], rotate: [0, t * 30, 0], center: [2, 1, 1] },
     },
   })
 }
 ```
 
-A transform scales, then rotates (degrees, about x, then y, then z), then translates, with `origin` as the point it turns and scales around (default `[0, 0, 0]`). `scale` takes one number or one per axis; a negative scale mirrors. Or pass `{ matrix }`: 12 numbers, a 3×4 matrix by rows.
+A transform scales, then rotates (degrees), then translates, with `center` as the point it turns and scales around (default `[0, 0, 0]`), as in [`rotate()`](#rotation). It turns about x, then y, then z; set `order` to change that, for example `order: 'yxz'` to spin about y and then tilt about x, like a turntable. `scale` takes one number or one per axis; a negative scale mirrors. Or pass `{ matrix }`: 12 numbers, a 3×4 matrix by rows.
 
 The voxels stay where they were added (queries, `findByPosition()` and `data-*` attributes use those cells); only the drawing moves. Moved faces depth-sort with everything else, so a group can pass in front of and behind the rest of the scene. As with any back-to-front renderer, two shapes that cut into each other can't sort right everywhere.
 
@@ -706,12 +706,33 @@ To move the whole scene, pass one `transform` (same form). It goes after any gro
 ```js
 // turn everything around its middle, inside a box that stays put
 h.toSVG({
-  transform: { rotate: [20, 35, 0], origin: [4, 4, 4] },
+  transform: { rotate: [20, 35, 0], center: [4, 4, 4] },
   clip: { min: [0, 0, 0], max: [8, 8, 8] },
 })
 ```
 
-`transforms` and `transform` are applied before `clip`, so a moving group can pass through a fixed cut. Like `clip`, they work with `getFaces()`, `toSVG()` and `updateSVG()`, and `renderTest()` takes `transform` (it has no groups); not `raw` faces. `findByPosition(pos, options)` and `getVoxelInfo(voxel, options)` take the same options, so a click finds the voxel where it is drawn.
+`groups` and `transform` are applied before `clip`, so a moving group can pass through a fixed cut. Like `clip`, they work with `getFaces()`, `toSVG()` and `updateSVG()`, and `renderTest()` takes `transform` (it has no groups); not `raw` faces.
+
+## Setting the view
+
+`clip`, `caps`, `transform` and `groups` say how the scene is shown, so like the camera they can be set once and kept:
+
+```js
+h.setView({
+  clip: { min: [0, 0, 0], max: [8, 8, 8] },
+  transform: { rotate: [20, 35, 0], order: 'yxz', center: [4, 4, 4] },
+  groups: { car: { translate: [2, 0, 0] } },
+})
+
+h.updateSVG(svg)                  // turned, cut, the car moved
+h.findByPosition([x, y])          // finds the voxel drawn there
+h.getVoxelInfo(voxel).center2D    // where its centre is drawn
+h.toSVG({ clip: null })           // just this once, uncut
+```
+
+Every render (`getFaces()`, `toSVG()`, `updateSVG()`, `renderTest()`) and lookup (`findByPosition()`, `getVoxelInfo()`) uses the view. Passing any of the four in a call replaces it for that call, and `null` turns it off. `getView()` returns it, `setView(null)` clears it, and `new Heerich({ view })` sets it from the start. `toJSON()` keeps it.
+
+Changing the view doesn't change the voxels, so the scene's faces stay cached and `epoch` doesn't move: setting a new view every frame is cheap.
 
 ## Rendering
 
@@ -742,8 +763,10 @@ Options:
 | `resolveOcclusion` | function | Custom occlusion resolver (overrides built-in). Providing this implicitly enables occlusion. Input `(subjectCoords, overlappingCoords[])`, return `pathString` or `null` |
 | `clip` | box, plane or list | Keep only what is inside. See [Clipping](#clipping) |
 | `caps` | boolean | Close the clip's cut with walls (default `true`) |
-| `transforms` | object | Move groups by name. See [Moving groups](#moving-groups) |
 | `transform` | object | Move the whole scene. See [Moving groups](#moving-groups) |
+| `groups` | object | Move groups by name. See [Moving groups](#moving-groups) |
+
+`clip`, `caps`, `transform` and `groups` default to the [view](#setting-the-view).
 
 ### `updateSVG(target, options?)`
 

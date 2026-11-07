@@ -2,6 +2,7 @@ import { Heerich } from "../src/heerich.js";
 import { version } from "../package.json";
 import { initHero } from "./hero.js";
 import { draw } from "./draw.js";
+import { toMatrix } from "../src/clip.js";
 import { parse, render } from "sugar-high/core";
 import * as javascript from "sugar-high/lang/javascript";
 
@@ -391,25 +392,12 @@ function orbitOpts(e, opts, { bounds, clip = true } = {}) {
     if (v.z + 1 > max[2]) max[2] = v.z + 1;
   }
   const c = min.map((m, i) => (m + max[i]) / 2);
-  // spin about y, then tilt about x, around the middle
-  const a = (orbit.az * Math.PI) / 180,
-    b = (orbit.el * Math.PI) / 180;
-  const ca = Math.cos(a),
-    sa = Math.sin(a),
-    cb = Math.cos(b),
-    sb = Math.sin(b);
-  const R = [
-    [ca, 0, sa],
-    [sb * sa, cb, -sb * ca],
-    [-cb * sa, sb, cb * ca],
-  ];
-  const matrix = [];
-  for (let r = 0; r < 3; r++)
-    matrix.push(
-      ...R[r],
-      c[r] - (R[r][0] * c[0] + R[r][1] * c[1] + R[r][2] * c[2]),
-    );
-  opts.transform = { matrix };
+  // a turntable: spin about y, then tilt about x, around the middle
+  opts.transform = {
+    rotate: [orbit.el, orbit.az, 0],
+    order: "yxz",
+    center: c,
+  };
   let lo = min,
     hi = max;
   if (camClip.checked && clip) opts.clip = { min, max };
@@ -441,8 +429,8 @@ function orbitOpts(e, opts, { bounds, clip = true } = {}) {
 
 // A point as the Rotate control turns it (or as it is)
 function turned(opts) {
-  const m = opts.transform?.matrix;
-  if (!m) return (p) => p;
+  if (!opts.transform) return (p) => p;
+  const m = toMatrix(opts.transform);
   return ([x, y, z]) => [
     m[0] * x + m[1] * y + m[2] * z + m[3],
     m[4] * x + m[5] * y + m[6] * z + m[7],

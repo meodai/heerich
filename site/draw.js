@@ -32,7 +32,7 @@ export function draw(container, engine, opts) {
       clip: opts.clip,
       caps: opts.caps,
       transform: opts.transform,
-      transforms: opts.transforms,
+      groups: opts.groups,
     });
   let viewBox;
   if (opts.viewBox) {

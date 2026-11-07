@@ -22,14 +22,16 @@
  */
 
 /**
- * A group's transform: scale, then rotate (degrees, about x, then y, then z),
- * then translate, all around `origin`. Or a 3×4 `matrix`, row-major
+ * A transform (of the scene, or of a group): scale, then rotate (degrees,
+ * one axis after another, in `order`),
+ * then translate, all around `center`. Or a 3×4 `matrix`, row-major
  * [a, b, c, tx,  d, e, f, ty,  g, h, i, tz], used as given.
- * @typedef {Object} GroupTransform
+ * @typedef {Object} Transform
  * @property {[number,number,number]} [translate]
  * @property {[number,number,number]} [rotate] - Degrees about x, y, z
  * @property {number|[number,number,number]} [scale]
- * @property {[number,number,number]} [origin=[0,0,0]] - Point that rotate and scale turn around
+ * @property {[number,number,number]} [center=[0,0,0]] - Point that rotate and scale turn around (as in grid `rotate()`)
+ * @property {string} [order="xyz"] - Which axis turns first: "xyz" turns about x, then y, then z. "yxz" spins about y, then tilts about x (a turntable)
  * @property {number[]} [matrix] - 12 numbers; overrides the others
  */
 
@@ -257,7 +259,7 @@ function cross(a, b) {
 
 /**
  * A group transform as a 3×4 matrix, row-major.
- * @param {GroupTransform} t
+ * @param {Transform} t
  * @returns {number[]}
  */
 export function toMatrix(t) {
@@ -266,33 +268,62 @@ export function toMatrix(t) {
       throw new Error("Heerich: a transform matrix has 12 numbers (3×4)");
     return t.matrix.slice();
   }
-  const o = t.origin || [0, 0, 0];
+  const o = t.center || [0, 0, 0];
   const s =
     t.scale === undefined
       ? [1, 1, 1]
       : typeof t.scale === "number"
         ? [t.scale, t.scale, t.scale]
         : t.scale;
-  const [rx, ry, rz] = (t.rotate || [0, 0, 0]).map((a) => (a * Math.PI) / 180);
-  const cx = Math.cos(rx),
-    sx = Math.sin(rx),
-    cy = Math.cos(ry),
-    sy = Math.sin(ry),
-    cz = Math.cos(rz),
-    sz = Math.sin(rz);
-  // R = Rz · Ry · Rx (about x first), then times the scale
-  const R = [
-    [cz * cy, cz * sy * sx - sz * cx, cz * sy * cx + sz * sx],
-    [sz * cy, sz * sy * sx + cz * cx, sz * sy * cx - cz * sx],
-    [-sy, cy * sx, cy * cx],
+  const order = t.order || "xyz";
+  if (!/^(?!.*(.).*\1)[xyz]{3}$/.test(order))
+    throw new Error(
+      'Heerich: a rotation order is "x", "y" and "z" in some order, like "yxz"',
+    );
+  const deg = t.rotate || [0, 0, 0];
+  // one turn per axis, applied in `order` (the first letter turns first)
+  let R = [
+    [1, 0, 0],
+    [0, 1, 0],
+    [0, 0, 1],
   ];
+  for (const axis of order) {
+    const i = "xyz".indexOf(axis);
+    const a = (deg[i] * Math.PI) / 180;
+    if (!a) continue;
+    const c = Math.cos(a),
+      n = Math.sin(a);
+    const T =
+      axis === "x"
+        ? [
+            [1, 0, 0],
+            [0, c, -n],
+            [0, n, c],
+          ]
+        : axis === "y"
+          ? [
+              [c, 0, n],
+              [0, 1, 0],
+              [-n, 0, c],
+            ]
+          : [
+              [c, -n, 0],
+              [n, c, 0],
+              [0, 0, 1],
+            ];
+    R = T.map((row) =>
+      [0, 1, 2].map(
+        (j) => row[0] * R[0][j] + row[1] * R[1][j] + row[2] * R[2][j],
+      ),
+    );
+  }
   const tr = t.translate || [0, 0, 0];
   const m = [];
   for (let r = 0; r < 3; r++) {
     const a = R[r][0] * s[0],
       b = R[r][1] * s[1],
       c = R[r][2] * s[2];
-    // p' = A (p − o) + o + translate
+    // p' = A (p − center) + center + translate
     m.push(a, b, c, o[r] - (a * o[0] + b * o[1] + c * o[2]) + tr[r]);
   }
   return m;
