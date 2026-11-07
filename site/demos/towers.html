@@ -9,70 +9,14 @@
       href="https://fonts.googleapis.com/css2?family=Aboreto&family=Work+Sans:wght@300;400&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./site.css" />
+    <link rel="stylesheet" href="../site.css" />
+    <link rel="stylesheet" href="./demo.css" />
     <style>
-      /* a line drawing on grey paper, in light and dark alike */
+      /* the main site's colours (site.css), dark mode included: the paper
+         is its background, the ink its text */
       :root {
-        --paper: #e6e2df;
-        --ink: #2b2826;
-        --bg: var(--paper);
-        --text: var(--ink);
-        color-scheme: light;
-      }
-      @media (prefers-color-scheme: dark) {
-        :root {
-          --bg: #e6e2df;
-          --text: #2b2826;
-          --accent: #2b2826;
-          --line: color-mix(in oklab, #2b2826 10%, #e6e2df);
-          --code-bg: color-mix(in oklab, #e6e2df 97%, #2b2826);
-        }
-      }
-      html {
-        scroll-behavior: auto;
-      }
-      body {
-        height: 100vh;
-        overflow: hidden;
-        background: var(--paper);
-        color: var(--ink);
-      }
-      .view {
-        position: fixed;
-        inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .view svg {
-        width: min(96vw, 140vh);
-        height: 92vh;
-        display: block;
-      }
-      .title {
-        position: fixed;
-        top: 1.2rem;
-        left: 1.6rem;
-        z-index: 10;
-        pointer-events: none;
-      }
-      .title h1 {
-        font-family: "Aboreto", cursive;
-        font-weight: 400;
-        font-size: 2.4rem;
-        letter-spacing: -0.05em;
-        line-height: 1.1;
-        margin: 0 0 0.3rem;
-      }
-      .title p {
-        font-size: 0.85rem;
-        opacity: 0.6;
-        max-width: 34ch;
-        margin: 1rem 0 0 1.2rem;
-      }
-      .title a {
-        color: inherit;
-        pointer-events: auto;
+        --paper: var(--bg);
+        --ink: var(--text);
       }
       /* the decals: each face's own outline, and its detail */
       .edge,
@@ -105,16 +49,37 @@
       }
     </style>
   </head>
-  <body>
-    <div class="title">
+  <body class="demo-stage">
+    <div class="demo-title">
       <h1>Towers</h1>
       <p>
         A block of towers drawn in lines: every line is a decal, every cut a
         clip. Inspired by the city of
         <a href="https://loack.me/fildefer/">fil de fer</a> by
         <a href="https://loack.me/">loackme</a>. Made with
-        <a href="./">heerich.js</a>.
+        <a href="../">heerich.js</a>.
       </p>
+      <ul class="demo-features">
+        <li><a href="../#custom-shapes">Custom shapes (fill)</a></li>
+        <li><a href="../#functional">Functional styles</a></li>
+        <li><a href="../#decals">Decals</a></li>
+        <li>
+          <a href="https://github.com/meodai/heerich#clipping"
+            >Clipping, walls and cut lines</a
+          >
+        </li>
+        <li>
+          <a href="https://github.com/meodai/heerich#moving-groups"
+            >Turning the whole scene</a
+          >
+        </li>
+        <li>
+          <a
+            href="https://github.com/meodai/heerich#occlusion-culling-for-pen-plotters"
+            >Occlusion culling</a
+          >
+        </li>
+      </ul>
     </div>
 
     <div class="view" id="view"></div>
@@ -292,8 +257,13 @@
     </details>
 
     <script type="module">
-      import { Heerich } from "../src/heerich.js";
-      import { toMatrix, apply, toPlanes, clipToPlane } from "../src/clip.js";
+      import { Heerich } from "../../src/heerich.js";
+      import {
+        toMatrix,
+        apply,
+        toPlanes,
+        clipToPlane,
+      } from "../../src/clip.js";
 
       // ─── A block of towers on a plate, drawn as lines ───
       //

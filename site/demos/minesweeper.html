@@ -35,6 +35,8 @@
       href="https://fonts.googleapis.com/css2?family=Aboreto&family=Work+Sans:wght@300;400&display=swap"
       rel="stylesheet"
     />
+    <link rel="stylesheet" href="../site.css" />
+    <link rel="stylesheet" href="./demo.css" />
     <style>
       :root {
         --bg: #f1ebe2;
@@ -86,26 +88,9 @@
         }
       }
 
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-
-      ::selection {
-        background: var(--text);
-        color: var(--bg);
-      }
-
-      html {
-        font-size: calc(0.5rem + 0.45vw);
-      }
-
+      /* the game's own layout (site.css and demo.css below it): a column
+         in the middle, the title in the top left */
       body {
-        font-family: "Work Sans", sans-serif;
-        font-weight: 300;
-        color: var(--text);
-        background: var(--bg);
         line-height: 1.5;
         display: flex;
         flex-direction: column;
@@ -119,33 +104,31 @@
         overflow-x: hidden;
       }
 
-      header {
-        text-align: center;
-        margin-bottom: 0.25rem;
-      }
-
-      h1 {
-        font-family: "Aboreto", cursive;
-        font-weight: 400;
-        font-size: 3rem;
-        letter-spacing: -0.05em;
-        line-height: 1.1;
-      }
-
-      .sub {
-        font-size: 0.95rem;
-        opacity: 0.6;
-      }
-
-      .sub a {
-        color: inherit;
+      /* narrow: the title above the game, in the page's flow, and the
+         page from the top */
+      @media (max-width: 56rem) {
+        .demo-title {
+          position: static;
+          align-self: stretch;
+          margin-bottom: 0.5rem;
+        }
+        .demo-title .bar {
+          margin-left: 0;
+        }
+        body {
+          justify-content: flex-start;
+        }
       }
 
       /* the difficulty on top of the counters, one block */
+      /* under the title, left aligned; clickable, unlike the title */
       .bar {
-        display: flex;
+        display: inline-flex;
         flex-direction: column;
-        margin: 0.5rem 0 1rem;
+        margin-top: 1rem;
+        /* in line with the text above and below it (demo.css) */
+        margin-left: 5rem;
+        pointer-events: auto;
       }
 
       /* the two rows share one line */
@@ -169,8 +152,8 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        min-width: 7rem;
-        padding: 0.4rem 1rem;
+        min-width: 4.5rem;
+        padding: 0.25rem 0.6rem;
       }
 
       .hud > div + div {
@@ -178,7 +161,7 @@
       }
 
       .hud small {
-        font-size: 0.75rem;
+        font-size: 0.6rem;
         letter-spacing: 0.08em;
         text-transform: uppercase;
         opacity: 0.6;
@@ -187,7 +170,7 @@
       .hud strong {
         font-family: "Aboreto", cursive;
         font-weight: 400;
-        font-size: 1.6rem;
+        font-size: 1.1rem;
         font-variant-numeric: tabular-nums;
         line-height: 1.2;
       }
@@ -204,7 +187,7 @@
 
       .game-container {
         /* whatever height is left under the header and the bar */
-        width: min(90vw, calc(100svh - 16rem), 700px);
+        width: min(90vw, calc(100svh - 6rem), 760px);
         aspect-ratio: 1;
         cursor: pointer;
         touch-action: manipulation;
@@ -298,13 +281,15 @@
 
       button {
         font-family: "Aboreto", cursive;
-        font-size: 1rem;
-        padding: 0.55em 1.6em;
+        font-size: 0.75rem;
+        padding: 0.5em 1em;
         background: transparent;
         color: var(--text);
         border: none;
         cursor: pointer;
         letter-spacing: 0.05em;
+        border-radius: 0;
+        transform: none;
         transition:
           background 0.2s,
           color 0.2s;
@@ -331,23 +316,34 @@
     </style>
   </head>
   <body>
-    <header>
+    <div class="demo-title">
       <h1>Heerichsweeper</h1>
-      <p class="sub">
-        Minesweeper in voxels, made with <a href="./">heerich.js</a>
-      </p>
-    </header>
-    <div class="bar">
-      <div class="controls">
-        <button data-mode="easy" class="active">Easy</button>
-        <button data-mode="normal">Normal</button>
-        <button data-mode="veteran">Veteran</button>
+      <p>Minesweeper in voxels. Made with <a href="../">heerich.js</a>.</p>
+      <div class="bar">
+        <div class="controls">
+          <button data-mode="easy" class="active">Easy</button>
+          <button data-mode="normal">Normal</button>
+          <button data-mode="veteran">Veteran</button>
+        </div>
+        <div class="hud">
+          <div><small>Mines</small><strong id="mine-count">8</strong></div>
+          <div><small>Flags</small><strong id="flag-count">0</strong></div>
+          <div><small>Time</small><strong id="timer">0</strong></div>
+        </div>
       </div>
-      <div class="hud">
-        <div><small>Mines</small><strong id="mine-count">8</strong></div>
-        <div><small>Flags</small><strong id="flag-count">0</strong></div>
-        <div><small>Time</small><strong id="timer">0</strong></div>
-      </div>
+      <ul class="demo-features">
+        <li><a href="../#boxes">Boxes</a></li>
+        <li><a href="../#carving">Boolean operations</a></li>
+        <li><a href="../#styles">Styling faces</a></li>
+        <li><a href="../#slopes">Slopes (a tip for the flag)</a></li>
+        <li><a href="../#content-voxels">Content voxels</a></li>
+        <li>
+          <a href="https://github.com/meodai/heerich#moving-groups"
+            >Moving groups</a
+          >
+        </li>
+        <li><a href="../#queries">Querying voxels (meta)</a></li>
+      </ul>
     </div>
     <div class="board">
       <div class="game-container" id="game"></div>
@@ -356,7 +352,7 @@
     <p class="hint">Click to dig · right-click or long-press to flag</p>
 
     <script type="module">
-      import { Heerich } from "../src/heerich.js";
+      import { Heerich } from "../../src/heerich.js";
 
       // ─── Config ────────────────────────────────────
       const MODES = {

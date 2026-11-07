@@ -1,0 +1,122 @@
+/* Shared by the demo pages, after site.css: the title in the top left,
+   and a scene that fills the screen */
+
+:root {
+  /* how far in the title sits: the docs page's text inset (article's
+     3rem), less on narrow screens so it clears the settings button */
+  --demo-inset: 3rem;
+}
+
+@media (max-width: 56rem) {
+  :root {
+    --demo-inset: 1.5rem;
+  }
+}
+
+html {
+  scroll-behavior: auto;
+}
+
+/* a demo that fills the screen: nothing scrolls */
+body.demo-stage {
+  height: 100vh;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/* the scene, centred in the screen */
+.view {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.view svg {
+  width: min(96vw, 140vh);
+  height: 88vh;
+  display: block;
+}
+
+/* ─── The title: level with the settings panel's top ─── */
+.demo-title {
+  position: fixed;
+  top: 1.2rem;
+  left: var(--demo-inset);
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* the docs page's h1 */
+.demo-title h1 {
+  font-family: "Aboreto", cursive;
+  font-weight: 400;
+  font-size: 5rem;
+  letter-spacing: -0.05em;
+  line-height: 1;
+  margin: 0 0 0 -0.06em;
+}
+
+/* the docs page's body text size */
+.demo-title p,
+.demo-features {
+  /* set in under the title, as the docs' subtitle is (.intro-text small) */
+  margin-left: 5rem;
+}
+
+.demo-title p {
+  font-size: 1rem;
+  line-height: 1.5;
+  opacity: 0.6;
+  max-width: 34ch;
+  /* as far below the title as the docs' subtitle */
+  margin-top: 1.4rem;
+}
+
+.demo-title a {
+  color: inherit;
+  pointer-events: auto;
+}
+
+@media (max-width: 56rem) {
+  /* the docs page's narrow h1, no wider than the screen */
+  .demo-title h1 {
+    font-size: min(3rem, 10.5vw);
+  }
+
+  .demo-title p {
+    margin-left: 0;
+  }
+}
+
+/* ─── What it uses: the engine's features, each linked to its section of
+   the docs where there is one ─── */
+.demo-features {
+  list-style: none;
+  margin-top: 1.2rem;
+  padding: 0;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.demo-features::before {
+  content: "Uses";
+  display: block;
+  font-family: "Aboreto", cursive;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  opacity: 0.5;
+  margin-bottom: 0.2rem;
+}
+
+.demo-features li {
+  opacity: 0.7;
+}
+
+/* narrow: the scene needs the room */
+@media (max-width: 56rem) {
+  .demo-features {
+    display: none;
+  }
+}

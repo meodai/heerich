@@ -2193,32 +2193,199 @@ galleryDemo("demo-heerich-stepped", () => {
   return e.toSVG(getSvgOpts(e));
 });
 
+// ─── 13. Demos: an icon for each, drawn like the gallery pieces ───
+//
+// All four stand on one ground: each is about 7 cells across, its floor at
+// y = 1, and its frame is the same box around the middle of its footprint,
+// turned or not, so they share a scale and a ground line whatever the
+// camera.
+function demoIcon(id, cx, cz, build) {
+  // the engine and options it was last drawn with, for the hover
+  let drawn = null;
+  galleryDemo(id, () => {
+    const e = new Heerich({
+      tile: 24,
+      camera: getCamera(),
+      style: baseStyle,
+      gap: getGap(),
+    });
+    build(e);
+    const opts = getSvgOpts(e);
+    // Turned by the Rotate globe, they all turn about the same point, the
+    // middle of their footprint on the ground, and keep the same frame:
+    // the ground stays where it is, nothing jumps
+    if (opts.transform)
+      opts.transform = { ...opts.transform, center: [cx, 1, cz] };
+    const xs = [],
+      ys = [];
+    for (const x of [cx - 4.5, cx + 4.5])
+      for (const y of [-11, 1])
+        for (const z of [cz - 4.5, cz + 4.5]) {
+          const p = e.project([x, y, z]);
+          xs.push(p.x);
+          ys.push(p.y);
+        }
+    const pad = 12;
+    const x0 = Math.min(...xs),
+      y0 = Math.min(...ys);
+    opts.viewBox = [
+      x0 - pad,
+      y0 - pad,
+      Math.max(...xs) - x0 + pad * 2,
+      Math.max(...ys) - y0 + pad * 2,
+    ];
+    delete opts.fit;
+    drawn = { e, opts };
+    return e.toSVG(opts);
+  });
+
+  // Hover: the voxel under the pointer (findByPosition, as in Position
+  // queries), filled in the stroke colour
+  const canvas = document.getElementById(id).querySelector(".demo-canvas");
+  const clear = () => canvas.querySelector(".demo-hit")?.remove();
+  canvas.addEventListener("mousemove", (ev) => {
+    const svg = canvas.querySelector("svg");
+    if (!svg || !drawn) return;
+    const pt = svg.createSVGPoint();
+    pt.x = ev.clientX;
+    pt.y = ev.clientY;
+    const { x, y } = pt.matrixTransform(svg.getScreenCTM().inverse());
+    const hit = drawn.e.findByPosition([x, y], drawn.opts);
+    clear();
+    if (!hit) return;
+    let d = "";
+    for (const face of drawn.e.getFaces(drawn.opts)) {
+      if (face.voxel !== hit.voxel || !face.points) continue;
+      const p = face.points.data;
+      d += "M" + p[0] + " " + p[1];
+      for (let i = 2; i < p.length; i += 2) d += "L" + p[i] + " " + p[i + 1];
+      d += "Z";
+    }
+    const g = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    g.setAttribute("class", "demo-hit");
+    g.setAttribute("d", d);
+    g.setAttribute("fill", "var(--stroke-c)");
+    g.setAttribute("stroke", "var(--stroke-c)");
+    g.setAttribute("stroke-width", "1");
+    g.setAttribute("stroke-linejoin", "round");
+    g.setAttribute("vector-effect", "non-scaling-stroke");
+    g.setAttribute("pointer-events", "none");
+    svg.append(g);
+  });
+  canvas.addEventListener("mouseleave", clear);
+}
+
+// Towers: one tower on a slab, a window (a cell left out) in the middle of
+// each side, one below its top
+demoIcon("demo-link-towers", 3.5, 3.5, (e) => {
+  const h = 7;
+  e.applyGeometry({ type: "box", position: [0, 0, 0], size: [7, 1, 7] });
+  e.applyGeometry({ type: "box", position: [2, -h, 2], size: [3, h, 3] });
+  for (const [x, z] of [
+    [3, 2],
+    [3, 4],
+    [2, 3],
+    [4, 3],
+    // and the middle between them, so the windows look through
+    [3, 3],
+  ])
+    e.removeGeometry({ type: "box", position: [x, 1 - h, z], size: 1 });
+  // and the roof's middle, open into it
+  e.removeGeometry({ type: "box", position: [3, -h, 3], size: 1 });
+});
+
+// Terrain: a stepped pyramid on a slab, its steps smoothed into slopes
+demoIcon("demo-link-terrain", 3.5, 3.5, (e) => {
+  const n = 5;
+  for (let k = 0; 2 * k < n; k++)
+    e.applyGeometry({
+      type: "box",
+      position: [1 + k, -1 - k, 1 + k],
+      size: [n - 2 * k, 1, n - 2 * k],
+    });
+  e.autoSlope({ bottom: false });
+  // added after, so it stays flat
+  e.applyGeometry({ type: "box", position: [0, 0, 0], size: [7, 1, 7] });
+});
+
+// Clip: the demo's own shape, a cube with its corners taken out (a cross
+// on every face), uncut, standing on the ground
+demoIcon("demo-link-clip", 3, 3, (e) => {
+  const s = 6;
+  const c = Math.ceil(s / 4);
+  e.applyGeometry({
+    type: "fill",
+    bounds: [
+      [0, 1 - s, 0],
+      [s, 1, s],
+    ],
+    test: (x, y, z) =>
+      [x, y + s - 1, z].filter((v) => v < c || v >= s - c).length < 3,
+  });
+});
+
+// Heerichsweeper: a board, a few cells dug out (one right through, on the
+// edge you see first), a flag (a tip) on a tile
+demoIcon("demo-link-minesweeper", 3, 3, (e) => {
+  const n = 6;
+  e.applyGeometry({ type: "box", position: [0, 0, 0], size: [n, 1, n] });
+  e.applyGeometry({ type: "box", position: [0, -1, 0], size: [n, 1, n] });
+  for (const [x, z] of [
+    [1, 1],
+    [2, 1],
+    [1, 2],
+    [2, 2],
+    [3, 2],
+    [2, 3],
+    [4, 4],
+  ])
+    e.removeGeometry({ type: "box", position: [x, -1, z], size: 1 });
+  // a cell gone right through, on the edge the default camera faces
+  e.removeGeometry({ type: "box", position: [2, -1, 0], size: [1, 2, 1] });
+  e.applyGeometry({
+    type: "box",
+    position: [4, -2, 1],
+    size: 1,
+    slope: "tip",
+  });
+});
+
 // ─── Footer heart ────────────────────
 {
   const heartContainer = document.getElementById("footer-heart");
 
   function renderHeart() {
     const e = new Heerich({
-      tile: 52,
+      tile: 40,
       camera: getCamera(),
       style: baseStyle,
       gap: getGap(),
     });
 
-    const s = 4;
+    // A puffy heart: a flat heart outline (Inigo Quilez's heart distance,
+    // y up, from the tip at 0 to the lobes at about 1.1), thickest
+    // inside the lobes and thinning to its edge
+    const S = 7; // half its width, in cells
+    const D = 4; // half its thickness at most
+    const heart = (px, py) => {
+      px = Math.abs(px);
+      if (py + px > 1) return Math.hypot(px - 0.25, py - 0.75) - Math.SQRT2 / 4;
+      const m = 0.5 * Math.max(px + py, 0);
+      return (
+        Math.sqrt(
+          Math.min(px * px + (py - 1) ** 2, (px - m) ** 2 + (py - m) ** 2),
+        ) * Math.sign(px - py)
+      );
+    };
     e.applyGeometry({
       type: "fill",
       bounds: [
-        [-s, -s, -s],
-        [s + 1, s + 1, s + 1],
+        [-S - 1, -S - 1, -D - 1],
+        [S + 2, S + 2, D + 2],
       ],
       test: (x, y, z) => {
-        const nx = x / s;
-        const ny = -y / s;
-        const nz = z / s;
-        return (
-          nx * nx + (1.3 * ny - Math.sqrt(Math.abs(nx))) ** 2 + nz * nz <= 1
-        );
+        const d = heart((x / S) * 0.62, (-y / S) * 0.55 + 0.5);
+        return d < 0 && Math.abs(z) <= D * Math.sqrt(Math.min(1, -d / 0.3));
       },
     });
 

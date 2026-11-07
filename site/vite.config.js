@@ -13,12 +13,15 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: fileURLToPath(new URL("./index.html", import.meta.url)),
+        // the demos, each its own page under demos/
         minesweeper: fileURLToPath(
-          new URL("./minesweeper.html", import.meta.url),
+          new URL("./demos/minesweeper.html", import.meta.url),
         ),
-        terrain: fileURLToPath(new URL("./terrain.html", import.meta.url)),
-        clip: fileURLToPath(new URL("./clip.html", import.meta.url)),
-        towers: fileURLToPath(new URL("./towers.html", import.meta.url)),
+        terrain: fileURLToPath(
+          new URL("./demos/terrain.html", import.meta.url),
+        ),
+        clip: fileURLToPath(new URL("./demos/clip.html", import.meta.url)),
+        towers: fileURLToPath(new URL("./demos/towers.html", import.meta.url)),
       },
     },
   },

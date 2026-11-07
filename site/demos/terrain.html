@@ -13,7 +13,8 @@
       href="https://fonts.googleapis.com/css2?family=Aboreto&family=Work+Sans:wght@300;400&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./site.css" />
+    <link rel="stylesheet" href="../site.css" />
+    <link rel="stylesheet" href="./demo.css" />
     <style>
       :root {
         --fill: #fbf4ea;
@@ -48,75 +49,20 @@
         }
       }
 
-      html {
-        scroll-behavior: auto;
-      }
-
-      /* Nothing scrolls: the pointer, touch and keys move the terrain
-         instead, with no start or end. */
-      body {
-        height: 100vh;
-        overflow: hidden;
-        overscroll-behavior: none;
-      }
-
+      /* Nothing scrolls (demo.css): the pointer, touch and keys move the
+         terrain instead, with no start or end. */
       .terrain {
         touch-action: none;
       }
 
-      /* The panel is taller than short screens: let it scroll on its own. */
-      .settings-panel {
-        max-height: calc(100vh - 2.4rem);
-        overflow-y: auto;
-        overscroll-behavior: contain;
-      }
-
-      .terrain {
-        position: fixed;
-        inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-
       .terrain svg {
-        width: min(96vw, 140vh);
         height: 96vh;
-        display: block;
       }
 
-      .title {
-        position: fixed;
-        top: 1.2rem;
-        left: 1.6rem;
-        z-index: 10;
-        pointer-events: none;
-      }
-
-      .title h1 {
-        font-family: "Aboreto", cursive;
-        font-weight: 400;
-        font-size: 2.4rem;
-        letter-spacing: -0.05em;
-        line-height: 1.1;
-        margin: 0 0 0.3rem;
-      }
-
-      .title p {
-        font-size: 0.85rem;
-        opacity: 0.6;
-        max-width: 34ch;
-        margin: 1rem 0 0 1.2rem;
-      }
-
-      .title a {
-        color: inherit;
-        pointer-events: auto;
-      }
-
+      /* in line with the title */
       .stats {
         position: fixed;
-        left: 1.6rem;
+        left: var(--demo-inset);
         bottom: 1.2rem;
         font-size: 0.8rem;
         opacity: 0.6;
@@ -124,8 +70,8 @@
       }
     </style>
   </head>
-  <body>
-    <div class="title">
+  <body class="demo-stage">
+    <div class="demo-title">
       <h1>Terrain</h1>
       <p>
         Point or swipe to travel. Simplex noise, with tiles shaped by their
@@ -134,11 +80,24 @@
           >The Sentinel</a
         >. The birds flock as
         <a href="https://www.red3d.com/cwr/boids/">boids</a>, after Craig
-        Reynolds. Made with <a href="./">heerich.js</a>.
+        Reynolds. Made with <a href="../">heerich.js</a>.
       </p>
+      <ul class="demo-features">
+        <li><a href="../#slopes">Slopes and autoSlope</a></li>
+        <li><a href="../#gentle-slopes">Corner heights</a></li>
+        <li><a href="../#functional">Functional styles</a></li>
+        <li>
+          <a href="https://github.com/meodai/heerich#moving-groups"
+            >Moving groups</a
+          >
+        </li>
+        <li>
+          <a href="https://github.com/meodai/heerich#clipping">Clipping</a>
+        </li>
+      </ul>
     </div>
 
-    <div class="terrain" id="terrain">
+    <div class="view terrain" id="terrain">
       <svg xmlns="http://www.w3.org/2000/svg"></svg>
     </div>
 
@@ -317,7 +276,7 @@
     </details>
 
     <script type="module">
-      import { Heerich } from "../src/heerich.js";
+      import { Heerich } from "../../src/heerich.js";
       import { createNoise2D } from "https://esm.sh/simplex-noise@4.0.3";
       import alea from "https://esm.sh/alea@1.0.1";
 

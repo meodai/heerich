@@ -1036,6 +1036,26 @@ input[type="color"]::-webkit-color-swatch {
   aspect-ratio: 1;
 }
 
+/* the demos: the gallery's cards, each a link to its page */
+.demo-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.demo-link .gallery-caption strong {
+  display: block;
+  font-family: "Aboreto", cursive;
+  font-style: normal;
+  font-weight: 400;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.demo-link:hover .gallery-caption strong {
+  text-decoration: underline;
+}
+
 .gallery-caption {
   padding: 0.5rem 0.8rem;
   border-top: 1px solid var(--line);
@@ -1057,6 +1077,8 @@ input[type="color"]::-webkit-color-swatch {
 .footer-heart {
   position: sticky;
   top: 1.5rem;
+  /* the svg sets its own width to 100%: a smaller heart, by padding */
+  padding-inline: 14%;
 }
 
 .footer-heart svg {
@@ -1079,6 +1101,7 @@ input[type="color"]::-webkit-color-swatch {
     position: static;
     order: 0;
     max-width: 16rem;
+    padding-inline: 0;
   }
 }
 
