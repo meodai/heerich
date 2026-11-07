@@ -146,9 +146,10 @@ const FACE_GEOMETRY = [
 function expectedPerspectiveFaces(h, cam) {
   const [camX, camY] = cam.position;
   const camZ = -cam.distance;
+  // A voxel with a gap is shrunk, so its neighbours show through the gap
   const solid = (x, y, z) => {
     const v = h.getVoxel([x, y, z]);
-    return v && v.opaque !== false;
+    return v && v.opaque !== false && !v.gap;
   };
   const expected = new Set();
 

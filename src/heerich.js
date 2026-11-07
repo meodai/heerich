@@ -2,6 +2,19 @@ import { SVGRenderer, computeBounds } from "./svg-renderer.js";
 import { prepareDecalContent } from "./decal-warp.js";
 import { Points } from "./points.js";
 import { boxCoords, sphereCoords, lineCoords, fillCoords } from "./shapes.js";
+import {
+  clipBox,
+  toPlanes,
+  dist,
+  clipToPlane,
+  tidy,
+  section,
+  toMatrix,
+  apply,
+  normalMatrix,
+  turnNormal,
+  sideOf,
+} from "./clip.js";
 
 export { boxCoords, sphereCoords, lineCoords, fillCoords };
 export { SVGRenderer } from "./svg-renderer.js";
@@ -87,6 +100,7 @@ const AXIS_FACES = {
  * @property {[number,number,number]} [scale] - Per-axis scale factors [sx, sy, sz] (0-1)
  * @property {[number,number,number]} [scaleOrigin] - Scale transform origin within voxel
  * @property {SlopeDir} [slope] - Wedge rising toward this direction instead of a full cube
+ * @property {string} [group] - Name of the group it moves with (see `transforms`)
  */
 
 /**
@@ -708,6 +722,103 @@ function _rotateSlope(key, axis, turns) {
 /** Cache entry for voxels that emit no faces, so they aren't re-tested. */
 const NO_FACES = [];
 
+/** A unit cube's six faces, in cell offsets (for cutting it; any winding). */
+const CUBE_FACES = [
+  [
+    [0, 0, 0],
+    [1, 0, 0],
+    [1, 0, 1],
+    [0, 0, 1],
+  ],
+  [
+    [0, 1, 0],
+    [1, 1, 0],
+    [1, 1, 1],
+    [0, 1, 1],
+  ],
+  [
+    [0, 0, 0],
+    [0, 1, 0],
+    [0, 1, 1],
+    [0, 0, 1],
+  ],
+  [
+    [1, 0, 0],
+    [1, 1, 0],
+    [1, 1, 1],
+    [1, 0, 1],
+  ],
+  [
+    [0, 0, 0],
+    [1, 0, 0],
+    [1, 1, 0],
+    [0, 1, 0],
+  ],
+  [
+    [0, 0, 1],
+    [1, 0, 1],
+    [1, 1, 1],
+    [0, 1, 1],
+  ],
+];
+
+/** How close to a clip plane counts as on it. */
+const ON_PLANE = 1e-9;
+
+/** The average of some 3D points. */
+function centroid(pts) {
+  let x = 0,
+    y = 0,
+    z = 0;
+  for (const p of pts) {
+    x += p[0];
+    y += p[1];
+    z += p[2];
+  }
+  return [x / pts.length, y / pts.length, z / pts.length];
+}
+
+/** The area of a flat 3D polygon. */
+function area(pts) {
+  let x = 0,
+    y = 0,
+    z = 0;
+  const a = pts[0];
+  for (let i = 1; i + 1 < pts.length; i++) {
+    const b = pts[i],
+      c = pts[i + 1];
+    const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]],
+      v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+    x += u[1] * v[2] - u[2] * v[1];
+    y += u[2] * v[0] - u[0] * v[2];
+    z += u[0] * v[1] - u[1] * v[0];
+  }
+  return Math.hypot(x, y, z) / 2;
+}
+
+/** The getFaces() options among toSVG()/updateSVG()'s. */
+function shapeOptions(o) {
+  return o.clip || o.transforms || o.transform
+    ? {
+        clip: o.clip,
+        caps: o.caps,
+        transforms: o.transforms,
+        transform: o.transform,
+      }
+    : undefined;
+}
+
+/** The 3×4 matrix that applies b, then a. */
+function compose(a, b) {
+  const out = [];
+  for (let r = 0; r < 3; r++) {
+    const [x, y, z, t] = a.slice(r * 4, r * 4 + 4);
+    for (let c = 0; c < 4; c++)
+      out.push(x * b[c] + y * b[4 + c] + z * b[8 + c] + (c === 3 ? t : 0));
+  }
+  return out;
+}
+
 /**
  * A tiny engine for 3D voxel scenes rendered to SVG.
  */
@@ -752,6 +863,17 @@ const FIT_STEP_DEG = 5;
 const FIT_MARGIN = 1 / Math.cos(((FIT_STEP_DEG / 2) * Math.PI) / 180) ** 2;
 
 export class Heerich {
+  /**
+   * The six clip planes that keep the inside of a box (`clip` also takes
+   * `{ min, max }` directly; this is for combining a box with other planes).
+   * @param {[number,number,number]} min
+   * @param {[number,number,number]} max
+   * @returns {import('./clip.js').ClipPlane[]}
+   */
+  static clipBox(min, max) {
+    return clipBox(min, max);
+  }
+
   /**
    * @param {Object} [options]
    * @param {number|[number,number]|[number,number,number]} [options.tile=10] - Tile size in pixels. Single number for uniform, [x,y] or [x,y,z] for independent axes.
@@ -1112,6 +1234,7 @@ export class Heerich {
     scaleOrigin,
     gap,
     slope,
+    group,
   ) {
     // Content voxels draw their content instead of faces, so a slope would
     // never show, yet neighbours would treat the voxel as a partial wedge.
@@ -1180,6 +1303,7 @@ export class Heerich {
             voxel.opaque = false;
           }
           if (meta) voxel.meta = meta;
+          if (group != null) voxel.group = String(group);
           if (slope) {
             const d = slopeAt(x, y, z);
             if (d) voxel.slope = d;
@@ -1237,6 +1361,7 @@ export class Heerich {
               voxel.opaque = false;
             }
             if (meta) voxel.meta = meta;
+            if (group != null) voxel.group = String(group);
             if (slope) {
               const d = slopeAt(x, y, z);
               if (d) voxel.slope = d;
@@ -1397,6 +1522,7 @@ export class Heerich {
       if (voxel.scaleOrigin) entry.scaleOrigin = voxel.scaleOrigin;
       if (voxel.gap !== undefined) entry.gap = voxel.gap;
       if (voxel.slope) entry.slope = voxel.slope;
+      if (voxel.group != null) entry.group = voxel.group;
       voxelData.push(entry);
     }
 
@@ -1453,6 +1579,7 @@ export class Heerich {
       if (v.scaleOrigin) voxel.scaleOrigin = v.scaleOrigin;
       if (v.gap) voxel.gap = v.gap;
       if (v.slope && !v.content) voxel.slope = _slopeKey(v.slope);
+      if (v.group != null) voxel.group = String(v.group);
       engine.voxels.set(engine._k(v.x, v.y, v.z), voxel);
     }
 
@@ -1542,6 +1669,7 @@ export class Heerich {
    * @param {[number,number,number]|((x: number, y: number, z: number) => [number,number,number])} [opts.scaleOrigin=[0.5,0,0.5]] - Scale origin
    * @param {number} [opts.gap] - Gap between voxels (0–<0.5). Overrides constructor default.
    * @param {SlopeDir|((x: number, y: number, z: number) => SlopeDir|null)} [opts.slope] - Turn voxels into wedges rising toward this direction (a function picks per voxel; return null for a cube). Ignored, with a warning, together with `content`
+   * @param {string} [opts.group] - Put the voxels in a named group, which `transforms` can move as one. Voxels in different groups never hide each other's faces, since either may move
    *
    * Box params: position, size
    * Sphere params: center, radius
@@ -1562,6 +1690,7 @@ export class Heerich {
       opts.scaleOrigin,
       opts.gap,
       opts.slope,
+      opts.group,
     );
   }
 
@@ -1743,9 +1872,13 @@ export class Heerich {
   _buildFaces3D(cullTypes = null) {
     // Does the voxel at (x,y,z) have a full, opaque face on `side`? Cubes do
     // on every side; a slope only on its floor and its wall.
+    // Voxels in different groups never hide each other: either may move.
+    // `group` is the asking voxel's group, set per voxel below.
+    let group;
     const solidSide = (x, y, z, side) => {
       const v = this.voxels.get(this._k(x, y, z));
-      if (!v || v.opaque === false) return false;
+      // a voxel with a gap doesn't fill its cell's sides, so it hides nothing
+      if (!v || v.opaque === false || v.gap || v.group !== group) return false;
       return !v.slope || !!_slopeShapeOf(v.slope).sides[side]?.full;
     };
 
@@ -1772,6 +1905,10 @@ export class Heerich {
       }
 
       const { x, y, z, styles } = voxel;
+      group = voxel.group;
+      // A grouped voxel may be turned by a transform, so which of its sides
+      // face the camera isn't known here: keep them all (see _projectAndSort).
+      const cullHere = group === undefined ? cullTypes : null;
 
       if (
         !voxel.scale &&
@@ -1827,7 +1964,7 @@ export class Heerich {
       ];
 
       const addFace = (type, vertices, n, cx, cy, cz) => {
-        if (cullTypes && cullTypes.has(type)) return;
+        if (cullHere && cullHere.has(type)) return;
         let c = [cx, cy, cz];
         if (sc)
           c = scaleAround(
@@ -1899,6 +2036,7 @@ export class Heerich {
           if (solidSide(x + dx, y + dy, z + dz, OPPOSITE[side])) return true;
           const nb = this.voxels.get(this._k(x + dx, y + dy, z + dz));
           if (!nb || !nb.slope || nb.opaque === false || nb.gap) return false;
+          if (nb.group !== group) return false;
           const theirs = _slopeShapeOf(nb.slope).sides[OPPOSITE[side]];
           return !!theirs && theirs.key === shape.sides[side].key;
         };
@@ -2029,9 +2167,20 @@ export class Heerich {
    *
    * @param {Object} [options]
    * @param {boolean} [options.raw=false] - Return raw 3D faces instead of projected 2D faces.
+   * @param {import('./clip.js').ClipOption} [options.clip] - Keep only what is inside: a `{ min, max }` box, a `{ point, normal }` plane (keeps the side the normal points into), or a list of them (inside all; so the kept shape is convex). Bounds can fall anywhere, not just on cell edges. Applied after `transforms`, in world space
+   * @param {boolean} [options.caps=true] - Close the cut with walls: each cut voxel's cross-section, in its style for the side the wall faces (or its `cap` style)
+   * @param {Object<string, import('./clip.js').GroupTransform>} [options.transforms] - Move, turn or scale groups (see `group` in `applyGeometry`) by name, smoothly and off the grid
+   * @param {import('./clip.js').GroupTransform} [options.transform] - Move, turn or scale the whole scene (after any group's own transform). Before `clip`, so the scene can turn inside a fixed cut
    * @returns {Face[]}
    */
   getFaces(options = {}) {
+    if (options.clip || options.transforms || options.transform) {
+      if (options.raw)
+        throw new Error(
+          "Heerich: `clip` and `transforms`/`transform` apply to projected faces, not `raw`",
+        );
+      return this._shapedFaces(options);
+    }
     if (options.raw) {
       if (this._cachedRawEpoch === this._epoch && this._cachedRawFaces) {
         return this._cachedRawFaces;
@@ -2068,6 +2217,484 @@ export class Heerich {
   }
 
   /**
+   * getFaces() with `clip` and/or `transforms`: the cached 3D faces, moved by
+   * their group's transform and cut by the clip planes (as copies, so the
+   * cache is left alone), projected and sorted; then the walls of the cut.
+   * @param {Object} options - See getFaces()
+   * @returns {Face[]}
+   */
+  _shapedFaces(options) {
+    const ro = this.renderOptions;
+    let cullTypes = null;
+    // A scene transform can turn any face toward the camera, so oblique's
+    // drop-by-name can't run while building (moved faces are tested by
+    // their normal instead)
+    if (ro.projection === "oblique" && !options.transform) {
+      cullTypes = new Set(["back"]);
+      if (ro.depthOffsetY >= 0) cullTypes.add("top");
+      if (ro.depthOffsetY <= 0) cullTypes.add("bottom");
+      if (ro.depthOffsetX >= 0) cullTypes.add("left");
+      if (ro.depthOffsetX <= 0) cullTypes.add("right");
+    }
+    // The built faces only change with the scene or the camera (both bump
+    // the epoch), so a moving clip or transform reuses them frame to frame.
+    let faces3D;
+    const baseKey = `${this._epoch}:${cullTypes ? "c" : "a"}`;
+    if (this._shapeBaseKey === baseKey && this._shapeBase) {
+      faces3D = this._shapeBase;
+    } else {
+      faces3D = this._buildFaces3D(cullTypes);
+      this._shapeBase = faces3D;
+      this._shapeBaseKey = baseKey;
+    }
+
+    const moveOf = this._movesFor(options);
+    const planes = options.clip ? toPlanes(options.clip) : [];
+    const shape = this._shaper(planes, moveOf);
+
+    const out = [];
+    for (const face of faces3D) {
+      const f = shape(face);
+      if (f) out.push(f);
+    }
+
+    let caps = [];
+    if (planes.length && options.caps !== false) {
+      const walls = this._capFaces(planes, moveOf);
+      caps = walls.caps;
+      // A slanted face that a neighbour hid, where the cut took that
+      // neighbour away: draw it after all (see _capFaces).
+      if (walls.opened.size) {
+        const has = new Set();
+        for (const f of faces3D) if (f.type === "slope") has.add(f.voxel);
+        for (const voxel of walls.opened) {
+          if (has.has(voxel)) continue;
+          for (const face of this._slantedFaces(voxel)) {
+            const f = shape(face);
+            if (f) out.push(f);
+          }
+        }
+      }
+    }
+
+    const result = this._projectAndSort(out);
+    if (caps.length) {
+      const shown = this._projectAndSort(caps);
+      for (const f of shown) result.push(f);
+    }
+    return result;
+  }
+
+  /**
+   * Each voxel's move under the `transform`/`transforms` options: its
+   * group's transform, then the scene's.
+   * @param {Object} options - `transform` and/or `transforms`
+   * @returns {(voxel: Voxel) => {m: number[], nm: Object, shift: boolean}|null}
+   */
+  _movesFor(options) {
+    // Group name → { m, nm, shift } (matrix, normal matrix, only a shift).
+    // The scene's transform goes after each group's, and alone moves the
+    // voxels in no group (or in a group without one).
+    const move = (m) => ({
+      m,
+      nm: normalMatrix(m),
+      shift:
+        m[0] === 1 &&
+        m[1] === 0 &&
+        m[2] === 0 &&
+        m[4] === 0 &&
+        m[5] === 1 &&
+        m[6] === 0 &&
+        m[8] === 0 &&
+        m[9] === 0 &&
+        m[10] === 1,
+    });
+    const sceneM = options.transform ? toMatrix(options.transform) : null;
+    const sceneMove = sceneM ? move(sceneM) : null;
+    const moves = new Map();
+    if (options.transforms) {
+      for (const [name, t] of Object.entries(options.transforms)) {
+        if (!t) continue;
+        const m = toMatrix(t);
+        moves.set(name, move(sceneM ? compose(sceneM, m) : m));
+      }
+    }
+    return (voxel) =>
+      (voxel.group !== undefined && moves.get(voxel.group)) || sceneMove;
+  }
+
+  /**
+   * A function that moves a 3D face with its voxel and cuts it to the
+   * planes: the face itself if neither changes it, a copy if they do, or
+   * null if nothing is left.
+   * @param {{n: number[], d: number}[]} planes
+   * @param {(voxel: Voxel) => Object|null} moveOf
+   * @param {boolean} [cells=true] - Faces stay within their voxel's cell
+   *   (false for renderTest's nearZ, which can stretch a face out of it)
+   * @returns {(face: Object) => Object|null}
+   */
+  _shaper(planes, moveOf, cells = true) {
+    // Whether a voxel's whole cell (moved with its group) is inside every
+    // plane, from its centre and half its reach along each normal. Cached
+    // per voxel for this call.
+    const inside = new Map();
+    const insideAll = (voxel, mv) => {
+      let r = inside.get(voxel);
+      if (r !== undefined) return r;
+      const c0 = [voxel.x + 0.5, voxel.y + 0.5, voxel.z + 0.5];
+      const c = mv ? apply(mv.m, c0) : c0;
+      r = true;
+      for (const pl of planes) {
+        const n = pl.n;
+        let reach;
+        if (mv) {
+          const m = mv.m;
+          reach =
+            0.5 *
+            (Math.abs(n[0] * m[0] + n[1] * m[4] + n[2] * m[8]) +
+              Math.abs(n[0] * m[1] + n[1] * m[5] + n[2] * m[9]) +
+              Math.abs(n[0] * m[2] + n[1] * m[6] + n[2] * m[10]));
+        } else {
+          reach = 0.5 * (Math.abs(n[0]) + Math.abs(n[1]) + Math.abs(n[2]));
+        }
+        if (dist(pl, c) - reach <= ON_PLANE) {
+          r = false;
+          break;
+        }
+      }
+      inside.set(voxel, r);
+      return r;
+    };
+
+    // Move a face with its group, then cut it to the planes. Returns the
+    // face itself if neither changes it, a copy if they do, or null.
+    return (face) => {
+      const mv = moveOf(face.voxel);
+      if (face.type === "content") {
+        const [x, y, z] = face._pos;
+        let c = [x + 0.5, y + 0.5, z + 0.5];
+        if (mv) c = apply(mv.m, c);
+        if (planes.some((pl) => dist(pl, c) < 0)) return null;
+        return mv
+          ? { ...face, _pos: [c[0] - 0.5, c[1] - 0.5, c[2] - 0.5] }
+          : face;
+      }
+      let verts = face.vertices,
+        n = face.n,
+        c = face.c;
+      if (mv) {
+        const m = mv.m;
+        if (mv.shift) {
+          const tx = m[3],
+            ty = m[7],
+            tz = m[11];
+          verts = verts.map((p) => [p[0] + tx, p[1] + ty, p[2] + tz]);
+          c = [c[0] + tx, c[1] + ty, c[2] + tz];
+        } else {
+          verts = verts.map((p) => apply(m, p));
+          n = turnNormal(mv.nm, n);
+          if (!n) return null; // flattened to nothing
+          c = apply(m, c);
+        }
+      }
+      // Most faces belong to voxels well inside: one test per voxel
+      if (cells && planes.length && insideAll(face.voxel, mv)) {
+        return mv ? { ...face, vertices: verts, n, c, _free: true } : face;
+      }
+      let cut = false;
+      const whole = verts;
+      for (const pl of planes) {
+        let lo = Infinity,
+          hi = -Infinity;
+        for (const p of verts) {
+          const d = dist(pl, p);
+          if (d < lo) lo = d;
+          if (d > hi) hi = d;
+        }
+        // All outside, or lying in the plane: a wall in the plane is drawn
+        // by _capFaces for the voxel kept behind it, whichever voxel owns it.
+        if (hi <= ON_PLANE) return null;
+        if (lo < -ON_PLANE) {
+          verts = clipToPlane(verts, pl);
+          cut = true;
+        }
+      }
+      if (cut) {
+        verts = tidy(verts);
+        if (!verts) return null;
+        c = centroid(verts);
+      }
+      if (!mv && !cut) return face;
+      const out = { ...face, vertices: verts, n, c, _free: !!mv || face._free };
+      // A decal is laid on the whole face, then clipped to what is left
+      if (cut && face.style && face.style.decal) out._whole = whole;
+      return out;
+    };
+  }
+
+  /**
+   * The walls where the clip planes cut through voxels: for each plane that
+   * faces the camera, the cross-section of every voxel it cuts, kept to the
+   * other planes. Nothing kept can be in front of such a wall (the kept
+   * shape is convex), so they are drawn last.
+   * @param {{n: number[], d: number}[]} planes
+   * @param {(voxel: Voxel) => {m: number[], nm: Object}|null} moveOf - A voxel's move, if any
+   * @returns {Object[]} 3D faces
+   */
+  _capFaces(planes, moveOf) {
+    const caps = [];
+    const opened = new Set();
+    const facing = planes.map((pl) => this._facesCamera(pl));
+    for (const voxel of this.voxels.values()) {
+      if (voxel.content) continue;
+      const mv = moveOf(voxel);
+      // The cell's centre and half its reach along each plane's normal
+      const c0 = [voxel.x + 0.5, voxel.y + 0.5, voxel.z + 0.5];
+      const c = mv ? apply(mv.m, c0) : c0;
+      let solid = null;
+      for (let i = 0; i < planes.length; i++) {
+        const pl = planes[i];
+        const n = pl.n;
+        let reach;
+        if (mv) {
+          const m = mv.m;
+          reach =
+            0.5 *
+            (Math.abs(n[0] * m[0] + n[1] * m[4] + n[2] * m[8]) +
+              Math.abs(n[0] * m[1] + n[1] * m[5] + n[2] * m[9]) +
+              Math.abs(n[0] * m[2] + n[1] * m[6] + n[2] * m[10]));
+        } else {
+          reach = 0.5 * (Math.abs(n[0]) + Math.abs(n[1]) + Math.abs(n[2]));
+        }
+        const dc = dist(pl, c);
+        // well inside, or outside / touching from outside: no wall
+        if (dc - reach > ON_PLANE || dc + reach <= ON_PLANE) continue;
+        // Kept and touching the plane (a cut on the cell's edge), so the
+        // neighbour across is cut away. If that side of a slope piece is
+        // open, its slanted face isn't sealed in any more: whichever way the
+        // camera looks, it is a face again (as without the neighbour).
+        if (
+          voxel.slope &&
+          dc - reach >= -ON_PLANE &&
+          this._openOnPlane(voxel, mv, pl)
+        )
+          opened.add(voxel);
+        if (!facing[i]) continue;
+        if (!solid) {
+          solid = this._solidFaces(voxel);
+          if (mv) solid = solid.map((f) => f.map((p) => apply(mv.m, p)));
+        }
+        let lo = Infinity,
+          hi = -Infinity;
+        for (const f of solid)
+          for (const p of f) {
+            const d = dist(pl, p);
+            if (d < lo) lo = d;
+            if (d > hi) hi = d;
+          }
+        if (hi <= ON_PLANE || lo > ON_PLANE) continue;
+        let loop = null;
+        if (lo < -ON_PLANE) loop = section(solid, pl);
+        else {
+          // Kept, but touching the plane (a cut on the cell's edge): its
+          // wall is the piece's own face lying in the plane, if it has one
+          // there (an open side has none).
+          let best = 0;
+          for (const f of solid) {
+            if (!f.every((p) => Math.abs(dist(pl, p)) <= 1e-7)) continue;
+            const t = tidy(f);
+            const a = t ? area(t) : 0;
+            if (a > best) {
+              best = a;
+              loop = t;
+            }
+          }
+        }
+        if (!loop) continue;
+        for (let j = 0; j < planes.length && loop; j++) {
+          if (j === i) continue;
+          loop = clipToPlane(loop, planes[j]);
+          loop = loop.length >= 3 ? tidy(loop) : null;
+        }
+        if (!loop || area(loop) < 1e-5) continue;
+        // The wall faces out of the kept side
+        const out = [-n[0], -n[1], -n[2]];
+        const type = sideOf(out);
+        caps.push({
+          type,
+          voxel,
+          vertices: loop,
+          n: out,
+          c: centroid(loop),
+          style: this._capStyle(voxel, type),
+          cap: true,
+          _free: true,
+        });
+      }
+    }
+    return { caps, opened };
+  }
+
+  /**
+   * Whether a slope voxel's cell side lying in `pl` is one its piece doesn't
+   * fill (so a neighbour there was what hid its slanted face).
+   * @param {Voxel} voxel
+   * @param {{m: number[]}|null} mv
+   * @param {{n: number[], d: number}} pl
+   * @returns {boolean}
+   */
+  _openOnPlane(voxel, mv, pl) {
+    const sides = _slopeShapeOf(voxel.slope).sides;
+    const { x, y, z } = voxel;
+    for (const side in SIDE_DELTA) {
+      const [dx, dy, dz] = SIDE_DELTA[side];
+      // the side's centre, which lies in the plane if the side does
+      let p = [x + 0.5 + dx / 2, y + 0.5 + dy / 2, z + 0.5 + dz / 2];
+      if (mv) p = apply(mv.m, p);
+      if (Math.abs(dist(pl, p)) > 1e-6) continue;
+      return !sides[side]?.full;
+    }
+    return false;
+  }
+
+  /**
+   * A slope voxel's slanted faces, as _buildFaces3D makes them, whether or not
+   * its neighbours hide them.
+   * @param {Voxel} voxel
+   * @returns {Object[]}
+   */
+  _slantedFaces(voxel) {
+    const { x, y, z, styles } = voxel;
+    const base = styles.default
+      ? { ...this.defaultStyle, ...styles.default }
+      : this.defaultStyle;
+    const sc = voxel.scale,
+      so = voxel.scaleOrigin,
+      gp = voxel.gap;
+    const faces = [];
+    for (const f of _slopeShapeOf(voxel.slope).faces) {
+      if (f.type !== "slope") continue;
+      let verts = f.verts.map((v) => [x + v[0], y + v[1], z + v[2]]);
+      let c = [x + f.c[0], y + f.c[1], z + f.c[2]];
+      let n = f.n;
+      if (sc) {
+        verts = Heerich._scaleVertices(verts, x, y, z, sc, so);
+        [c] = Heerich._scaleVertices([c], x, y, z, sc, so);
+        const m = [
+          n[0] * sc[1] * sc[2],
+          n[1] * sc[0] * sc[2],
+          n[2] * sc[0] * sc[1],
+        ];
+        const len = Math.hypot(m[0], m[1], m[2]);
+        if (len > 0) n = [m[0] / len, m[1] / len, m[2] / len];
+      }
+      if (gp) {
+        const gs = 1 - 2 * gp;
+        verts = Heerich._scaleVertices(
+          verts,
+          x,
+          y,
+          z,
+          [gs, gs, gs],
+          [0.5, 0.5, 0.5],
+        );
+        [c] = Heerich._scaleVertices(
+          [c],
+          x,
+          y,
+          z,
+          [gs, gs, gs],
+          [0.5, 0.5, 0.5],
+        );
+      }
+      const own = styles.slope || styles[n[1] > 0 ? "bottom" : "top"];
+      faces.push({
+        type: "slope",
+        voxel,
+        vertices: verts,
+        n,
+        c,
+        style: own ? { ...base, ...own } : base,
+      });
+    }
+    return faces;
+  }
+
+  /**
+   * Whether the camera sees the outside of a clip plane, i.e. a wall on it.
+   * @param {{n: number[], d: number}} pl
+   * @returns {boolean}
+   */
+  _facesCamera(pl) {
+    const ro = this.renderOptions;
+    const o = [-pl.n[0], -pl.n[1], -pl.n[2]]; // the wall's outward normal
+    if (ro.projection === "oblique") {
+      const dx = ro.depthOffsetX / ro.tileW,
+        dy = ro.depthOffsetY / ro.tileH;
+      return o[2] - o[0] * dx - o[1] * dy < -1e-9;
+    }
+    if (ro.projection === "perspective") {
+      // the eye is outside this plane's kept side
+      return dist(pl, [ro.cameraX, ro.cameraY, -ro.cameraDistance]) < 0;
+    }
+    const { angle = 0, pitch = 0 } = ro;
+    const view = [
+      Math.sin(angle) * Math.cos(pitch),
+      Math.sin(pitch),
+      Math.cos(angle) * Math.cos(pitch),
+    ];
+    return view[0] * o[0] + view[1] * o[1] + view[2] * o[2] < -1e-9;
+  }
+
+  /**
+   * Every face of a voxel's solid, hidden or not, in world space (before any
+   * group transform), with its scale and gap applied.
+   * @param {Voxel} voxel
+   * @returns {number[][][]}
+   */
+  _solidFaces(voxel) {
+    const { x, y, z } = voxel;
+    const local = voxel.slope
+      ? _slopeShapeOf(voxel.slope).faces.map((f) => f.verts)
+      : CUBE_FACES;
+    let faces = local.map((vs) =>
+      vs.map((v) => [x + v[0], y + v[1], z + v[2]]),
+    );
+    if (voxel.scale) {
+      faces = faces.map((vs) =>
+        Heerich._scaleVertices(vs, x, y, z, voxel.scale, voxel.scaleOrigin),
+      );
+    }
+    if (voxel.gap) {
+      const gs = 1 - 2 * voxel.gap;
+      faces = faces.map((vs) =>
+        Heerich._scaleVertices(vs, x, y, z, [gs, gs, gs], [0.5, 0.5, 0.5]),
+      );
+    }
+    return faces;
+  }
+
+  /**
+   * A wall's style: the voxel's `cap` style, else its style for the side the
+   * wall faces, over its default and the scene's.
+   * @param {Voxel} voxel
+   * @param {string} type
+   * @returns {StyleObject}
+   */
+  _capStyle(voxel, type) {
+    const styles = voxel.styles || {};
+    const base = styles.default
+      ? { ...this.defaultStyle, ...styles.default }
+      : this.defaultStyle;
+    const own = styles.cap || styles[type];
+    const style = own ? { ...base, ...own } : base;
+    // a decal belongs on the voxel's face, not on a cut through it
+    if (!style.decal) return style;
+    const { decal, ...rest } = style;
+    return rest;
+  }
+
+  /**
    * Generate faces from a test function without storing any voxels.
    * Zero Map allocations — useful for procedural/infinite scenes.
    * @param {Object} opts
@@ -2077,6 +2704,8 @@ export class Heerich {
    * @param {StyleParam|((x: number, y: number, z: number, face: string) => StyleObject)} [opts.style] - Style per voxel or per face
    * @param {number} [opts.gap] - Gap override (defaults to constructor gap)
    * @param {(x: number, y: number, z: number) => number} [opts.nearZ] - Fractional z of a voxel's camera-facing side (default `z`). Moves its front face and stretches its side faces, so a surface can animate smoothly between layers.
+   * @param {import('./clip.js').GroupTransform} [opts.transform] - Move, turn or scale the whole result (see `getFaces()`)
+   * @param {import('./clip.js').ClipOption} [opts.clip] - Keep only what is inside (see `getFaces()`). The cut is left open: there are no stored voxels to close it with walls
    * @returns {Face[]}
    */
   renderTest(opts) {
@@ -2112,6 +2741,9 @@ export class Heerich {
     // (possibly expensive) neighbour test only runs for sides that could show.
     // The margin keeps exact ties for the dot-product check in _projectAndSort.
     const inset = (gp || 0) + 1e-9;
+    // Turned by a transform, any side may face the camera: keep them all
+    // (the turned faces are culled by their normal in _projectAndSort)
+    const all = !!opts.transform;
 
     let x = 0,
       y = 0,
@@ -2164,22 +2796,30 @@ export class Heerich {
 
     for (const [[minX, minY, minZ], [maxX, maxY, maxZ]] of regions) {
       for (z = minZ; z < maxZ; z++) {
-        const seeFront = isPerspective
-          ? nearZ !== null || z + inset + cameraDistance > 0
-          : true;
-        const seeBack = isOblique
-          ? false
-          : isPerspective
-            ? z + 1 - inset + cameraDistance < 0
-            : true;
+        const seeFront =
+          all ||
+          (isPerspective
+            ? nearZ !== null || z + inset + cameraDistance > 0
+            : true);
+        const seeBack =
+          all ||
+          (isOblique
+            ? false
+            : isPerspective
+              ? z + 1 - inset + cameraDistance < 0
+              : true);
 
         for (y = minY; y < maxY; y++) {
-          const seeTop = isOblique
-            ? depthOffsetY < 0
-            : !isPerspective || y + inset > cameraY;
-          const seeBottom = isOblique
-            ? depthOffsetY > 0
-            : !isPerspective || y + 1 - inset < cameraY;
+          const seeTop =
+            all ||
+            (isOblique
+              ? depthOffsetY < 0
+              : !isPerspective || y + inset > cameraY);
+          const seeBottom =
+            all ||
+            (isOblique
+              ? depthOffsetY > 0
+              : !isPerspective || y + 1 - inset < cameraY);
 
           for (x = minX; x < maxX; x++) {
             if (scanned) {
@@ -2190,12 +2830,16 @@ export class Heerich {
 
             if (!test(x, y, z)) continue;
 
-            const seeLeft = isOblique
-              ? depthOffsetX < 0
-              : !isPerspective || x + inset > cameraX;
-            const seeRight = isOblique
-              ? depthOffsetX > 0
-              : !isPerspective || x + 1 - inset < cameraX;
+            const seeLeft =
+              all ||
+              (isOblique
+                ? depthOffsetX < 0
+                : !isPerspective || x + inset > cameraX);
+            const seeRight =
+              all ||
+              (isOblique
+                ? depthOffsetX > 0
+                : !isPerspective || x + 1 - inset < cameraX);
 
             const top = seeTop && !test(x, y - 1, z);
             const bottom = seeBottom && !test(x, y + 1, z);
@@ -2285,6 +2929,20 @@ export class Heerich {
       }
     }
 
+    if (opts.transform || opts.clip) {
+      // No stored voxels to slice, so a cut is left open (no walls)
+      const shape = this._shaper(
+        opts.clip ? toPlanes(opts.clip) : [],
+        this._movesFor({ transform: opts.transform }),
+        !nearZ,
+      );
+      const out = [];
+      for (const f of faces3D) {
+        const g = shape(f);
+        if (g) out.push(g);
+      }
+      return this._projectAndSort(out);
+    }
     return this._projectAndSort(faces3D);
   }
 
@@ -2509,24 +3167,38 @@ export class Heerich {
       if (projection === "oblique") {
         // Camera-direction cull: oblique only sees one horizontal face, one
         // vertical face, and the front. Back is always hidden.
+        // Faces turned by a transform, and the walls of a clip, face any way
+        // (`_free`), so like slanted faces they are tested by their normal.
         if (
-          face.type === "back" ||
-          (face.type === "top" && depthOffsetY >= 0) ||
-          (face.type === "bottom" && depthOffsetY <= 0) ||
-          (face.type === "left" && depthOffsetX >= 0) ||
-          (face.type === "right" && depthOffsetX <= 0)
+          !face._free &&
+          (face.type === "back" ||
+            (face.type === "top" && depthOffsetY >= 0) ||
+            (face.type === "bottom" && depthOffsetY <= 0) ||
+            (face.type === "left" && depthOffsetX >= 0) ||
+            (face.type === "right" && depthOffsetX <= 0))
         )
           continue;
         // Slanted faces have no fixed side, so test the normal against the
         // oblique view direction (-dx_norm, -dy_norm, 1) instead.
         if (
-          face.type === "slope" &&
+          (face.type === "slope" || face._free) &&
           // a hair below 0 so faces seen exactly edge-on (zero area) drop out
           face.n[2] - face.n[0] * dx_norm - face.n[1] * dy_norm >= -1e-9
         )
           continue;
 
         face.depth = face.c[2] - face.c[0] * dx_norm - face.c[1] * dy_norm;
+        if (face.vertices.length !== 4) {
+          const flat = [];
+          for (const v of face.vertices)
+            flat.push(
+              truncate(v[0] * tileW + v[2] * depthOffsetX),
+              truncate(v[1] * tileH + v[2] * depthOffsetY),
+            );
+          face.points = new Points(flat);
+          projectedFaces.push(face);
+          continue;
+        }
         const [v0, v1, v2, v3] = face.vertices;
         face.points = Points.quad(
           truncate(v0[0] * tileW + v0[2] * depthOffsetX),
@@ -2543,12 +3215,23 @@ export class Heerich {
           orthoViewX * face.n[0] +
           orthoViewY * face.n[1] +
           orthoViewZ * face.n[2];
-        if (dot >= 0) continue;
+        // a moved face seen edge-on can come out a hair off 0
+        if (dot >= (face._free ? -1e-9 : 0)) continue;
 
-        const [v0, v1, v2, v3] = face.vertices;
         const projX = (v) => (v[0] * cosT - v[2] * sinT + 5) * tileW;
         const projY = (v) =>
           (v[1] * cosP - (v[0] * sinT + v[2] * cosT) * sinP + 5) * tileH;
+        face.depth =
+          face.c[1] * sinP + (face.c[0] * sinT + face.c[2] * cosT) * cosP;
+        if (face.vertices.length !== 4) {
+          const flat = [];
+          for (const v of face.vertices)
+            flat.push(truncate(projX(v)), truncate(projY(v)));
+          face.points = new Points(flat);
+          projectedFaces.push(face);
+          continue;
+        }
+        const [v0, v1, v2, v3] = face.vertices;
         face.points = Points.quad(
           truncate(projX(v0)),
           truncate(projY(v0)),
@@ -2559,8 +3242,6 @@ export class Heerich {
           truncate(projX(v3)),
           truncate(projY(v3)),
         );
-        face.depth =
-          face.c[1] * sinP + (face.c[0] * sinT + face.c[2] * cosT) * cosP;
       } else if (projection === "perspective") {
         const Cx = cameraX;
         const Cy = cameraY;
@@ -2570,9 +3251,30 @@ export class Heerich {
           viewY = face.c[1] - Cy,
           viewZ = face.c[2] - Cz;
         const dot = viewX * face.n[0] + viewY * face.n[1] + viewZ * face.n[2];
-        if (dot >= 0) continue;
+        if (dot >= (face._free ? -1e-9 : 0)) continue;
 
         const minDenom = 0.01;
+        if (face.vertices.length !== 4) {
+          const flat = [];
+          let behind = false;
+          for (const v of face.vertices) {
+            const d = v[2] + cameraDistance;
+            if (d < minDenom) {
+              behind = true;
+              break;
+            }
+            const t = cameraDistance / d;
+            flat.push(
+              truncate((Cx + (v[0] - Cx) * t) * tileW),
+              truncate((Cy + (v[1] - Cy) * t) * tileH),
+            );
+          }
+          if (behind) continue;
+          face.points = new Points(flat);
+          face.depth = viewX * viewX + viewY * viewY + viewZ * viewZ;
+          projectedFaces.push(face);
+          continue;
+        }
         const [v0, v1, v2, v3] = face.vertices;
         const d0 = v0[2] + cameraDistance,
           d1 = v1[2] + cameraDistance,
@@ -2600,6 +3302,20 @@ export class Heerich {
       }
 
       projectedFaces.push(face);
+    }
+
+    // A cut face with a decal: its whole outline too (see SVGRenderer)
+    let projectWhole = null;
+    for (const face of projectedFaces) {
+      if (!face._whole) continue;
+      projectWhole ||= makeProjector(this.renderOptions);
+      const flat = [];
+      const out = [0, 0];
+      for (const v of face._whole) {
+        projectWhole(v[0], v[1], v[2], out);
+        flat.push(truncate(out[0]), truncate(out[1]));
+      }
+      face._wholePoints = new Points(flat);
     }
 
     projectedFaces.sort(
@@ -2827,6 +3543,7 @@ export class Heerich {
    * i.e. before any SVG viewBox offset or padding is applied.
    *
    * @param {[number,number,number]|Voxel} posOrVoxel - Coordinate array or voxel reference
+   * @param {Object} [options] - The faces it is drawn with: `faces`, or the `clip`/`transform`/`transforms` it was drawn with. `center3D` stays the cell's centre; `center2D` is where that centre is drawn
    * @returns {{
    *   voxel: Voxel|null,
    *   center3D: [number,number,number],
@@ -2836,7 +3553,7 @@ export class Heerich {
    *   normalizedSize2D: {w:number, h:number}|null,
    * }}
    */
-  getVoxelInfo(posOrVoxel) {
+  getVoxelInfo(posOrVoxel, options = {}) {
     const voxel = Array.isArray(posOrVoxel)
       ? this.getVoxel(posOrVoxel)
       : posOrVoxel;
@@ -2858,11 +3575,16 @@ export class Heerich {
       cz = z + 0.5;
 
     const center3D = /** @type {[number,number,number]} */ ([cx, cy, cz]);
-    const center2D = this._projectPoint(cx, cy, cz);
+    const mv =
+      options.transform || options.transforms
+        ? this._movesFor(options)(voxel)
+        : null;
+    const c = mv ? apply(mv.m, center3D) : center3D;
+    const center2D = this._projectPoint(c[0], c[1], c[2]);
 
     // Collect projected bounds from all visible faces belonging to this voxel.
     // getFaces() is epoch-cached so this filter is the only cost.
-    const faces = this.getFaces();
+    const faces = options.faces || this.getFaces(shapeOptions(options));
     let minX = Infinity,
       minY = Infinity,
       maxX = -Infinity,
@@ -2927,6 +3649,10 @@ export class Heerich {
    * @param {[number, number]} pos - 2D position [x, y] in screen/SVG space
    * @param {Object} [options]
    * @param {[number, number]} [options.offset] - [dx, dy] added to pos before testing (e.g. viewBox origin from getBounds())
+   * @param {Face[]} [options.faces] - The faces to search, e.g. the ones just drawn
+   * @param {import('./clip.js').ClipOption} [options.clip] - As drawn with (see `getFaces()`)
+   * @param {import('./clip.js').GroupTransform} [options.transform] - As drawn with
+   * @param {Object<string, import('./clip.js').GroupTransform>} [options.transforms] - As drawn with
    * @returns {{ voxel: Voxel, face: Face } | null}
    */
   findByPosition(pos, options = {}) {
@@ -2934,7 +3660,7 @@ export class Heerich {
     const px = offset ? pos[0] + offset[0] : pos[0];
     const py = offset ? pos[1] + offset[1] : pos[1];
 
-    const faces = this.getFaces();
+    const faces = options.faces || this.getFaces(shapeOptions(options));
     // Faces are sorted back-to-front for rendering; iterate in reverse to hit
     // frontmost faces first and return on the first match.
     for (let i = faces.length - 1; i >= 0; i--) {
@@ -2975,11 +3701,15 @@ export class Heerich {
    * @param {boolean} [options.dataAttributes=true] - Write the `data-*` attributes (voxel, x, y, z, face, meta). Turn off when nothing reads them
    * @param {boolean} [options.occlusion=false] - Enable built-in occlusion culling
    * @param {(polygon: number[][], occluders: number[][][]) => string|null} [options.resolveOcclusion] - Custom occlusion resolver (overrides built-in). Providing this implicitly enables occlusion.
+   * @param {import('./clip.js').ClipOption} [options.clip] - Keep only what is inside (see `getFaces()`)
+   * @param {boolean} [options.caps=true] - Close the clip's cut with walls
+   * @param {Object<string, import('./clip.js').GroupTransform>} [options.transforms] - Move groups (see `getFaces()`)
+   * @param {import('./clip.js').GroupTransform} [options.transform] - Move the whole scene (see `getFaces()`)
    * @returns {string} SVG markup
    */
   toSVG(options = {}) {
     if (!this._svgRenderer) this._svgRenderer = new SVGRenderer();
-    const faces = options.faces || this.getFaces();
+    const faces = options.faces || this.getFaces(shapeOptions(options));
     return this._svgRenderer.render(faces, {
       ...options,
       viewBox: this._resolveViewBox(faces, options),
@@ -3002,7 +3732,7 @@ export class Heerich {
    */
   updateSVG(target, options = {}) {
     if (!this._svgRenderer) this._svgRenderer = new SVGRenderer();
-    const faces = options.faces || this.getFaces();
+    const faces = options.faces || this.getFaces(shapeOptions(options));
     return this._svgRenderer.update(target, faces, {
       ...options,
       // A <g> has no viewBox, so don't measure a frame for one

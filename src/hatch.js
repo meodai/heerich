@@ -115,12 +115,10 @@ export function buildHatchSVG(pts, hatch, pathD, faceStyle) {
   const polys = pathD
     ? parsePathD(pathD)
     : [
-        [
-          [pts[0], pts[1]],
-          [pts[2], pts[3]],
-          [pts[4], pts[5]],
-          [pts[6], pts[7]],
-        ],
+        Array.from({ length: pts.length / 2 }, (_, i) => [
+          pts[i * 2],
+          pts[i * 2 + 1],
+        ]),
       ];
 
   // Bounding box of all polygons for line range computation

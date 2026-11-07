@@ -48,6 +48,13 @@ The main entry is `src/heerich.js`, exporting the `Heerich` class. Rendering, de
 - `getFitFrame()` sweeps the camera ranges over the voxels' corners with `makeProjector()` and returns one frame size plus a pivot. `getFitViewBox()` centres that frame on the projected pivot (under an oblique camera, on the camera-facing plane `frontZ`, so distance and angle only move the depth behind it)
 - `makeProjector()` is the single source for point projection (`project()` uses it too). `_projectAndSort()` still has its own inline copy for speed, so change both together
 
+### Clipping and group transforms (optional)
+- `getFaces({ clip, caps, transforms })` (also through `toSVG()`/`updateSVG()`) goes through `_shapedFaces()`: the cached 3D faces (kept per epoch), moved by their voxel's `group` transform, cut by the clip planes in world space (as copies, never the cached faces), then projected and sorted. `_movesFor()` and `_shaper()` are shared with `renderTest()` (no walls there), `findByPosition()` and `getVoxelInfo()`. Not for `raw` faces. A cut face with a decal keeps its whole outline (`_whole` → `_wholePoints`); `SVGRenderer` lays the decal on that and clips it to the cut
+- Plane and matrix maths live in `src/clip.js` (pure functions). A clip is a convex set of planes; `{ min, max }` is six of them
+- `_capFaces()` closes the cut: for each plane facing the camera, each voxel it cuts is sliced (`section()` on `_solidFaces()`), trimmed to the other planes, and drawn after everything else (safe because the kept shape is convex). Anything lying in a plane is dropped and redrawn as a wall
+- Voxels in different groups never hide each other (`solidSide`/`covered` compare `group`). Grouped voxels skip oblique's build-time type cull; moved faces and walls carry `_free` and are culled by their normal in `_projectAndSort`
+- `tests/clip.test.js` fuzzes this against scenes rebuilt from the kept or moved voxels, and samples points inside the solid for holes
+
 ### Occlusion culling (optional)
 - `OccluderIndex` (`src/bsp.js`) — grid-based spatial index for 2D polygon occlusion
 - Built-in clipper assumes convex occluders (good for oblique, approximate for perspective); `resolveOcclusion` callback provides exact clipping

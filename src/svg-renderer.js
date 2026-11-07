@@ -330,7 +330,7 @@ export class SVGRenderer {
       );
     } else {
       parts.push(
-        `<polygon points="${d[0]},${d[1]} ${d[2]},${d[3]} ${d[4]},${d[5]} ${d[6]},${d[7]}"${_buildSvgAttributes(style)}${dataAttrs}${extraAttrs} />`,
+        `<polygon points="${_pointsAttr(d)}"${_buildSvgAttributes(style)}${dataAttrs}${extraAttrs} />`,
       );
     }
 
@@ -339,8 +339,13 @@ export class SVGRenderer {
       parts.push(buildHatchSVG(d, style.hatch, face._pathD || null, style));
     }
 
-    // Emit warped decal paths if this face has a decal reference
-    if (style && style.decal && decalDefs) {
+    // Emit warped decal paths if this face has a decal reference. The warp
+    // maps onto four corners: a face cut by a clip carries its whole
+    // outline, so the decal is laid on that and clipped to what is left.
+    const whole = face._wholePoints ? face._wholePoints.data : null;
+    const quad =
+      whole && whole.length === 8 ? whole : d.length === 8 ? d : null;
+    if (style && style.decal && decalDefs && quad) {
       const decalRef = style.decal;
       const decalName = typeof decalRef === "string" ? decalRef : decalRef.name;
       const decalDef = decalDefs && decalDefs.get(decalName);
@@ -352,14 +357,18 @@ export class SVGRenderer {
         // Bilinear warp: remap all path coordinates from 0–1 unit
         // space onto the projected face quad — perspective-correct.
         // Uses pre-parsed ops (no regex/parsing per frame).
-        const warped = warpPreparedContent(decalDef._prepared, d);
+        let warped = warpPreparedContent(decalDef._prepared, quad);
         // Inject per-use style overrides + faceAttributes onto each path
         const inject = overrideAttrs + extraAttrs;
-        if (inject) {
-          parts.push(warped.replace(/<path\b/gi, `<path${inject}`));
-        } else {
-          parts.push(warped);
+        if (inject) warped = warped.replace(/<path\b/gi, `<path${inject}`);
+        if (quad !== d) {
+          // ids unique across the page: several SVGs can share a document
+          const id = `heerich-cut-${++_cutSeq}`;
+          warped =
+            `<clipPath id="${id}"><polygon points="${_pointsAttr(d)}"/></clipPath>` +
+            `<g clip-path="url(#${id})">${warped}</g>`;
         }
+        parts.push(warped);
       }
     }
   }
@@ -423,18 +432,30 @@ function _setAttr(slot, name, value, gen) {
  * @param {((face: import('./heerich.js').Face) => Object|null)|null} faceAttrFn
  * @param {number} gen
  */
+/** Counter for the clip paths of decals on cut faces. */
+let _cutSeq = 0;
+
+/**
+ * A polygon's `points` attribute. Most faces are quads (a triangle repeats a
+ * corner), so those take a fast path; faces cut by a clip can have more.
+ * @param {number[]} d - flat [x0, y0, x1, y1, ...]
+ * @returns {string}
+ */
+function _pointsAttr(d) {
+  if (d.length === 8)
+    return `${d[0]},${d[1]} ${d[2]},${d[3]} ${d[4]},${d[5]} ${d[6]},${d[7]}`;
+  let s = `${d[0]},${d[1]}`;
+  for (let i = 2; i < d.length; i += 2) s += ` ${d[i]},${d[i + 1]}`;
+  return s;
+}
+
 function _writePolygon(slot, face, faceAttrFn, gen, data = true) {
   const d = face.points.data;
   const v = face.voxel;
   const style = face.style;
   const custom = faceAttrFn ? faceAttrFn(face) : null;
 
-  _setAttr(
-    slot,
-    "points",
-    `${d[0]},${d[1]} ${d[2]},${d[3]} ${d[4]},${d[5]} ${d[6]},${d[7]}`,
-    gen,
-  );
+  _setAttr(slot, "points", _pointsAttr(d), gen);
   _setAttr(slot, "stroke-linejoin", "round", gen);
 
   for (const key in style) {

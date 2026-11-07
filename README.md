@@ -638,6 +638,81 @@ h.rotate({ axis: 'y', turns: 2 })
 h.rotate({ axis: 'x', turns: 1, center: [5, 5, 5] })
 ```
 
+These turn voxels on the grid. To turn something smoothly, by any angle, see [Moving groups](#moving-groups).
+
+## Clipping
+
+Cut the scene down to a box or by planes when rendering. The bounds can fall anywhere, not just on cell edges, so a cut can pass through voxels, and the voxels stay as they are: clipping only changes what is drawn.
+
+```js
+// Keep what's inside a box
+h.toSVG({ clip: { min: [0.5, -10, 0.25], max: [8.5, 10, 6.75] } })
+
+// Keep the side of a plane its normal points into
+h.toSVG({ clip: { point: [4, 0, 4], normal: [1, 0, 1] } })
+
+// Or a list of them: kept where inside all
+h.toSVG({
+  clip: [
+    { min: [0, -10, 0], max: [10, 10, 10] },
+    { point: [5, 2, 5], normal: [0, 1, -0.5] },
+  ],
+})
+```
+
+Where the cut goes through a voxel, the cut side is closed with a wall: the voxel's cross-section there, slopes included, in the voxel's style for the side the wall faces. Give voxels a `cap` style to paint walls differently, or pass `caps: false` to leave the cut open:
+
+```js
+h.addGeometry({
+  type: 'box', position: [0, 0, 0], size: 8,
+  style: { default: { fill: '#ccc' }, cap: { fill: '#e33' } },
+})
+h.toSVG({ clip: { point: [4, 4, 4], normal: [-1, -1, -1] } })      // red walls
+h.toSVG({ clip: { point: [4, 4, 4], normal: [-1, -1, -1] }, caps: false })
+```
+
+Walls get `cap: true` on their face, and `data-face` names the side they face. `Heerich.clipBox(min, max)` returns a box's six planes, for mixing with others.
+
+Since every plane keeps everything on one side, what is kept is always convex: a box, a wedge, a prism, or a rounder shape from many planes. For a cut that follows the grid, the [boolean operations](#boolean-operations) work too.
+
+A decal on a cut face stays where it was: it is laid on the whole face and clipped to what is left. Walls don't take decals.
+
+`clip` works with `getFaces()`, `toSVG()` and `updateSVG()`, and `renderTest()` (which has no stored voxels to slice, so its cuts stay open). It isn't available with `getFaces({ raw: true })` (for `GPURenderer`). Pass the same options to `findByPosition()` and `getVoxelInfo()` to look things up as they are drawn.
+
+## Moving groups
+
+Name a group when adding voxels, then move, turn or scale it when rendering, smoothly and off the grid:
+
+```js
+h.addGeometry({ type: 'box', position: [0, 0, 0], size: [4, 2, 2], group: 'car' })
+
+function frame(t) {
+  h.updateSVG(svg, {
+    transforms: {
+      car: { translate: [t * 2, 0, 0], rotate: [0, t * 30, 0], origin: [2, 1, 1] },
+    },
+  })
+}
+```
+
+A transform scales, then rotates (degrees, about x, then y, then z), then translates, with `origin` as the point it turns and scales around (default `[0, 0, 0]`). `scale` takes one number or one per axis; a negative scale mirrors. Or pass `{ matrix }`: 12 numbers, a 3×4 matrix by rows.
+
+The voxels stay where they were added (queries, `findByPosition()` and `data-*` attributes use those cells); only the drawing moves. Moved faces depth-sort with everything else, so a group can pass in front of and behind the rest of the scene. As with any back-to-front renderer, two shapes that cut into each other can't sort right everywhere.
+
+Voxels in different groups never hide each other's faces, since either may move. That draws a few more faces where groups touch, so group only what moves.
+
+To move the whole scene, pass one `transform` (same form). It goes after any group's own transform, so a group keeps moving relative to the rest. Neighbours still hide each other's faces under it, so turning a whole scene costs little:
+
+```js
+// turn everything around its middle, inside a box that stays put
+h.toSVG({
+  transform: { rotate: [20, 35, 0], origin: [4, 4, 4] },
+  clip: { min: [0, 0, 0], max: [8, 8, 8] },
+})
+```
+
+`transforms` and `transform` are applied before `clip`, so a moving group can pass through a fixed cut. Like `clip`, they work with `getFaces()`, `toSVG()` and `updateSVG()`, and `renderTest()` takes `transform` (it has no groups); not `raw` faces. `findByPosition(pos, options)` and `getVoxelInfo(voxel, options)` take the same options, so a click finds the voxel where it is drawn.
+
 ## Rendering
 
 ### `toSVG(options?)`
@@ -665,6 +740,10 @@ Options:
 | `dataAttributes` | boolean | Write `data-voxel`, `data-x`/`y`/`z`, `data-face` and `meta` as `data-*` (default `true`). Turn off when nothing reads them: smaller markup, and `updateSVG()` writes far fewer attributes per frame |
 | `occlusion` | boolean | Enable built-in occlusion culling (no external dependency) |
 | `resolveOcclusion` | function | Custom occlusion resolver (overrides built-in). Providing this implicitly enables occlusion. Input `(subjectCoords, overlappingCoords[])`, return `pathString` or `null` |
+| `clip` | box, plane or list | Keep only what is inside. See [Clipping](#clipping) |
+| `caps` | boolean | Close the clip's cut with walls (default `true`) |
+| `transforms` | object | Move groups by name. See [Moving groups](#moving-groups) |
+| `transform` | object | Move the whole scene. See [Moving groups](#moving-groups) |
 
 ### `updateSVG(target, options?)`
 
