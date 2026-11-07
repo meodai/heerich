@@ -45,6 +45,7 @@ const AXIS_FACES = {
  * @property {string} [strokeLinejoin] - Line join style
  * @property {string|DecalRef} [decal] - Decal name or decal reference object
  * @property {import('./hatch.js').HatchOptions} [hatch] - Hatching lines drawn over the face
+ * @property {Object} [cutLine] - Where a clip cuts the face, a line along the cut, with these attributes (`{ stroke, strokeWidth, ... }`)
  */
 
 /**
@@ -2506,8 +2507,54 @@ export class Heerich {
       const out = { ...face, vertices: verts, n, c, _free: !!mv || face._free };
       // A decal is laid on the whole face, then clipped to what is left
       if (cut && face.style && face.style.decal) out._whole = whole;
+      // The edges the cut made, for a `cutLine` to stroke
+      if (cut && face.style && face.style.cutLine) {
+        const edges = [];
+        const k = verts.length;
+        for (let i = 0; i < k; i++) {
+          const p = verts[i],
+            q = verts[(i + 1) % k];
+          for (const pl of planes)
+            if (Math.abs(dist(pl, p)) < 1e-7 && Math.abs(dist(pl, q)) < 1e-7) {
+              edges.push(i);
+              break;
+            }
+        }
+        if (edges.length) out._cutEdges = edges;
+      }
       return out;
     };
+  }
+
+  /**
+   * With a `cutLine` style, a wall strokes its outline: its edges that no
+   * other wall on the same plane shares (those are cell seams inside the
+   * cut). Sets `_cutEdges` on those walls.
+   * @param {Object[]} caps
+   */
+  _outlineCaps(caps) {
+    if (!caps.some((f) => f.style && f.style.cutLine)) return;
+    const pt = (p) =>
+      `${Math.round(p[0] * 1e5)},${Math.round(p[1] * 1e5)},${Math.round(p[2] * 1e5)}`;
+    const keyOf = (f, i) => {
+      const v = f.vertices;
+      const a = pt(v[i]),
+        b = pt(v[(i + 1) % v.length]);
+      return `${f._plane}|${a < b ? a + "|" + b : b + "|" + a}`;
+    };
+    const count = new Map();
+    for (const f of caps)
+      for (let i = 0; i < f.vertices.length; i++) {
+        const k = keyOf(f, i);
+        count.set(k, (count.get(k) || 0) + 1);
+      }
+    for (const f of caps) {
+      if (!f.style || !f.style.cutLine) continue;
+      const edges = [];
+      for (let i = 0; i < f.vertices.length; i++)
+        if (count.get(keyOf(f, i)) === 1) edges.push(i);
+      if (edges.length) f._cutEdges = edges;
+    }
   }
 
   /**
@@ -2607,9 +2654,11 @@ export class Heerich {
           style: this._capStyle(voxel, type),
           cap: true,
           _free: true,
+          _plane: i,
         });
       }
     }
+    this._outlineCaps(caps);
     return { caps, opened };
   }
 

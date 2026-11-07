@@ -1076,7 +1076,9 @@ for (let run = 0; run < 20; run++) {
       const vx = bx - ax,
         vy = by - ay;
       const l = vx * vx + vy * vy;
-      const t = l ? Math.max(0, Math.min(1, ((x - ax) * vx + (y - ay) * vy) / l)) : 0;
+      const t = l
+        ? Math.max(0, Math.min(1, ((x - ax) * vx + (y - ay) * vy) / l))
+        : 0;
       if (Math.hypot(ax + vx * t - x, ay + vy * t - y) < tol) return true;
     }
     return false;
@@ -1089,7 +1091,9 @@ for (let run = 0; run < 20; run++) {
       const h = build(specs, camera);
       let shown;
       try {
-        shown = renderer._applyOcclusion(h.getFaces({ clip, transform }), { occlusion: true });
+        shown = renderer._applyOcclusion(h.getFaces({ clip, transform }), {
+          occlusion: true,
+        });
       } catch (err) {
         check(`occlusion runs (${camName(camera)})`, false, err.message);
         continue;
@@ -1098,7 +1102,11 @@ for (let run = 0; run < 20; run++) {
       const planes = toPlanes(clip),
         m = toMatrix(transform);
       for (const v of h.voxels.values()) {
-        const local = [v.x + 0.1 + rand() * 0.8, v.y + 0.1 + rand() * 0.8, v.z + 0.1 + rand() * 0.8];
+        const local = [
+          v.x + 0.1 + rand() * 0.8,
+          v.y + 0.1 + rand() * 0.8,
+          v.z + 0.1 + rand() * 0.8,
+        ];
         const p = apply(m, local);
         if (planes.some((pl) => dist(pl, p) < 0.03)) continue;
         tried++;
@@ -1110,21 +1118,115 @@ for (let run = 0; run < 20; run++) {
         const top = (list) => {
           for (let i = list.length - 1; i >= 0; i--) {
             if (!list[i].points) continue;
-            if (polysOf(list[i]).some((P) => inPolygon(P.flat(), q.x, q.y))) return list[i];
+            if (polysOf(list[i]).some((P) => inPolygon(P.flat(), q.x, q.y)))
+              return list[i];
           }
           return null;
         };
         const painted = top(faces);
-        if (!painted || polysOf(painted).some((P) => nearEdge(P, q.x, q.y, 0.5))) continue;
+        if (
+          !painted ||
+          polysOf(painted).some((P) => nearEdge(P, q.x, q.y, 0.5))
+        )
+          continue;
         compared++;
         const seen = top(shown);
-        if (!seen || seen.voxel !== painted.voxel || seen.type !== painted.type) wrong++;
+        if (!seen || seen.voxel !== painted.voxel || seen.type !== painted.type)
+          wrong++;
       }
     }
   }
   check("occlusion leaves no holes", holes === 0, `${holes}/${tried}`);
-  check("occlusion sampled enough", tried > 1000 && compared > 500, `${tried} / ${compared}`);
-  check("occlusion keeps the front faces", wrong === 0, `${wrong}/${compared} show another face`);
+  check(
+    "occlusion sampled enough",
+    tried > 1000 && compared > 500,
+    `${tried} / ${compared}`,
+  );
+  check(
+    "occlusion keeps the front faces",
+    wrong === 0,
+    `${wrong}/${compared} show another face`,
+  );
+}
+
+// A `cutLine` strokes the edges a clip cut, and only those: on the planes,
+// on faces the planes cut, whichever way the plane faces.
+{
+  const h = new Heerich({ camera: { type: "isometric", angle: 30 } });
+  h.addGeometry({
+    type: "box",
+    position: [0, 0, 0],
+    size: [4, 3, 5],
+    style: { default: { fill: "#eee", cutLine: { stroke: "#000" } } },
+  });
+  for (const clip of [
+    { point: [0, 0, 2.5], normal: [0, 0, 1] }, // its wall faces the camera
+    { point: [0, 0, 2.5], normal: [0, 0, -1] }, // its wall faces away
+    { min: [0.5, -1, -1], max: [3.3, 4, 6] }, // cuts the sides it keeps
+  ]) {
+    const planes = toPlanes(clip);
+    const faces = h.getFaces({ clip });
+    const lined = faces.filter((f) => f._cutEdges);
+    check(
+      `cutLine: some faces get a line ${JSON.stringify(clip)}`,
+      lined.length > 0,
+    );
+    let off = 0;
+    for (const f of lined)
+      for (const i of f._cutEdges) {
+        const p = f.vertices[i],
+          q = f.vertices[(i + 1) % f.vertices.length];
+        if (
+          !planes.some(
+            (pl) =>
+              Math.abs(dist(pl, p)) < 1e-6 && Math.abs(dist(pl, q)) < 1e-6,
+          )
+        )
+          off++;
+      }
+    check(
+      `cutLine: edges lie on the planes ${JSON.stringify(clip)}`,
+      off === 0,
+      `${off} off`,
+    );
+    const svg = h.toSVG({ clip, dataAttributes: false });
+    const paths =
+      svg.match(/<path d="[^"]*" fill="none"[^>]*stroke="#000"/g) || [];
+    check(
+      `cutLine: drawn ${JSON.stringify(clip)}`,
+      paths.length === lined.length,
+      `${paths.length} vs ${lined.length}`,
+    );
+    check(`cutLine: no stray attribute`, !/cut-line/.test(svg));
+  }
+  // walls outline the cut: their unshared edges, the section's perimeter
+  {
+    const clip = { point: [0, 0, 2.5], normal: [0, 0, 1] };
+    const walls = h.getFaces({ clip }).filter((f) => f.cap);
+    let len = 0;
+    for (const f of walls)
+      for (const i of f._cutEdges || []) {
+        const p = f.vertices[i],
+          q = f.vertices[(i + 1) % f.vertices.length];
+        len += Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
+      }
+    check(
+      "cutLine: walls are outlined",
+      walls.length === 12,
+      `${walls.length} walls`,
+    );
+    check(
+      "cutLine: the outline is the section's perimeter",
+      Math.abs(len - 14) < 1e-6,
+      `${len}`,
+    );
+  }
+  // uncut, nothing extra
+  const svg = h.toSVG({ dataAttributes: false });
+  check(
+    "cutLine: uncut draws none",
+    !/<path/.test(svg) && !/cut-line/.test(svg),
+  );
 }
 
 // ─── 8. Errors, JSON, styles ───

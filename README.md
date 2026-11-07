@@ -681,6 +681,17 @@ h.toSVG({ clip: { point: [4, 4, 4], normal: [-1, -1, -1] } })      // red walls
 h.toSVG({ clip: { point: [4, 4, 4], normal: [-1, -1, -1] }, caps: false })
 ```
 
+To mark where the cut is, give a face style a `cutLine`: the attributes of a line drawn along the edges the clip cut into that face. On a wall, it draws the wall's outline, leaving out the seams between its cells. It works whichever way a plane faces, and with walls that match the faces around them (where the faces' own stroke is hidden, as in a line drawing made with decals):
+
+```js
+h.addGeometry({
+  type: 'box', position: [0, 0, 0], size: 8,
+  style: {
+    default: { fill: '#fff', stroke: '#fff', cutLine: { stroke: '#000', strokeWidth: 1.5 } },
+  },
+})
+```
+
 Walls get `cap: true` on their face, and `data-face` names the side they face. `Heerich.clipBox(min, max)` returns a box's six planes, for mixing with others.
 
 Since every plane keeps everything on one side, what is kept is always convex: a box, a wedge, a prism, or a rounder shape from many planes. For a cut that follows the grid, the [boolean operations](#boolean-operations) work too.

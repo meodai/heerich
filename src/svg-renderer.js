@@ -145,7 +145,8 @@ export class SVGRenderer {
       const isPolygon =
         face.type !== "content" &&
         !face._pathD &&
-        !(style && (style.hatch || style.decal));
+        !(style && (style.hatch || style.decal)) &&
+        !(style && style.cutLine && face._cutEdges);
 
       let slot = slots[i];
       if (!slot || slot.isPolygon !== isPolygon) {
@@ -300,7 +301,12 @@ export class SVGRenderer {
       if (custom) {
         const styleOverrides = {};
         for (const [key, value] of Object.entries(custom)) {
-          if (value === undefined || value === null || key === "decal")
+          if (
+            value === undefined ||
+            value === null ||
+            key === "decal" ||
+            key === "cutLine"
+          )
             continue;
           if (STYLE_ATTRS.has(key)) {
             styleOverrides[key] = value;
@@ -370,6 +376,19 @@ export class SVGRenderer {
         }
         parts.push(warped);
       }
+    }
+
+    // A line along the edges a clip cut into the face
+    if (style && style.cutLine && face._cutEdges) {
+      const n = d.length / 2;
+      let path = "";
+      for (const i of face._cutEdges) {
+        const j = (i + 1) % n;
+        path += `M${d[i * 2]} ${d[i * 2 + 1]}L${d[j * 2]} ${d[j * 2 + 1]}`;
+      }
+      parts.push(
+        `<path d="${path}" fill="none"${_buildSvgAttributes(style.cutLine)}${extraAttrs} />`,
+      );
     }
   }
 }
@@ -460,7 +479,7 @@ function _writePolygon(slot, face, faceAttrFn, gen, data = true) {
 
   for (const key in style) {
     const value = style[key];
-    if (value === undefined || value === null) continue;
+    if (value === undefined || value === null || key === "cutLine") continue;
     // Skip what faceAttributes overrides below
     if (custom && STYLE_ATTRS.has(key) && custom[key] != null) continue;
     _setAttr(slot, _kebab(key), value, gen);
@@ -507,7 +526,7 @@ function _buildSvgAttributes(styleObj) {
   const merged = { strokeLinejoin: "round", ...styleObj };
   let attrStr = "";
   for (const key in merged) {
-    if (key === "decal" || key === "hatch") continue;
+    if (key === "decal" || key === "hatch" || key === "cutLine") continue;
     const value = merged[key];
     if (value !== undefined && value !== null) {
       attrStr += ` ${_kebab(key)}="${value}"`;
