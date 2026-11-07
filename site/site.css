@@ -722,17 +722,39 @@ button:hover {
 
 /* The little × buttons: clear the fill, reset the rotation */
 .settings-panel .settings-x {
-  padding: 0 0.3em;
-  font-size: 0.7rem;
+  /* a small square with the × in its middle */
+  display: inline-grid;
+  place-items: center;
+  width: 0.95rem;
+  height: 0.95rem;
+  padding: 0;
+  font-size: 0.6rem;
   line-height: 1;
+  vertical-align: middle;
   cursor: pointer;
   border: 1px solid var(--line);
   background: transparent;
   color: var(--text);
+  /* not the big buttons' lift (button { transform }) */
+  transform: none;
+}
+
+.settings-panel .control-label .settings-x {
+  align-self: center;
+}
+
+.settings-panel .settings-x[hidden] {
+  display: none;
 }
 
 .settings-panel .settings-grid-values .settings-x {
   margin-right: 0.5em;
+}
+
+/* the angles' row: the × sits on its middle line */
+.settings-panel .settings-grid-values:has(.settings-x) {
+  display: inline-flex;
+  align-items: center;
 }
 
 .settings-panel .settings-orbit {

@@ -480,6 +480,7 @@ camClip.addEventListener("change", () => rerenderAll());
     document.getElementById("arc-" + id),
   );
   const azOut = document.getElementById("orbit-az-value");
+  const resetBtn = document.getElementById("orbit-reset");
   const elOut = document.getElementById("orbit-el-value");
   const R = 44,
     C = 50,
@@ -534,6 +535,8 @@ camClip.addEventListener("change", () => rerenderAll());
     dot.style.top = y + "%";
     azOut.textContent = Math.round(orbit.az);
     elOut.textContent = Math.round(orbit.el);
+    // the reset only shows once there is something to reset
+    resetBtn.hidden = !orbit.az && !orbit.el;
   }
   // Arcball: the pointer → a point on the (tilted) sphere → longitude and
   // latitude
@@ -584,7 +587,7 @@ camClip.addEventListener("change", () => rerenderAll());
     rerenderAll();
   };
   el.addEventListener("dblclick", reset);
-  document.getElementById("orbit-reset").addEventListener("click", reset);
+  resetBtn.addEventListener("click", reset);
   show();
 }
 syncStyleVars();
