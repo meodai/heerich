@@ -1,0 +1,1128 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Heerich · Towers</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Aboreto&family=Work+Sans:wght@300;400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./site.css" />
+    <style>
+      /* a line drawing on grey paper, in light and dark alike */
+      :root {
+        --paper: #e6e2df;
+        --ink: #2b2826;
+        --bg: var(--paper);
+        --text: var(--ink);
+        color-scheme: light;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #e6e2df;
+          --text: #2b2826;
+          --accent: #2b2826;
+          --line: color-mix(in oklab, #2b2826 10%, #e6e2df);
+          --code-bg: color-mix(in oklab, #e6e2df 97%, #2b2826);
+        }
+      }
+      html {
+        scroll-behavior: auto;
+      }
+      body {
+        height: 100vh;
+        overflow: hidden;
+        background: var(--paper);
+        color: var(--ink);
+      }
+      .view {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .view svg {
+        width: min(96vw, 140vh);
+        height: 92vh;
+        display: block;
+      }
+      .title {
+        position: fixed;
+        top: 1.2rem;
+        left: 1.6rem;
+        z-index: 10;
+        pointer-events: none;
+      }
+      .title h1 {
+        font-family: "Aboreto", cursive;
+        font-weight: 400;
+        font-size: 2.4rem;
+        letter-spacing: -0.05em;
+        line-height: 1.1;
+        margin: 0 0 0.3rem;
+      }
+      .title p {
+        font-size: 0.85rem;
+        opacity: 0.6;
+        max-width: 34ch;
+        margin: 1rem 0 0 1.2rem;
+      }
+      .title a {
+        color: inherit;
+        pointer-events: auto;
+      }
+      /* the decals: each face's own outline, and its detail */
+      .edge,
+      .detail,
+      .plate {
+        fill: none;
+        stroke: var(--ink);
+        stroke-linecap: square;
+        vector-effect: non-scaling-stroke;
+      }
+      .edge,
+      .plate {
+        stroke-width: 1.4;
+      }
+      .detail {
+        stroke-width: 0.8;
+      }
+      body[data-walls="poche"] {
+        --cap: var(--ink);
+        --cap-line: var(--ink);
+      }
+      /* paper, outlined only by the cut lines of the faces around it */
+      body[data-walls="plain"] {
+        --cap: var(--paper);
+        --cap-line: var(--paper);
+      }
+      body[data-walls="paper"] {
+        --cap: var(--paper);
+        --cap-line: var(--ink);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="title">
+      <h1>Towers</h1>
+      <p>
+        A block of towers drawn in lines: every line is a decal, every cut a
+        clip. Made with <a href="./">heerich.js</a>.
+      </p>
+    </div>
+
+    <div class="view" id="view"></div>
+
+    <details class="settings-panel visible" id="settings-panel" open>
+      <summary class="settings-title">
+        Settings <span class="details-icon-closed">▥</span>
+      </summary>
+      <div class="settings-section-title">
+        Block
+        <button class="btn-shuffle" id="new" title="New block">⇋</button>
+      </div>
+      <div class="settings-fields">
+        <label class="control-label">
+          <span>Width</span>
+          <input type="range" id="cols" min="4" max="24" value="12" />
+          <span class="control-value">12</span>
+        </label>
+        <label class="control-label">
+          <span>Depth</span>
+          <input type="range" id="rows" min="4" max="24" value="8" />
+          <span class="control-value">8</span>
+        </label>
+        <label class="control-label">
+          <span>Height</span>
+          <input type="range" id="height" min="4" max="60" value="30" />
+          <span class="control-value">30</span>
+        </label>
+        <label class="control-label" title="0: every tower the same height">
+          <span>Variation</span>
+          <input type="range" id="vary" min="0" max="100" value="100" />
+          <span class="control-value">100</span>
+        </label>
+        <label class="control-label" title="Cells between lots">
+          <span>Gutter</span>
+          <input type="range" id="gutter" min="0" max="3" value="0" />
+          <span class="control-value">0</span>
+        </label>
+        <label class="control-label" title="Shells with a floor per segment">
+          <span>Hollow</span>
+          <input type="checkbox" id="hollow" checked />
+        </label>
+      </div>
+      <div class="settings-section-title">Detail</div>
+      <div class="settings-fields">
+        <label class="control-label">
+          <span>Detail</span>
+          <input type="range" id="detail" min="0" max="100" value="60" />
+          <span class="control-value">60</span>
+        </label>
+        <label class="control-label" title="Cells left out of the walls">
+          <span>Holes</span>
+          <input type="range" id="holes" min="0" max="100" value="30" />
+          <span class="control-value">30</span>
+        </label>
+      </div>
+      <div class="settings-section-title">Camera</div>
+      <div class="settings-fields">
+        <label class="control-label">
+          <span>Type</span>
+          <select class="control-select" id="cam-proj">
+            <option value="oblique">oblique</option>
+            <option value="perspective">perspective</option>
+            <option value="orthographic">orthographic</option>
+            <option value="isometric" selected>isometric</option>
+          </select>
+        </label>
+        <label class="control-label" id="cam-angle-label">
+          <span>Angle</span>
+          <input type="range" id="cam-angle" min="0" max="360" value="30" />
+          <span class="control-value">30</span>
+        </label>
+        <label class="control-label" id="cam-y-label">
+          <span>Cam Y</span>
+          <input type="range" id="cam-y" min="-10" max="60" value="45" />
+          <span class="control-value">45</span>
+        </label>
+        <div class="settings-grid-panel" id="cam-perspective-control" hidden>
+          <div class="settings-grid-header">
+            <span>Angle / Cam Y</span>
+            <span class="settings-grid-values"
+              ><span id="cam-grid-angle-value">30</span>
+              <span class="settings-grid-separator">/</span>
+              <span id="cam-grid-y-value">45</span></span
+            >
+          </div>
+          <div class="settings-grid" id="cam-grid">
+            <i class="settings-grid__indicator"></i>
+            <i class="settings-grid__dot"></i>
+            <i class="settings-grid__center"></i>
+          </div>
+        </div>
+        <label class="control-label">
+          <span>Distance</span>
+          <input type="range" id="cam-dist" min="1" max="80" value="14" />
+          <span class="control-value">14</span>
+        </label>
+        <div class="settings-grid-panel">
+          <div class="settings-grid-header">
+            <span>Rotate</span>
+            <span class="settings-grid-values"
+              ><button
+                type="button"
+                class="settings-x"
+                id="orbit-reset"
+                title="Reset the rotation"
+                hidden
+              >
+                &times;</button
+              ><span id="orbit-az-value">0</span>°
+              <span class="settings-grid-separator">/</span>
+              <span id="orbit-el-value">0</span>°</span
+            >
+          </div>
+          <div
+            class="settings-orbit"
+            id="orbit"
+            title="Drag to turn the block. Double-click to reset"
+          >
+            <svg viewBox="0 0 100 100" aria-hidden="true">
+              <path id="arc-pb" class="back"></path>
+              <path id="arc-mb" class="back"></path>
+              <path id="arc-pf" class="front"></path>
+              <path id="arc-mf" class="front"></path>
+            </svg>
+            <i class="settings-orbit__dot" id="orbit-dot"></i>
+          </div>
+        </div>
+        <label class="control-label">
+          <span>Spin</span>
+          <input type="checkbox" id="spin" />
+        </label>
+      </div>
+      <div class="settings-section-title">Cut</div>
+      <div class="settings-fields">
+        <label class="control-label">
+          <span>Clip</span>
+          <select class="control-select" id="clip">
+            <option value="off">off</option>
+            <option value="box">box</option>
+            <option value="section">section</option>
+            <option value="slice">slice</option>
+          </select>
+        </label>
+        <label class="control-label">
+          <span>Cut</span>
+          <input type="range" id="cut" min="0" max="100" value="50" />
+          <span class="control-value">50</span>
+        </label>
+        <label class="control-label">
+          <span>Walls</span>
+          <select class="control-select" id="walls">
+            <option value="poche">black</option>
+            <option value="plain">plain</option>
+            <option value="paper">paper, outlined</option>
+            <option value="off">off</option>
+          </select>
+        </label>
+      </div>
+    </details>
+
+    <script type="module">
+      import { Heerich } from "../src/heerich.js";
+      import { toMatrix, apply, toPlanes, clipToPlane } from "../src/clip.js";
+
+      // ─── A block of towers on a plate, drawn as lines ───
+      //
+      // Every cell is a voxel, filled with the paper colour. The lines are
+      // decals: each face draws the edges where the surface folds or one
+      // block meets another, so a tower reads as a few large boxes rather
+      // than a grid of cells, plus its detail (dashed insets, stripes,
+      // little subdivided panels).
+
+      const $ = (id) => document.getElementById(id);
+
+      // seeded randomness, so a seed always gives the same block
+      function rng(seed) {
+        let a = seed >>> 0;
+        return () => {
+          a = (a + 0x6d2b79f5) >>> 0;
+          let t = a;
+          t = Math.imul(t ^ (t >>> 15), t | 1);
+          t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+      const hash = (...n) => {
+        let h = 2166136261;
+        for (const v of n) h = Math.imul(h ^ (v | 0), 16777619);
+        return rng(h);
+      };
+
+      // ─── The plan: footprints, heights, segments, patches ───
+      function plan({
+        seed,
+        cols,
+        rows,
+        height,
+        vary,
+        gutter,
+        detail,
+        holes,
+        hollow,
+      }) {
+        const r = rng(seed);
+        const pick = (a) => a[Math.floor(r() * a.length)];
+        const between = (lo, hi) => lo + Math.floor(r() * (hi - lo + 1));
+
+        // split the footprint into lots, the way a city block divides
+        const lots = [];
+        // (hollow, a lot is at least 3 wide, so it has a room inside)
+        const least = hollow ? 3 : 2;
+        (function split(x, z, w, d) {
+          const big = w > least * 2 + 1 || d > least * 2 + 1;
+          const canX = w >= least * 2,
+            canZ = d >= least * 2;
+          if ((canX || canZ) && (big || r() < 0.55)) {
+            const alongX = canX && (!canZ || w > d || (w === d && r() < 0.5));
+            const len = alongX ? w : d;
+            const at = between(least, len - least);
+            if (alongX) {
+              split(x, z, at, d);
+              split(x + at, z, w - at, d);
+            } else {
+              split(x, z, w, at);
+              split(x, z + at, w, d - at);
+            }
+          } else lots.push({ x, z, w, d });
+        })(0, 0, cols, rows);
+
+        const cells = new Map();
+        const key = (x, y, z) => `${x},${y},${z}`;
+        let blockId = 0;
+        for (const lot of lots) {
+          // now and then a narrow alley along one side
+          // a gutter between lots (not along the block's outside)
+          if (lot.x + lot.w < cols) lot.w = Math.max(1, lot.w - gutter);
+          if (lot.z + lot.d < rows) lot.d = Math.max(1, lot.d - gutter);
+          if (r() < 0.2 && lot.w > least) lot.w--;
+          else if (r() < 0.2 && lot.d > least) lot.d--;
+
+          // taller toward the back, never flat
+          const back = (lot.z + lot.d / 2) / rows;
+          const H = Math.max(
+            2,
+            // vary 0: all the same height
+            Math.round(height * (1 + vary * (0.35 * r() + 0.45 * back - 0.65))),
+          );
+
+          // stacked segments, bottom up, each its own block
+          const blocks = [];
+          for (let y = 0; y < H;) {
+            const len = Math.min(H - y, between(3, 12));
+            blocks.push({
+              id: ++blockId,
+              y0: y,
+              y1: y + len,
+              kind:
+                r() < detail
+                  ? pick(["dashed", "inset", "plain", "dashed"])
+                  : "plain",
+              top:
+                r() < detail ? pick(["stripes", "panels", "plain"]) : "plain",
+            });
+            y += len;
+          }
+
+          // patches of stripes or panels on the sides
+          const patches = [];
+          const count = Math.round(detail * between(0, 4));
+          for (let i = 0; i < count; i++) {
+            const y0 = between(0, H - 1);
+            patches.push({
+              y0,
+              y1: Math.min(H, y0 + between(1, 3)),
+              kind: pick(["stripes", "panels", "panels"]),
+            });
+          }
+
+          for (const b of blocks)
+            for (let h = b.y0; h < b.y1; h++)
+              for (let x = lot.x; x < lot.x + lot.w; x++)
+                for (let z = lot.z; z < lot.z + lot.d; z++) {
+                  const patch = patches.find((p) => h >= p.y0 && h < p.y1);
+                  // y goes down in heerich: the ground is y = 0
+                  // hollow: a shell, with a floor at the foot of each
+                  // segment and the roof on top
+                  const inside =
+                    x > lot.x &&
+                    x < lot.x + lot.w - 1 &&
+                    z > lot.z &&
+                    z < lot.z + lot.d - 1;
+                  if (hollow && inside && h !== b.y0 && h !== H - 1) continue;
+                  cells.set(key(x, -1 - h, z), { block: b, patch });
+                }
+        }
+
+        // here and there a cell left out of a tower's wall: a recess, still
+        // under a roof, never at the ground
+        const around = [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ];
+        for (const k of [...cells.keys()]) {
+          const [x, y, z] = k.split(",").map(Number);
+          if (y === -1 || !cells.has(key(x, y - 1, z))) continue;
+          const wall = around.some(
+            ([dx, dz]) => !cells.has(key(x + dx, y, z + dz)),
+          );
+          if (wall && r() < holes * 0.04) cells.delete(k);
+        }
+        return { cells, key };
+      }
+
+      // ─── Faces: which way they look, and how a decal's 0–1 square lies
+      // on them. A face's own coordinates are (a, b): along the world axis
+      // A and B; P0, U and V place the decal (from the engine's vertex
+      // order).
+      const FACES = {
+        top: {
+          A: 0,
+          B: 2,
+          n: [0, -1, 0],
+          P0: [0, 0, 0],
+          U: [1, 0, 0],
+          V: [0, 0, 1],
+        },
+        bottom: {
+          A: 0,
+          B: 2,
+          n: [0, 1, 0],
+          P0: [0, 1, 1],
+          U: [1, 0, 0],
+          V: [0, 0, -1],
+        },
+        left: {
+          A: 2,
+          B: 1,
+          n: [-1, 0, 0],
+          P0: [0, 0, 1],
+          U: [0, 0, -1],
+          V: [0, 1, 0],
+        },
+        right: {
+          A: 2,
+          B: 1,
+          n: [1, 0, 0],
+          P0: [1, 0, 0],
+          U: [0, 0, 1],
+          V: [0, 1, 0],
+        },
+        front: {
+          A: 0,
+          B: 1,
+          n: [0, 0, -1],
+          P0: [0, 0, 0],
+          U: [0, 1, 0],
+          V: [1, 0, 0],
+        },
+        back: {
+          A: 0,
+          B: 1,
+          n: [0, 0, 1],
+          P0: [1, 0, 1],
+          U: [0, 1, 0],
+          V: [-1, 0, 0],
+        },
+      };
+      const side = (f) => f.B === 1; // a wall, not a roof or floor
+
+      // (a, b) on a face → the decal's (u, v)
+      function uv(f, a, b) {
+        const p = [0, 0, 0];
+        p[f.A] = a;
+        p[f.B] = b;
+        const N = f.n.findIndex((c) => c);
+        p[N] = f.n[N] > 0 ? 1 : 0;
+        const d = p.map((c, i) => c - f.P0[i]);
+        const dot = (w) => d[0] * w[0] + d[1] * w[1] + d[2] * w[2];
+        return [dot(f.U), dot(f.V)];
+      }
+      const fmt = (n) => +n.toFixed(3);
+      function pathOf(f, segs) {
+        let d = "";
+        for (const [a0, b0, a1, b1] of segs) {
+          const [u0, v0] = uv(f, a0, b0);
+          const [u1, v1] = uv(f, a1, b1);
+          d += `M${fmt(u0)} ${fmt(v0)}L${fmt(u1)} ${fmt(v1)}`;
+        }
+        return d;
+      }
+
+      // a few lines that split a square into smaller panels
+      function panels(
+        rand,
+        x0 = 0,
+        y0 = 0,
+        x1 = 1,
+        y1 = 1,
+        depth = 0,
+        out = [],
+      ) {
+        if (depth > 2 || (depth > 0 && rand() < 0.3)) return out;
+        const cuts = [0.25, 0.33, 0.5, 0.67, 0.75];
+        const t = cuts[Math.floor(rand() * cuts.length)];
+        if ((x1 - x0) * (depth % 2 ? 0.7 : 1.3) > y1 - y0) {
+          const m = x0 + (x1 - x0) * t;
+          out.push([m, y0, m, y1]);
+          panels(rand, x0, y0, m, y1, depth + 1, out);
+          panels(rand, m, y0, x1, y1, depth + 1, out);
+        } else {
+          const m = y0 + (y1 - y0) * t;
+          out.push([x0, m, x1, m]);
+          panels(rand, x0, y0, x1, m, depth + 1, out);
+          panels(rand, x0, m, x1, y1, depth + 1, out);
+        }
+        return out;
+      }
+
+      // ─── Build ───
+      let h, box, plate, frameKey, viewBox;
+      let seed = 7;
+      function build() {
+        const opts = {
+          seed,
+          cols: +$("cols").value,
+          rows: +$("rows").value,
+          height: +$("height").value,
+          detail: +$("detail").value / 100,
+          holes: +$("holes").value / 100,
+          hollow: $("hollow").checked,
+          vary: +$("vary").value / 100,
+          gutter: +$("gutter").value,
+        };
+        const { cells, key } = plan(opts);
+        h = new Heerich({ tile: 12, camera: camera() });
+
+        // decals are shared by name, one per distinct drawing
+        const names = new Map();
+        const decal = (content) => {
+          let name = names.get(content);
+          if (!name) {
+            name = `t${names.size}`;
+            names.set(content, name);
+            h.defineDecal(name, content);
+          }
+          return name;
+        };
+
+        const at = (x, y, z) => cells.get(key(x, y, z));
+        const styleFor = (type) => (x, y, z) => {
+          const f = FACES[type];
+          const cell = at(x, y, z);
+          const pos = [x, y, z];
+          const step = (axis, dir, extra) => {
+            const q = [...pos];
+            q[axis] += dir;
+            if (extra) for (let i = 0; i < 3; i++) q[i] += extra[i];
+            return q;
+          };
+          // an edge is drawn unless the face runs on, flat, into the same
+          // block: a fold, a step or a seam between blocks all show
+          const edges = [
+            [f.A, -1, [0, 0, 0, 1]],
+            [f.A, 1, [1, 0, 1, 1]],
+            [f.B, -1, [0, 0, 1, 0]],
+            [f.B, 1, [0, 1, 1, 1]],
+          ];
+          const lines = [],
+            open = {}; // which edges are block boundaries
+          for (const [axis, dir, seg] of edges) {
+            const nb = at(...step(axis, dir));
+            const same = nb && nb.block === cell.block;
+            const runsOn = same && !at(...step(axis, dir, f.n));
+            if (!runsOn) lines.push(seg);
+            open[`${axis === f.A ? "a" : "b"}${dir}`] = !same;
+          }
+
+          // detail
+          const rand = hash(x, y, z, type.length, seed);
+          const detail = [];
+          const b = cell.block;
+          const isTop = type === "top";
+          if (b.kind === "dashed" || b.kind === "inset") {
+            // a line set in from each block edge, dashed or solid
+            const t = b.kind === "dashed" ? 0.22 : 0.14;
+            const lo = (k) => (open[k] ? t : 0);
+            const hi = (k) => (open[k] ? 1 - t : 1);
+            const run = (fixedAxis, at, from, to) => {
+              if (b.kind === "inset") {
+                detail.push(
+                  fixedAxis === "a" ? [at, from, at, to] : [from, at, to, at],
+                );
+                return;
+              }
+              // dashes of 0.2 with half dashes at the cell's ends, so they
+              // join across cells; a run that ends inside the cell (at a
+              // corner) ends on a dash too, so it meets the line it turns
+              // into
+              const dashes = [
+                [0, 0.1],
+                [0.233, 0.433],
+                [0.567, 0.767],
+                [0.9, 1],
+              ];
+              if (from > 0) dashes.push([from, from + 0.1]);
+              if (to < 1) dashes.push([to - 0.1, to]);
+              for (const [d0, d1] of dashes) {
+                const p0 = Math.max(from, d0),
+                  p1 = Math.min(to, d1);
+                if (p1 > p0)
+                  detail.push(
+                    fixedAxis === "a" ? [at, p0, at, p1] : [p0, at, p1, at],
+                  );
+              }
+            };
+            // an inset line only runs along the tower's height on walls
+            if (open["a-1"]) run("a", t, lo("b-1"), hi("b1"));
+            if (open["a1"]) run("a", 1 - t, lo("b-1"), hi("b1"));
+            if (isTop || !side(f)) {
+              if (open["b-1"]) run("b", t, lo("a-1"), hi("a1"));
+              if (open["b1"]) run("b", 1 - t, lo("a-1"), hi("a1"));
+            }
+          }
+          const look = isTop ? b.top : side(f) ? cell.patch?.kind : null;
+          if (look === "stripes") {
+            for (const s of [1 / 6, 2 / 6, 3 / 6, 4 / 6, 5 / 6])
+              detail.push([0, s, 1, s]);
+          } else if (look === "panels")
+            // each cell a panel of its own, some split again
+            detail.push(
+              [0, 0, 1, 0],
+              [0, 1, 1, 1],
+              [0, 0, 0, 1],
+              [1, 0, 1, 1],
+              ...panels(rand),
+            );
+
+          // a band is closed above and below by a line, drawn by the faces
+          // on both sides of it (each face's paper outline would cover a
+          // line drawn by one side only)
+          if (side(f))
+            for (const [dy, bb] of [
+              [-1, 0],
+              [1, 1],
+            ]) {
+              const nb = at(x, y + dy, z);
+              if (nb && nb.patch !== cell.patch && (nb.patch || cell.patch))
+                detail.push([0, bb, 1, bb]);
+            }
+
+          let content = `<path class="edge" d="${pathOf(f, lines)}"/>`;
+          if (detail.length)
+            content += `<path class="detail" d="${pathOf(f, detail)}"/>`;
+          return {
+            fill: "var(--paper)",
+            // the paper's own colour, to close the hairlines between faces
+            stroke: "var(--paper)",
+            strokeWidth: 0.6,
+            decal: decal(content),
+            // where a clip cuts the face, a line along the cut
+            cutLine: { class: "edge" },
+          };
+        };
+
+        const style = {};
+        for (const type in FACES) style[type] = styleFor(type);
+        // the ground hides the undersides (a camera below it sees through)
+        style.bottom = { fill: "none", stroke: "none" };
+        // where a cut goes through a tower: black (an architect's poché) or
+        // paper with each cell outlined, switched in CSS
+        style.cap = {
+          fill: "var(--cap)",
+          stroke: "var(--cap-line)",
+          strokeWidth: 0.6,
+          // the cut's outline (cell seams inside it aren't drawn)
+          cutLine: { class: "edge" },
+        };
+        const keys = [...cells.keys()].map((k) => k.split(",").map(Number));
+        if (!keys.length) return;
+        const lo = [0, 1, 2].map((i) => Math.min(...keys.map((k) => k[i])));
+        const hi = [0, 1, 2].map((i) => Math.max(...keys.map((k) => k[i])) + 1);
+        h.applyGeometry({
+          type: "fill",
+          bounds: [lo, hi],
+          test: (x, y, z) => cells.has(key(x, y, z)),
+          style,
+        });
+
+        // the block's box: the plate's footprint, up to the tallest roof
+        const m = 1.5;
+        box = {
+          min: [0, lo[1], 0],
+          max: [opts.cols, 0, opts.rows],
+        };
+        plate = [
+          [-m, 0, -m],
+          [opts.cols + m, 0, -m],
+          [opts.cols + m, 0, opts.rows + m],
+          [-m, 0, opts.rows + m],
+        ];
+        frameKey = null;
+        render();
+      }
+
+      // The docs page's camera controls
+      function camera() {
+        const type = $("cam-proj").value;
+        const angle = +$("cam-angle").value;
+        const dist = +$("cam-dist").value;
+        const camY = +$("cam-y").value;
+        if (type === "oblique") return { type, angle, distance: dist };
+        if (type === "orthographic") return { type, angle, pitch: camY * 1.5 };
+        if (type === "isometric") return { type, angle };
+        // Perspective: the angle slides the eye across the block's width,
+        // Cam Y lifts it (y goes down, so up is negative)
+        const cols = +$("cols").value;
+        return {
+          type,
+          position: [cols / 2 + ((angle - 180) / 180) * cols, -camY],
+          distance: dist * 2,
+        };
+      }
+
+      // ─── Turn and cut ───
+      //
+      // The whole block turns around the middle of its box (spin about y,
+      // then tilt about x, like a turntable). The cut stays put in the
+      // world while the block turns through it.
+      let spin = 0;
+      const orbit = { az: 0, el: 0 }; // the globe, in degrees
+      const centre = () => box.min.map((v, i) => (v + box.max[i]) / 2);
+      function transform() {
+        const turn = orbit.az + spin,
+          tilt = orbit.el;
+        if (!turn && !tilt) return null;
+        return { rotate: [tilt, turn, 0], order: "yxz", center: centre() };
+      }
+      function clip() {
+        const how = $("clip").value;
+        const { min, max } = box;
+        const t = +$("cut").value / 100;
+        // a cut through the middle of a row of cells: one on a cell's side
+        // would lie in the towers' own faces and wall them over whole
+        const mid = (lo, hi, t) =>
+          Math.min(hi - 0.5, Math.floor(lo + (hi - lo) * t) + 0.5);
+        if (how === "box")
+          // a little larger than the block, so its outside walls stay walls
+          return {
+            min: min.map((v) => v - 0.5),
+            max: max.map((v) => v + 0.5),
+          };
+        if (how === "section")
+          // a vertical cut through the block, keeping the back
+          return { point: [0, 0, mid(min[2], max[2], t)], normal: [0, 0, 1] };
+        if (how === "slice")
+          // cut the towers off at a height: a plan, from above
+          return {
+            point: [0, mid(min[1], max[1], 1 - t), 0],
+            normal: [0, 1, 0],
+          };
+        return null;
+      }
+
+      // where a world point is drawn, turned
+      function drawn(p, m) {
+        return h.project(m ? apply(m, p) : p);
+      }
+
+      // the plate, turned and cut like the rest
+      function plateD(t, c) {
+        const m = t && toMatrix(t);
+        let pts = plate.map((p) => (m ? apply(m, p) : p));
+        // only a section cuts the plate: it lies on the box's floor and
+        // reaches past its sides
+        if ($("clip").value === "section" && c)
+          pts = clipToPlane(pts, toPlanes(c)[0]);
+        if (pts.length < 3) return "";
+        return (
+          "M" +
+          pts
+            .map((p) => h.project(p))
+            .map((p) => `${fmt(p.x)} ${fmt(p.y)}`)
+            .join("L") +
+          "Z"
+        );
+      }
+
+      // One frame that holds while the block turns: the box and plate
+      // corners swept through a whole turn at this tilt
+      function frame() {
+        const key = `${Math.round(orbit.el * 10)}`;
+        if (frameKey === key) return viewBox;
+        frameKey = key;
+        const corners = [...plate];
+        for (const x of [box.min[0], box.max[0]])
+          for (const y of [box.min[1], box.max[1]])
+            for (const z of [box.min[2], box.max[2]]) corners.push([x, y, z]);
+        let x0 = Infinity,
+          y0 = Infinity,
+          x1 = -Infinity,
+          y1 = -Infinity;
+        for (let a = 0; a < 360; a += 10) {
+          const m = toMatrix({
+            rotate: [orbit.el, a, 0],
+            order: "yxz",
+            center: centre(),
+          });
+          for (const c of corners) {
+            const p = drawn(c, m);
+            x0 = Math.min(x0, p.x);
+            y0 = Math.min(y0, p.y);
+            x1 = Math.max(x1, p.x);
+            y1 = Math.max(y1, p.y);
+          }
+        }
+        const pad = 24;
+        return (viewBox = [
+          x0 - pad,
+          y0 - pad,
+          x1 - x0 + pad * 2,
+          y1 - y0 + pad * 2,
+        ]);
+      }
+
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      const plateEl = svg.appendChild(
+        document.createElementNS("http://www.w3.org/2000/svg", "path"),
+      );
+      plateEl.setAttribute("class", "plate");
+      const facesEl = svg.appendChild(
+        document.createElementNS("http://www.w3.org/2000/svg", "g"),
+      );
+      $("view").append(svg);
+
+      function render() {
+        const t = transform(),
+          c = clip();
+        svg.setAttribute("viewBox", frame().join(" "));
+        plateEl.setAttribute("d", plateD(t, c));
+        h.updateSVG(facesEl, {
+          transform: t,
+          clip: c,
+          caps: $("walls").value !== "off",
+          dataAttributes: false,
+        });
+      }
+
+      // ─── Controls: the docs page's panel ───
+      function enhanceRange(input) {
+        const wrap = document.createElement("div");
+        wrap.className = "range-wrap";
+        const thumb = document.createElement("span");
+        thumb.className = "range-thumb";
+        const capL = document.createElement("span");
+        capL.className = "range-cap-left";
+        const capR = document.createElement("span");
+        capR.className = "range-cap-right";
+        input.parentNode.insertBefore(wrap, input);
+        wrap.append(input, thumb, capL, capR);
+        const valueSpan = wrap
+          .closest(".control-label")
+          .querySelector(".control-value");
+        const sync = () => {
+          const min = parseFloat(input.min) || 0;
+          const max = parseFloat(input.max) || 100;
+          wrap.style.setProperty(
+            "--val",
+            (parseFloat(input.value) - min) / (max - min),
+          );
+          if (valueSpan) valueSpan.textContent = input.value;
+        };
+        input.addEventListener("input", sync);
+        input._sync = sync;
+        sync();
+      }
+      document.querySelectorAll('input[type="range"]').forEach(enhanceRange);
+      if (window.matchMedia("(max-width: 56rem)").matches)
+        $("settings-panel").removeAttribute("open");
+
+      for (const id of [
+        "cols",
+        "rows",
+        "height",
+        "vary",
+        "gutter",
+        "detail",
+        "holes",
+      ])
+        $(id).addEventListener("input", build);
+      $("new").addEventListener("click", () => {
+        seed = Math.floor(Math.random() * 1e6);
+        build();
+      });
+      // ─── Camera (as on the terrain page) ───
+      const camProj = $("cam-proj"),
+        camAngle = $("cam-angle"),
+        camDist = $("cam-dist"),
+        camY = $("cam-y"),
+        camGrid = $("cam-grid");
+      const clampN = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+      const num = (v, d) => (Number.isNaN(parseFloat(v)) ? d : parseFloat(v));
+      const roundToStep = (v, min, step) =>
+        Number((min + Math.round((v - min) / step) * step).toFixed(4));
+      function cameraChanged() {
+        h.setCamera(camera());
+        frameKey = null;
+        render();
+      }
+      function updatePerspectiveGrid() {
+        const x =
+          ((num(camAngle.value, 0) - num(camAngle.min, 0)) /
+            (num(camAngle.max, 360) - num(camAngle.min, 0))) *
+          100;
+        const y =
+          ((num(camY.value, 0) - num(camY.min, -10)) /
+            (num(camY.max, 60) - num(camY.min, -10))) *
+          100;
+        const dx = x - 50,
+          dy = y - 50;
+        camGrid.style.setProperty("--x", `${x}%`);
+        camGrid.style.setProperty("--y", `${y}%`);
+        camGrid.style.setProperty("--distance", `${Math.hypot(dx, dy)}%`);
+        camGrid.style.setProperty(
+          "--angle",
+          `${(Math.atan2(dy, dx) * 180) / Math.PI}deg`,
+        );
+        $("cam-grid-angle-value").textContent = camAngle.value;
+        $("cam-grid-y-value").textContent = camY.value;
+      }
+      function syncControlVisibility() {
+        const p = camProj.value;
+        $("cam-angle-label").style.display = p === "perspective" ? "none" : "";
+        $("cam-y-label").style.display = p === "orthographic" ? "" : "none";
+        camDist.closest(".control-label").style.display =
+          p === "orthographic" || p === "isometric" ? "none" : "";
+        $("cam-perspective-control").hidden = p !== "perspective";
+        updatePerspectiveGrid();
+      }
+      function setPerspectiveFromGrid(clientX, clientY) {
+        const r = camGrid.getBoundingClientRect();
+        const x = clampN((clientX - r.left) / r.width, 0, 1);
+        const y = clampN((clientY - r.top) / r.height, 0, 1);
+        const aMin = num(camAngle.min, 0),
+          aMax = num(camAngle.max, 360);
+        const yMin = num(camY.min, -10),
+          yMax = num(camY.max, 60);
+        camAngle.value = roundToStep(aMin + x * (aMax - aMin), aMin, 1);
+        camY.value = roundToStep(yMin + y * (yMax - yMin), yMin, 1);
+        camAngle._sync();
+        camY._sync();
+        updatePerspectiveGrid();
+        cameraChanged();
+      }
+      camGrid.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        setPerspectiveFromGrid(e.clientX, e.clientY);
+        const move = (m) => setPerspectiveFromGrid(m.clientX, m.clientY);
+        const up = () => {
+          document.removeEventListener("pointermove", move);
+          document.removeEventListener("pointerup", up);
+        };
+        document.addEventListener("pointermove", move);
+        document.addEventListener("pointerup", up);
+      });
+      [camProj, camAngle, camY, camDist].forEach((el) =>
+        el.addEventListener(
+          el.tagName === "SELECT" ? "change" : "input",
+          () => {
+            if (el === camProj) syncControlVisibility();
+            else updatePerspectiveGrid();
+            cameraChanged();
+          },
+        ),
+      );
+      syncControlVisibility();
+      $("hollow").addEventListener("change", build);
+      $("cut").addEventListener("input", () => $("spin").checked || render());
+      $("clip").addEventListener("change", render);
+      $("walls").addEventListener("change", () => {
+        document.body.dataset.walls = $("walls").value;
+        render();
+      });
+      document.body.dataset.walls = $("walls").value;
+      let last = 0;
+      function tick(now) {
+        if (!$("spin").checked) return void (last = 0);
+        spin = (spin + Math.min(0.1, (now - (last || now)) / 1000) * 20) % 360;
+        last = now;
+        render();
+        requestAnimationFrame(tick);
+      }
+      $("spin").addEventListener("change", () => requestAnimationFrame(tick));
+
+      // ─── The globe (as on the docs page): drag to turn the block. A
+      // tilted orthographic sphere with the meridian and parallel through
+      // the dot, front halves bright and back halves dim.
+      {
+        const el = $("orbit");
+        const dot = $("orbit-dot");
+        const arcs = ["mf", "mb", "pf", "pb"].map((id) => $("arc-" + id));
+        const R = 44,
+          C = 50,
+          TILT = 0.34;
+        const CB = Math.cos(TILT),
+          SB = Math.sin(TILT);
+        const EL_MAX = 85;
+        const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+        const proj = (x, y, z) => [
+          C + x * R,
+          C - (y * CB - z * SB) * R,
+          y * SB + z * CB,
+        ];
+        const ring = (fn, n) => {
+          let front = "",
+            back = "",
+            inF = false,
+            inB = false;
+          for (let i = 0; i <= n; i++) {
+            const [x, y, d] = proj(...fn(i / n));
+            const pt = `${x.toFixed(1)} ${y.toFixed(1)} `;
+            if (d >= 0) {
+              front += (inF ? "L" : "M") + pt;
+              inF = true;
+              inB = false;
+            } else {
+              back += (inB ? "L" : "M") + pt;
+              inB = true;
+              inF = false;
+            }
+          }
+          return [front, back];
+        };
+        function show() {
+          const la = (orbit.az * Math.PI) / 180,
+            fi = (orbit.el * Math.PI) / 180;
+          const sl = Math.sin(la),
+            cl = Math.cos(la),
+            sf = Math.sin(fi),
+            cf = Math.cos(fi);
+          const [mf, mb] = ring((u) => {
+            const t = (u - 0.5) * Math.PI;
+            return [Math.cos(t) * sl, Math.sin(t), Math.cos(t) * cl];
+          }, 32);
+          const [pf, pb] = ring((u) => {
+            const s = (u * 2 - 1) * Math.PI;
+            return [cf * Math.sin(s), sf, cf * Math.cos(s)];
+          }, 48);
+          [mf, mb, pf, pb].forEach((d, i) => arcs[i].setAttribute("d", d));
+          const [x, y] = proj(cf * sl, sf, cf * cl);
+          dot.style.left = x + "%";
+          dot.style.top = y + "%";
+          $("orbit-az-value").textContent = Math.round(orbit.az);
+          $("orbit-el-value").textContent = Math.round(orbit.el);
+          $("orbit-reset").hidden = !orbit.az && !orbit.el;
+        }
+        let queued = false;
+        const changed = () => {
+          show();
+          if (queued || $("spin").checked) return;
+          queued = true;
+          requestAnimationFrame(() => {
+            queued = false;
+            render();
+          });
+        };
+        // arcball: the pointer → a point on the (tilted) sphere
+        function from(e) {
+          const r = el.getBoundingClientRect();
+          let sx = (((e.clientX - r.left) / r.width) * 100 - C) / R;
+          let sy = (C - ((e.clientY - r.top) / r.height) * 100) / R;
+          const rr = Math.hypot(sx, sy);
+          if (rr > 1) {
+            sx /= rr;
+            sy /= rr;
+          }
+          const d = Math.sqrt(Math.max(0, 1 - sx * sx - sy * sy));
+          const y = sy * CB + d * SB,
+            z = -sy * SB + d * CB;
+          orbit.el = clamp(
+            (Math.asin(clamp(y, -1, 1)) * 180) / Math.PI,
+            -EL_MAX,
+            EL_MAX,
+          );
+          orbit.az = (Math.atan2(sx, z) * 180) / Math.PI;
+          changed();
+        }
+        let dragging = false;
+        el.addEventListener("pointerdown", (e) => {
+          dragging = true;
+          el.setPointerCapture(e.pointerId);
+          from(e);
+        });
+        el.addEventListener("pointermove", (e) => dragging && from(e));
+        el.addEventListener("pointerup", (e) => {
+          dragging = false;
+          el.releasePointerCapture(e.pointerId);
+        });
+        const reset = () => {
+          orbit.az = 0;
+          orbit.el = 0;
+          spin = 0;
+          changed();
+        };
+        el.addEventListener("dblclick", reset);
+        $("orbit-reset").addEventListener("click", reset);
+        show();
+      }
+      build();
+    </script>
+  </body>
+</html>

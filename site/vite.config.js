@@ -18,6 +18,7 @@ export default defineConfig({
         ),
         terrain: fileURLToPath(new URL("./terrain.html", import.meta.url)),
         clip: fileURLToPath(new URL("./clip.html", import.meta.url)),
+        towers: fileURLToPath(new URL("./towers.html", import.meta.url)),
       },
     },
   },
